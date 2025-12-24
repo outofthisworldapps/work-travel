@@ -33,7 +33,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- Components ---
 
-const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStart, isLockedEnd, currentRates }) => {
+const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStart, isLockedEnd, currentRates, flights }) => {
   const {
     attributes,
     listeners,
@@ -54,10 +54,36 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
   };
 
   const calculatedUSD = useMemo(() => {
+    if (leg.type === 'flight') return null; // Flights are handled separately
     if (leg.currency === 'USD') return null;
     const rate = leg.type === 'drive' ? MI_RATE : 1;
     return convertCurrency(leg.amount * rate, leg.currency, 'USD', currentRates);
   }, [leg.amount, leg.currency, leg.type, currentRates]);
+
+  const flightOptions = useMemo(() => {
+    if (!flights) return [];
+    return flights.map(f => {
+      const first = f.segments?.[0];
+      const last = f.segments?.[f.segments.length - 1];
+      const label = `${first?.depPort || '?'} – ${last?.arrPort || '?'} (${f.airline || 'Flight'})`;
+      return { id: f.id, label, flight: f };
+    });
+  }, [flights]);
+
+  const handleFlightSelect = (flightId) => {
+    const f = flights.find(fl => fl.id === flightId);
+    if (!f) return;
+    const first = f.segments?.[0];
+    const last = f.segments?.[f.segments.length - 1];
+    onUpdate('from', first?.depPort || '');
+    onUpdate('to', last?.arrPort || '');
+    onUpdate('amount', f.cost || 0);
+    if (f.segments.length > 1) {
+      onUpdate('layover', f.segments.slice(0, -1).map(s => s.arrPort).join(', '));
+    } else {
+      onUpdate('layover', '');
+    }
+  };
 
   return (
     <div ref={setNodeRef} style={style} className="travel-leg-item">
@@ -74,6 +100,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
             onChange={(e) => onUpdate('from', e.target.value)}
             disabled={isLockedStart}
             placeholder="Origin"
+            list={leg.type === 'flight' ? `fl-opts-${leg.id}` : undefined}
           />
         </div>
 
@@ -103,7 +130,11 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
           {isLockedEnd ? <span className="locked-icon">🏠</span> : (leg.to.toLowerCase().includes('hotel') ? <span className="locked-icon">🏨</span> : null)}
         </div>
 
-        <div className="leg-money-compact">
+        {leg.type === 'flight' && leg.layover && (
+          <div className="leg-layover-faint">via {leg.layover}</div>
+        )}
+
+        <div className={`leg-money-compact ${leg.type === 'flight' ? 'grayed' : ''}`}>
           <div className="leg-foreign-wrap" onClick={() => onUpdate('isForeign', !leg.isForeign)}>
             <span className="icon-emoji">{leg.isForeign ? '🌍' : '🇺🇸'}</span>
           </div>
@@ -112,6 +143,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
             className="leg-amount-input-compact"
             value={leg.amount}
             onChange={(e) => onUpdate('amount', parseFloat(e.target.value) || 0)}
+            disabled={leg.type === 'flight'}
           />
           <span className="leg-curr-label">{leg.currency === 'USD' ? '$' : (leg.currency === 'EUR' ? '€' : (leg.currency === 'GBP' ? '£' : leg.currency))}</span>
         </div>
@@ -139,42 +171,130 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
           </button>
         </div>
       </div>
+      {leg.type === 'flight' && (
+        <datalist id={`fl-opts-${leg.id}`}>
+          {flightOptions.map(opt => (
+            <option key={opt.id} value={opt.label} onClick={() => handleFlightSelect(opt.id)} />
+          ))}
+        </datalist>
+      )}
     </div>
   );
 };
 
+
 // --- Components ---
+
+const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
+  return (
+    <div className="f-segment">
+      <div className="f-row-line">
+        <input className="f-inp s-code" value={segment.airlineCode || ''} onChange={e => onUpdate('airlineCode', e.target.value)} placeholder="FI" />
+        <input className="f-inp s-num" value={segment.flightNumber || ''} onChange={e => onUpdate('flightNumber', e.target.value)} placeholder="642" />
+        <input className="f-inp s-date" value={segment.depDate || ''} onChange={e => onUpdate('depDate', e.target.value)} placeholder="Sun Apr 21" />
+        <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
+        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+        <button className="f-seg-del" onClick={onDelete}><Trash2 size={10} /></button>
+      </div>
+      <div className="f-row-line arr-line">
+        <input className="f-inp s-date" value={segment.arrDate || ''} onChange={e => onUpdate('arrDate', e.target.value)} placeholder="Mon Apr 22" />
+        <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+      </div>
+      {layover && <div className="f-layover">(layover {layover})</div>}
+    </div>
+  );
+};
 
 const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: flight.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
+
+  const calculateLayover = (s1, s2) => {
+    if (!s1 || !s2 || !s1.arrDate || !s1.arrTime || !s2.depDate || !s2.depTime) return null;
+    try {
+      const parseDateTime = (dateStr, timeStr) => {
+        const d = parse(dateStr, 'EEE MMM d', new Date());
+        let t = timeStr.toLowerCase().replace(' ', '');
+        let meridiem = t.slice(-1);
+        let time = t.slice(0, -1);
+        let [h, m] = time.split(':').map(Number);
+        if (meridiem === 'p' && h < 12) h += 12;
+        if (meridiem === 'a' && h === 12) h = 0;
+        d.setHours(h, m || 0, 0, 0);
+        return d;
+      };
+      const arr = parseDateTime(s1.arrDate, s1.arrTime);
+      const dep = parseDateTime(s2.depDate, s2.depTime);
+      const diff = (dep - arr) / (1000 * 60);
+      if (diff <= 0) return null;
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      return hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    } catch (e) { return null; }
+  };
+
+  const addSegment = () => {
+    const newSegments = [...(flight.segments || [])];
+    const last = newSegments[newSegments.length - 1];
+    newSegments.push({
+      id: generateId(),
+      airlineCode: last?.airlineCode || '',
+      flightNumber: '',
+      depDate: last?.arrDate || '',
+      depTime: '',
+      depPort: last?.arrPort || '',
+      arrDate: last?.arrDate || '',
+      arrTime: '',
+      arrPort: ''
+    });
+    onUpdate('segments', newSegments);
+  };
+
+  const updateSegment = (segId, field, val) => {
+    const newSegments = flight.segments.map(s => s.id === segId ? { ...s, [field]: val } : s);
+    onUpdate('segments', newSegments);
+  };
+
+  const deleteSegment = (segId) => {
+    if (flight.segments.length <= 1) {
+      onDelete();
+      return;
+    }
+    onUpdate('segments', flight.segments.filter(s => s.id !== segId));
+  };
+
   return (
-    <div ref={setNodeRef} style={style} className="flight-row two-line">
-      <div className="drag-handle f-grip" {...attributes} {...listeners}><GripVertical size={11} /></div>
-      <div className="f-main-content">
-        <div className="f-row-line meta">
-          <input className="f-inp air" value={flight.airline || ''} onChange={e => onUpdate('airline', e.target.value)} placeholder="Airline" />
-          <input className="f-inp num" value={flight.flightNumber || ''} onChange={e => onUpdate('flightNumber', e.target.value)} placeholder="Flight#" />
-          <input className="f-inp date" value={flight.date || ''} onChange={e => onUpdate('date', e.target.value)} placeholder="Date" />
+    <div ref={setNodeRef} style={style} className="flight-group glass">
+      <div className="f-group-header">
+        <div className="drag-handle f-grip-group" {...attributes} {...listeners}><GripVertical size={12} /></div>
+        <input className="f-inp g-air" value={flight.airline || ''} onChange={e => onUpdate('airline', e.target.value)} placeholder="Airline" />
+        <input className="f-inp g-conf" value={flight.confirmation || ''} onChange={e => onUpdate('confirmation', e.target.value)} placeholder="Conf#" />
+        <div className="f-cost-wrap">
+          <span className="unit">$</span>
+          <input className="f-inp g-cost" type="number" value={flight.cost || ''} onChange={e => onUpdate('cost', parseFloat(e.target.value) || 0)} placeholder="0" />
         </div>
-        <div className="f-row-line route">
-          <div className="f-point">
-            <input className="f-inp port" value={flight.from || ''} onChange={e => onUpdate('from', e.target.value)} placeholder="From" />
-            <input className="f-inp time" value={flight.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="Dep" />
-          </div>
-          <span className="f-sep">→</span>
-          <div className="f-point">
-            <input className="f-inp port" value={flight.to || ''} onChange={e => onUpdate('to', e.target.value)} placeholder="To" />
-            <input className="f-inp time" value={flight.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="Arr" />
-          </div>
-        </div>
+        <button className="f-del-group" onClick={onDelete}><X size={14} /></button>
       </div>
-      <button className="f-del" onClick={onDelete}><X size={11} /></button>
+      <div className="f-segments-list">
+        {(flight.segments || []).map((seg, idx) => (
+          <FlightSegmentRow
+            key={seg.id}
+            segment={seg}
+            onUpdate={(f, v) => updateSegment(seg.id, f, v)}
+            onDelete={() => deleteSegment(seg.id)}
+            isLast={idx === flight.segments.length - 1}
+            layover={idx > 0 ? calculateLayover(flight.segments[idx - 1], seg) : null}
+          />
+        ))}
+        <button className="f-add-seg" onClick={addSegment}><Plus size={10} /> Add Leg</button>
+      </div>
     </div>
   );
 };
 
-const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, onTotalChange, dragEndHandler }) => {
+
+const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHandler }) => {
   return (
     <div className="flight-panel glass">
       <div className="f-header">
@@ -183,12 +303,7 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, onTotalCha
           <span className="f-total-label">Total Flight Cost:</span>
           <div className="f-total-inp-wrap">
             <span className="unit">$</span>
-            <input
-              type="number"
-              className="f-total-inp"
-              value={totalCost}
-              onChange={e => onTotalChange(parseFloat(e.target.value) || 0)}
-            />
+            <span className="f-total-val">{totalCost}</span>
           </div>
         </div>
       </div>
@@ -213,6 +328,7 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, onTotalCha
     </div>
   );
 };
+
 
 // --- Components ---
 
@@ -276,18 +392,18 @@ function App() {
   const [days, setDays] = useState([
     {
       id: "day-1",
-      date: new Date('2025-08-07'),
+      date: new Date('2025-04-21'),
       legs: [
-        { id: "leg-1", from: 'Home', to: 'IAD', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
-        { id: "leg-2", from: 'IAD', to: 'MAD', type: 'flight', amount: 1200, currency: 'USD', mirrorId: 'm2' },
-        { id: "leg-3", from: 'MAD', to: 'Hotel', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
+        { id: "leg-1", from: 'Home', to: 'BWI', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
+        { id: "leg-2", from: 'BWI', to: 'CPH', type: 'flight', amount: 1200, currency: 'USD', mirrorId: 'm2', layover: 'KEF' },
+        { id: "leg-3", from: 'CPH', to: 'Hotel', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
       ],
       mieBase: 105,
       meals: { B: true, L: true, D: true, I: true },
       hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
       maxLodging: 200,
       registrationFee: 0,
-      location: 'Madrid',
+      location: 'Copenhagen',
       isForeignMie: true,
       isForeignHotel: true,
       hotelName: '',
@@ -295,14 +411,14 @@ function App() {
     },
     {
       id: "day-2",
-      date: new Date('2025-08-08'),
+      date: new Date('2025-04-22'),
       legs: [],
       mieBase: 105,
       meals: { B: true, L: false, D: true, I: true },
       hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
       maxLodging: 200,
       registrationFee: 750,
-      location: 'Madrid',
+      location: 'Copenhagen',
       isForeignMie: true,
       isForeignHotel: true,
       hotelName: '',
@@ -310,14 +426,14 @@ function App() {
     },
     {
       id: "day-3",
-      date: new Date('2025-08-09'),
+      date: new Date('2025-04-23'),
       legs: [],
       mieBase: 105,
       meals: { B: true, L: false, D: true, I: true },
       hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
       maxLodging: 200,
       registrationFee: 0,
-      location: 'Madrid',
+      location: 'Copenhagen',
       isForeignMie: true,
       isForeignHotel: true,
       hotelName: '',
@@ -325,22 +441,23 @@ function App() {
     },
     {
       id: "day-4",
-      date: new Date('2025-08-10'),
+      date: new Date('2025-04-24'),
       legs: [
-        { id: "leg-4", from: 'Hotel', to: 'MAD', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
-        { id: "leg-5", from: 'MAD', to: 'IAD', type: 'flight', amount: 1200, currency: 'USD', mirrorId: 'm2' },
-        { id: "leg-6", from: 'IAD', to: 'Home', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
+        { id: "leg-4", from: 'Hotel', to: 'CPH', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
+        { id: "leg-5", from: 'CPH', to: 'BWI', type: 'flight', amount: 0, currency: 'USD', mirrorId: 'm2' },
+        { id: "leg-6", from: 'BWI', to: 'Home', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
       ],
       mieBase: 105,
       meals: { B: true, L: true, D: true, I: true },
       hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
       maxLodging: 200,
-      location: 'Washington',
+      location: 'Baltimore',
       isForeignMie: false,
       isForeignHotel: false,
       hotelName: '',
       overageCapPercent: 25
     },
+
   ]);
 
   const [altCurrency, setAltCurrency] = useState('EUR');
@@ -350,10 +467,31 @@ function App() {
   const [registrationFee, setRegistrationFee] = useState(750);
   const [registrationCurrency, setRegistrationCurrency] = useState('USD');
   const [flights, setFlights] = useState([
-    { id: 'f-1', airline: 'United', flightNumber: 'UA123', from: 'IAD', to: 'MAD', date: '2025-08-07', depTime: '18:30', arrTime: '08:45' },
-    { id: 'f-2', airline: '', flightNumber: '', from: 'MAD', to: 'IAD', date: '2025-08-10', depTime: '', arrTime: '' }
+    {
+      id: 'f-1',
+      airline: 'IcelandAir',
+      confirmation: '2DUVM2',
+      cost: 1200,
+      segments: [
+        { id: 's-1', airlineCode: 'FI', flightNumber: '642', depDate: 'Sun Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Mon Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
+        { id: 's-2', airlineCode: 'FI', flightNumber: '204', depDate: 'Mon Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Mon Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
+      ]
+    },
+    {
+      id: 'f-2',
+      airline: 'IcelandAir',
+      confirmation: '2DUVM2',
+      cost: 0,
+      segments: [
+        { id: 's-3', airlineCode: 'FI', flightNumber: '', depDate: 'Wed Apr 24', depTime: '', depPort: 'CPH', arrDate: 'Wed Apr 24', arrTime: '', arrPort: 'BWI' }
+      ]
+    }
   ]);
-  const [flightTotal, setFlightTotal] = useState(1200);
+
+  const flightTotal = useMemo(() => {
+    return flights.reduce((sum, f) => sum + (f.cost || 0), 0);
+  }, [flights]);
+
   const [activeId, setActiveId] = useState(null);
 
   const currentRates = useMemo(() => {
@@ -651,6 +789,21 @@ function App() {
     }));
   };
 
+  const toggleLink = (legId) => {
+    setDays(prev => {
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      const newDays = JSON.parse(JSON.stringify(prev));
+      let targetLeg = null;
+      newDays.forEach(d => d.legs.forEach(l => { if (l.id === legId) targetLeg = l }));
+
+      if (targetLeg.mirrorId) {
+        const currentMid = targetLeg.mirrorId;
+        newDays.forEach(d => d.legs.forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
+      }
+      return newDays;
+    });
+  };
+
   const updateLeg = useCallback((dayId, legId, field, value) => {
     setDays((prev) => {
       saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
@@ -660,6 +813,68 @@ function App() {
       if (!leg) return prev;
 
       leg[field] = value;
+
+      // Handle Flight Sync back to main panel
+      if (leg.type === 'flight' && (field === 'from' || field === 'to')) {
+        // If the value contains "–" and "()", it's likely a flight selection
+        if (value.includes(' – ') && value.includes('(')) {
+          // Extract flight info or find it
+          const match = flights.find(f => {
+            const first = f.segments?.[0];
+            const last = f.segments?.[f.segments.length - 1];
+            return `${first?.depPort} – ${last?.arrPort} (${f.airline})` === value;
+          });
+          if (match) {
+            const first = match.segments?.[0];
+            const last = match.segments?.[match.segments.length - 1];
+            leg.from = first?.depPort || '';
+            leg.to = last?.arrPort || '';
+            leg.amount = match.cost || 0;
+            if (match.segments.length > 1) {
+              leg.layover = match.segments.slice(0, -1).map(s => s.arrPort).join(', ');
+            } else {
+              leg.layover = '';
+            }
+
+            // Sync mirrored leg
+            if (leg.mirrorId) {
+              newDays.forEach(d => d.legs.forEach(m => {
+                if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
+                  m.from = leg.to;
+                  m.to = leg.from;
+                  m.amount = 0;
+                  m.layover = leg.layover;
+                }
+              }));
+            }
+          }
+
+
+        } else {
+          // Freehand entry
+          // If both from and to are set, check if we need to add to flights panel
+          const otherField = field === 'from' ? 'to' : 'from';
+          if (leg[otherField]) {
+            setFlights(prevFlights => {
+              const exists = prevFlights.find(f => {
+                const first = f.segments?.[0];
+                const last = f.segments?.[f.segments.length - 1];
+                return first?.depPort === leg.from && last?.arrPort === leg.to;
+              });
+              if (!exists) {
+                return [...prevFlights, {
+                  id: generateId(),
+                  airline: 'Manual',
+                  confirmation: '',
+                  cost: 0,
+                  segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: format(day.date, 'EEE MMM d'), depTime: '', depPort: leg.from, arrDate: format(day.date, 'EEE MMM d'), arrTime: '', arrPort: leg.to }]
+                }];
+              }
+              return prevFlights;
+            });
+          }
+        }
+      }
 
       // Flip currency if toggling isForeign
       if (field === 'isForeign') {
@@ -677,7 +892,6 @@ function App() {
         }));
       }
 
-      // Cascading logic (internal sync)
       const lIdx = day.legs.findIndex(l => l.id === legId);
       if (field === 'to' && day.legs[lIdx + 1]) {
         day.legs[lIdx + 1].from = value;
@@ -688,92 +902,8 @@ function App() {
 
       return newDays;
     });
-  }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory]);
+  }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory]);
 
-  const addLeg = (dayIdx) => {
-    setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-      const newDays = JSON.parse(JSON.stringify(prev));
-      const day = newDays[dayIdx];
-      const newId = generateId();
-      const mirrorId = generateId();
-
-      const newLeg = {
-        id: newId,
-        from: day.legs.length > 0 ? day.legs[day.legs.length - 1].to : day.location,
-        to: '',
-        type: 'uber',
-        amount: 0,
-        currency: 'USD',
-        isForeign: day.isForeignMie,
-        mirrorId: mirrorId
-      };
-
-      // Default: insert between Home and Hotel?
-      // Actually, user said "between home and hotel", let's just push to end but keep last one as "last"
-      // If Day 1, legs are Home->Airport, Airport->MAD, MAD->Hotel.
-      // If we add, we want it before MAD->Hotel.
-      if (day.legs.length > 1) {
-        day.legs.splice(day.legs.length - 1, 0, newLeg);
-      } else {
-        day.legs.push(newLeg);
-      }
-
-      if (dayIdx < newDays.length - 1) {
-        const lastDay = newDays[newDays.length - 1];
-        lastDay.legs.unshift({
-          id: generateId(),
-          from: '',
-          to: newLeg.from,
-          type: 'uber',
-          amount: 0,
-          currency: 'USD',
-          mirrorId: mirrorId
-        });
-      }
-      return newDays;
-    });
-  };
-
-  const deleteLeg = (dayId, legId) => {
-    setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-      const newDays = JSON.parse(JSON.stringify(prev));
-      const day = newDays.find(d => d.id === dayId);
-      const leg = day?.legs.find(l => l.id === legId);
-      if (leg?.mirrorId) {
-        newDays.forEach(d => {
-          d.legs = d.legs.filter(l => l.mirrorId !== leg.mirrorId);
-        });
-      } else {
-        day.legs = day.legs.filter(l => l.id !== legId);
-      }
-      return newDays;
-    });
-  };
-
-  const toggleLink = (legId) => {
-    setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-      const newDays = JSON.parse(JSON.stringify(prev));
-      let mid = null;
-      let targetLeg = null;
-      newDays.forEach(d => d.legs.forEach(l => { if (l.id === legId) targetLeg = l }));
-
-      if (targetLeg.mirrorId) {
-        const currentMid = targetLeg.mirrorId;
-        // Search if we already have a record of this unlinked pair? 
-        // For simplicity, just wipe the mirrorId on all connected.
-        newDays.forEach(d => d.legs.forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
-      } else {
-        // Relink is hard without a reference. Let's just create a new mirrorId for it.
-        // Actually, user said "I can also turn them back on again". 
-        // This implies they expect them to remember they were once linked.
-        // I'll skip complex persistence for this prototype and just make it a toggle.
-      }
-      return newDays;
-    });
-  };
 
   const totals = useMemo(() => {
     const base = days.reduce((acc, d, idx) => {
@@ -851,16 +981,32 @@ function App() {
   const addFlightLeg = () => {
     setFlights(prev => {
       saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-      const newLeg = { id: generateId(), airline: '', flightNumber: '', from: '', to: '', date: '', depTime: '', arrTime: '' };
-      const returnLeg = { id: generateId(), airline: '', flightNumber: '', from: '', to: '', date: '', depTime: '', arrTime: '' };
+      const pairId = generateId();
+      const newFlight = {
+        id: generateId(),
+        pairId,
+        airline: '',
+        confirmation: '',
+        cost: 0,
+        segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: '', depTime: '', depPort: '', arrDate: '', arrTime: '', arrPort: '' }]
+      };
+      const returnFlight = {
+        id: generateId(),
+        pairId,
+        airline: '',
+        confirmation: '',
+        cost: 0,
+        segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: '', depTime: '', depPort: '', arrDate: '', arrTime: '', arrPort: '' }]
+      };
 
       const updated = [...prev];
-      const midpoint = Math.ceil(updated.length / 2);
-      updated.splice(midpoint, 0, newLeg);
-      updated.splice(midpoint + 1, 0, returnLeg);
+      updated.push(newFlight);
+      updated.push(returnFlight);
       return updated;
     });
   };
+
+
 
   const deleteFlight = (id) => {
     setFlights(prev => {
@@ -872,9 +1018,35 @@ function App() {
   const updateFlight = (id, field, value) => {
     setFlights(prev => {
       saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-      return prev.map(f => f.id === id ? { ...f, [field]: value } : f);
+      const updated = prev.map(f => f.id === id ? { ...f, [field]: value } : f);
+
+      const current = updated.find(f => f.id === id);
+      if (current.pairId) {
+        return updated.map(f => {
+          if (f.pairId === current.pairId && f.id !== id) {
+            if (field === 'airline' || field === 'confirmation' || field === 'cost') {
+              return { ...f, [field]: value };
+            }
+            if (field === 'segments') {
+              const partners = value.map((s, idx) => {
+                const counterpart = value[value.length - 1 - idx];
+                return {
+                  ...s,
+                  id: generateId(),
+                  depDate: '', depTime: '', depPort: counterpart.arrPort,
+                  arrDate: '', arrTime: '', arrPort: counterpart.depPort
+                };
+              });
+              return { ...f, segments: partners };
+            }
+          }
+          return f;
+        });
+      }
+      return updated;
     });
   };
+
 
   const handleFlightDragEnd = (event) => {
     const { active, over } = event;
@@ -1070,7 +1242,9 @@ function App() {
                           onDelete={() => deleteLeg(day.id, leg.id)}
                           onLinkToggle={() => toggleLink(leg.id)}
                           currentRates={currentRates}
+                          flights={flights}
                         />
+
                       ))}
                       {day.legs.length === 0 && <div className="no-travel">No travel for this day</div>}
                     </div>
@@ -1323,31 +1497,46 @@ function App() {
         .f-total-wrap { display: flex; align-items: center; gap: 8px; }
         .f-total-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; }
         .f-total-inp-wrap { display: flex; align-items: center; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px; padding: 2px 6px; }
-        .f-total-inp { background: transparent; border: none; color: #fff; font-weight: 900; font-size: 0.9rem; width: 70px; outline: none; text-align: right; }
+        .f-total-val { color: #fff; font-weight: 900; font-size: 0.9rem; width: 70px; text-align: right; }
 
-        .f-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; max-height: 200px; overflow-y: auto; padding-right: 4px; }
+        .f-list { display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 0.75rem; max-height: 400px; overflow-y: auto; padding-right: 4px; }
         .f-list::-webkit-scrollbar { width: 4px; }
         .f-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-        .flight-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
-        .f-main-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .f-row-line { display: flex; align-items: center; gap: 4px; }
-        .f-row-line.meta { border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 2px; }
-        .f-point { display: flex; align-items: center; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 0 4px; border: 1px solid rgba(255,255,255,0.05); flex: 1; justify-content: space-between; }
-        
-        .f-grip { cursor: grab; opacity: 0.2; }
-        .f-inp { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 2px; }
-        .f-inp::placeholder { color: #475569; font-weight: 500; font-size: 0.65rem; }
-        .f-inp.air { width: 90px; }
-        .f-inp.num { width: 70px; }
-        .f-inp.port { width: 35px; text-align: center; text-transform: uppercase; font-size: 0.75rem; color: #6366f1; }
-        .f-inp.time { width: 45px; text-align: right; }
-        .f-inp.date { width: 80px; text-align: right; margin-left: auto; color: #94a3b8; }
-        .f-sep { color: #6366f1; opacity: 0.5; font-size: 0.7rem; }
-        .f-del { background: transparent; border: none; color: #f43f5e; opacity: 0.3; cursor: pointer; display: flex; align-items: center; padding: 2px; }
+        .flight-group { background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+        .f-group-header { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .f-grip-group { cursor: grab; opacity: 0.3; }
+        .f-inp.g-air { font-weight: 900; width: 120px; font-size: 0.85rem; }
+        .f-inp.g-conf { font-weight: 700; color: #94a3b8; width: 80px; font-size: 0.8rem; }
+        .f-cost-wrap { display: flex; align-items: center; gap: 2px; margin-left: auto; background: rgba(0,0,0,0.2); padding: 1px 6px; border-radius: 4px; }
+        .f-inp.g-cost { width: 60px; text-align: right; color: #6366f1; font-weight: 900; }
+        .f-del-group { background: transparent; border: none; color: #f43f5e; opacity: 0.5; cursor: pointer; }
 
-        .f-add-btn { background: transparent; border: 1px dashed rgba(255,255,255,0.1); color: #94a3b8; width: 100%; padding: 4px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .f-segments-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+        .f-segment { display: flex; flex-direction: column; gap: 2px; padding: 4px 6px; border-radius: 6px; transition: background 0.2s; }
+        .f-segment:hover { background: rgba(255,255,255,0.02); }
+        .f-row-line { display: flex; align-items: center; gap: 8px; }
+        .f-row-line.arr-line { padding-left: 20px; opacity: 0.7; font-size: 0.9em; }
+
+        .f-inp { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 1px 2px; }
+        .f-inp::placeholder { color: #475569; font-weight: 400; font-size: 0.7rem; }
+        
+        .f-inp.s-code { width: 25px; color: #6366f1; font-weight: 900; }
+        .f-inp.s-num { width: 40px; }
+        .f-inp.s-date { width: 85px; color: #94a3b8; }
+        .f-inp.s-time { width: 55px; text-align: right; }
+        .f-inp.s-port { width: 40px; font-weight: 900; color: #fff; text-transform: uppercase; }
+        
+        .f-seg-del { margin-left: auto; visibility: hidden; background: transparent; border: none; color: #f43f5e; padding: 2px; }
+        .f-segment:hover .f-seg-del { visibility: visible; }
+        
+        .f-layover { font-size: 0.65rem; color: #64748b; font-style: italic; padding-left: 20px; margin: -2px 0 2px 0; }
+        .f-add-seg { background: transparent; border: 1px dashed rgba(255,255,255,0.05); color: #64748b; font-size: 0.6rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; align-self: flex-start; margin-top: 4px; }
+        .f-add-seg:hover { border-color: #6366f1; color: #fff; }
+
+        .f-add-btn { background: transparent; border: 1px dashed rgba(255,255,255,0.1); color: #94a3b8; width: 100%; padding: 6px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
         .f-add-btn:hover { border-color: #6366f1; color: #fff; background: rgba(99, 102, 241, 0.05); }
+
 
         .themed-select-wrap { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px; padding-left: 4px; }
         .themed-select { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 2px; cursor: pointer; }
@@ -1406,6 +1595,9 @@ function App() {
         .x-rate-panel { display: flex; align-items: center; gap: 1rem; }
         .use-alt-toggle { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
         .custom-rate-input { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); color: #6366f1; font-weight: 900; font-size: 0.85rem; width: 60px; border-radius: 4px; padding: 2px 6px; outline: none; }
+
+        .leg-layover-faint { font-size: 0.65rem; color: #64748b; font-style: italic; margin-top: -4px; margin-bottom: 4px; padding-left: 24px; opacity: 0.8; }
+        .leg-money-compact.grayed { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
 
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
@@ -1466,9 +1658,14 @@ function MealChip({ label, active, onClick, cost, isForeign }) {
 
 function miesToDayTotal(day, mie, hotelTotal, rates) {
   let travel = 0;
-  day.legs.forEach(l => travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', rates));
+  day.legs.forEach(l => {
+    if (l.type !== 'flight') {
+      travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', rates);
+    }
+  });
   const hotelInUSD = convertCurrency(hotelTotal, day.hotelCurrency || 'USD', 'USD', rates);
   return travel + mie + hotelInUSD;
 }
+
 
 export default App;
