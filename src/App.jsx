@@ -188,23 +188,30 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
   return (
     <div className="f-segment">
-      <div className="f-row-line">
-        <input className="f-inp s-code" value={segment.airlineCode || ''} onChange={e => onUpdate('airlineCode', e.target.value)} placeholder="FI" />
-        <input className="f-inp s-num" value={segment.flightNumber || ''} onChange={e => onUpdate('flightNumber', e.target.value)} placeholder="642" />
-        <input className="f-inp s-date" value={segment.depDate || ''} onChange={e => onUpdate('depDate', e.target.value)} placeholder="Sun Apr 21" />
-        <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
-        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+      <div className="f-seg-main">
+        <div className="f-seg-info">
+          <input className="f-inp s-code" value={segment.airlineCode || ''} onChange={e => onUpdate('airlineCode', e.target.value)} placeholder="FI" />
+          <input className="f-inp s-num" value={segment.flightNumber || ''} onChange={e => onUpdate('flightNumber', e.target.value)} placeholder="642" />
+        </div>
+        <div className="f-seg-routes">
+          <div className="f-row-line">
+            <input className="f-inp s-date" value={segment.depDate || ''} onChange={e => onUpdate('depDate', e.target.value)} placeholder="Sun Apr 21" />
+            <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
+            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+          </div>
+          <div className="f-row-line">
+            <input className="f-inp s-date" value={segment.arrDate || ''} onChange={e => onUpdate('arrDate', e.target.value)} placeholder="Mon Apr 22" />
+            <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+          </div>
+        </div>
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={10} /></button>
-      </div>
-      <div className="f-row-line arr-line">
-        <input className="f-inp s-date" value={segment.arrDate || ''} onChange={e => onUpdate('arrDate', e.target.value)} placeholder="Mon Apr 22" />
-        <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
-        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
       </div>
       {layover && <div className="f-layover">(layover {layover})</div>}
     </div>
   );
 };
+
 
 const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: flight.id });
@@ -1514,22 +1521,25 @@ function App() {
         .f-segments-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
         .f-segment { display: flex; flex-direction: column; gap: 2px; padding: 4px 6px; border-radius: 6px; transition: background 0.2s; }
         .f-segment:hover { background: rgba(255,255,255,0.02); }
-        .f-row-line { display: flex; align-items: center; gap: 8px; }
-        .f-row-line.arr-line { padding-left: 20px; opacity: 0.7; font-size: 0.9em; }
+        .f-seg-main { display: flex; align-items: center; gap: 12px; }
+        .f-seg-info { display: flex; align-items: center; gap: 4px; width: 65px; flex-shrink: 0; }
+        .f-seg-routes { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .f-row-line { display: flex; align-items: center; gap: 12px; }
 
         .f-inp { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 1px 2px; }
         .f-inp::placeholder { color: #475569; font-weight: 400; font-size: 0.7rem; }
         
-        .f-inp.s-code { width: 25px; color: #6366f1; font-weight: 900; }
-        .f-inp.s-num { width: 40px; }
+        .f-inp.s-code { width: 22px; color: #6366f1; font-weight: 950; text-transform: uppercase; }
+        .f-inp.s-num { width: 35px; }
         .f-inp.s-date { width: 85px; color: #94a3b8; }
         .f-inp.s-time { width: 55px; text-align: right; }
         .f-inp.s-port { width: 40px; font-weight: 900; color: #fff; text-transform: uppercase; }
         
-        .f-seg-del { margin-left: auto; visibility: hidden; background: transparent; border: none; color: #f43f5e; padding: 2px; }
+        .f-seg-del { margin-left: auto; visibility: hidden; background: transparent; border: none; color: #f43f5e; padding: 2px; opacity: 0.5; }
         .f-segment:hover .f-seg-del { visibility: visible; }
         
-        .f-layover { font-size: 0.65rem; color: #64748b; font-style: italic; padding-left: 20px; margin: -2px 0 2px 0; }
+        .f-layover { font-size: 0.65rem; color: #64748b; font-style: italic; padding-left: 77px; margin: 0px 0 4px 0; }
+
         .f-add-seg { background: transparent; border: 1px dashed rgba(255,255,255,0.05); color: #64748b; font-size: 0.6rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; align-self: flex-start; margin-top: 4px; }
         .f-add-seg:hover { border-color: #6366f1; color: #fff; }
 
