@@ -1219,121 +1219,122 @@ function App() {
   }, [days, flights, registrationFee, registrationCurrency, currentRates]);
 
   return (
-    <div className="travel-app dark">
-      <main className="one-column-layout">
-        <section className="trip-header-section glass">
-          <input 
-            className="trip-name-display" 
-            value={tripName} 
-            onChange={e => setTripName(e.target.value)}
-          />
-          <div className="trip-meta-row">
-            <div className="trip-dates-display">
-              {format(days[0].date, 'EEE MMM d')} — {format(days[days.length-1].date, 'EEE MMM d')}
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="travel-app dark">
+        <main className="one-column-layout">
+          <section className="trip-header-section glass">
+            <input
+              className="trip-name-display"
+              value={tripName}
+              onChange={e => setTripName(e.target.value)}
+            />
+            <div className="trip-meta-row">
+              <div className="trip-dates-display">
+                {format(days[0].date, 'EEE MMM d')} — {format(days[days.length - 1].date, 'EEE MMM d')}
+              </div>
+              <div className="trip-location-display">
+                <MapPin size={14} />
+                <span>{days[1]?.location || 'Multiple Locations'}</span>
+              </div>
             </div>
-            <div className="trip-location-display">
-              <MapPin size={14} />
-              <span>{days[1]?.location || 'Multiple Locations'}</span>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="totals-section glass">
-          <div className="total-row main-total">
-            <span className="total-label">Grand Total</span>
-            <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
-          </div>
-          <div className="totals-column">
-            <div className="total-row">
-              <span className="total-label">Registration</span>
-              <span className="total-value">{formatCurrency(registrationFee, 'USD')}</span>
+          <section className="totals-section glass">
+            <div className="total-row main-total">
+              <span className="total-label">Grand Total</span>
+              <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
             </div>
-            <div className="total-row">
-              <span className="total-label">Flights</span>
-              <span className="total-value">{formatCurrency(totals.flights, 'USD')}</span>
+            <div className="totals-column">
+              <div className="total-row">
+                <span className="total-label">Registration</span>
+                <span className="total-value">{formatCurrency(registrationFee, 'USD')}</span>
+              </div>
+              <div className="total-row">
+                <span className="total-label">Flights</span>
+                <span className="total-value">{formatCurrency(totals.flights, 'USD')}</span>
+              </div>
+              <div className="total-row">
+                <span className="total-label">Hotels</span>
+                <span className="total-value">{formatCurrency(totals.lodging, 'USD')}</span>
+              </div>
+              <div className="total-row">
+                <span className="total-label">M&IE</span>
+                <span className="total-value">{formatCurrency(totals.mie, 'USD')}</span>
+              </div>
+              <div className="total-row">
+                <span className="total-label">Transportation</span>
+                <span className="total-value">{formatCurrency(totals.travel, 'USD')}</span>
+              </div>
             </div>
-            <div className="total-row">
-              <span className="total-label">Hotels</span>
-              <span className="total-value">{formatCurrency(totals.lodging, 'USD')}</span>
-            </div>
-            <div className="total-row">
-              <span className="total-label">M&IE</span>
-              <span className="total-value">{formatCurrency(totals.mie, 'USD')}</span>
-            </div>
-            <div className="total-row">
-              <span className="total-label">Transportation</span>
-              <span className="total-value">{formatCurrency(totals.travel, 'USD')}</span>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="flights-section-panel">
-          <FlightPanel
-            flights={flights}
-            totalCost={flightTotal}
-            onUpdate={updateFlight}
-            onDelete={deleteFlight}
-            onAdd={addFlightLeg}
-            dragEndHandler={handleFlightDragEnd}
-          />
-        </section>
+          <section className="flights-section-panel">
+            <FlightPanel
+              flights={flights}
+              totalCost={flightTotal}
+              onUpdate={updateFlight}
+              onDelete={deleteFlight}
+              onAdd={addFlightLeg}
+              dragEndHandler={handleFlightDragEnd}
+            />
+          </section>
 
-        <section className="hotels-section-panel glass">
-           <div className="section-title"><Hotel size={16} /> HOTELS</div>
-           <div className="hotel-settings-compact">
-             <div className="h-sett">
-               <span>In:</span>
-               <input type="text" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className="mini-inp" />
-             </div>
-             <div className="h-sett">
-               <span>Out:</span>
-               <input type="text" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className="mini-inp" />
-             </div>
-           </div>
-           <div className="hotel-list">
-             {days.filter(d => d.hotelRate !== null).map(d => (
-               <div key={d.id} className="hotel-entry-row">
-                 <div className="h-date">{format(d.date, 'MMM d')}</div>
-                 <input 
-                    className="h-name-input" 
-                    value={d.hotelName || ''} 
+          <section className="hotels-section-panel glass">
+            <div className="section-title"><Hotel size={16} /> HOTELS</div>
+            <div className="hotel-settings-compact">
+              <div className="h-sett">
+                <span>In:</span>
+                <input type="text" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className="mini-inp" />
+              </div>
+              <div className="h-sett">
+                <span>Out:</span>
+                <input type="text" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className="mini-inp" />
+              </div>
+            </div>
+            <div className="hotel-list">
+              {days.filter(d => d.hotelRate !== null).map(d => (
+                <div key={d.id} className="hotel-entry-row">
+                  <div className="h-date">{format(d.date, 'MMM d')}</div>
+                  <input
+                    className="h-name-input"
+                    value={d.hotelName || ''}
                     onChange={e => syncLocationField(d.location, 'hotelName', e.target.value)}
                     placeholder="Hotel Name"
-                 />
-                 <div className="h-price">
-                   {formatCurrency((d.hotelRate || 0) + (d.hotelTax || 0), 'USD')}
-                 </div>
-               </div>
-             ))}
-             {days.filter(d => d.hotelRate !== null).length === 0 && (
-               <div className="no-hotels-msg">No hotels booked yet. Update flights to auto-populate.</div>
-             )}
-           </div>
-        </section>
+                  />
+                  <div className="h-price">
+                    {formatCurrency((d.hotelRate || 0) + (d.hotelTax || 0), 'USD')}
+                  </div>
+                </div>
+              ))}
+              {days.filter(d => d.hotelRate !== null).length === 0 && (
+                <div className="no-hotels-msg">No hotels booked yet. Update flights to auto-populate.</div>
+              )}
+            </div>
+          </section>
 
-        <section className="timeline-section-panel glass">
-          <div className="section-title"><Calendar size={16} /> TIMELINE</div>
-          <div className="vertical-timeline">
-            {days.map((day, idx) => (
-              <TimelineDay 
-                key={day.id}
-                day={{...day, prevHadHotel: idx > 0 && days[idx-1].hotelRate !== null}}
-                dayIndex={idx}
-                totalDays={days.length}
-                flights={flights}
-                currentRates={currentRates}
-                checkInTime={checkInTime}
-                checkOutTime={checkOutTime}
-                onUpdateMeals={(dayId, meal) => {
-                  saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
-                }}
-                onAddLeg={(dIdx) => addLeg(dIdx)}
-              />
-            ))}
-          </div>
-        </section>
-      </main>
+          <section className="timeline-section-panel glass">
+            <div className="section-title"><Calendar size={16} /> TIMELINE</div>
+            <div className="vertical-timeline">
+              {days.map((day, idx) => (
+                <TimelineDay
+                  key={day.id}
+                  day={{ ...day, prevHadHotel: idx > 0 && days[idx - 1].hotelRate !== null }}
+                  dayIndex={idx}
+                  totalDays={days.length}
+                  flights={flights}
+                  currentRates={currentRates}
+                  checkInTime={checkInTime}
+                  checkOutTime={checkOutTime}
+                  onUpdateMeals={(dayId, meal) => {
+                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+                    setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+                  }}
+                  onAddLeg={(dIdx) => addLeg(dIdx)}
+                />
+              ))}
+            </div>
+          </section>
+        </main>
 
         <DragOverlay>
           {activeId ? (
@@ -1345,9 +1346,8 @@ function App() {
             </div>
           ) : null}
         </DragOverlay>
-      </DndContext>
 
-      <style>{`
+        <style>{`
         .travel-app { min-height: 100vh; background: #020617; padding: 1rem; color: #f8fafc; font-family: 'Outfit', sans-serif; }
         .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 1.5rem; }
         
@@ -1418,7 +1418,8 @@ function App() {
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
       `}</style>
-    </div >
+      </div>
+    </DndContext>
   );
 }
 
