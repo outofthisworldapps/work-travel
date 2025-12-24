@@ -29,7 +29,129 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEAL_RATIOS_FOREIGN, MEAL_RATIOS_US, getMealCost } from './utils/calculations';
 
+import { autoPopulateHotels } from './utils/hotelLogic';
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// --- Vertical Timeline Components ---
+
+const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, checkInTime, checkOutTime }) => {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
+  // Calculate M&IE components
+  const mieTotal = calculateMIE(dayIndex, totalDays, day.mieBase, day.meals, day.isForeignMie);
+
+  // Find flight segments for this day
+  const dayStr = format(day.date, 'EEE MMM d');
+  const dayFlights = [];
+  flights.forEach(f => {
+    f.segments.forEach(s => {
+      if (s.depDate === dayStr || s.arrDate === dayStr) {
+        dayFlights.push({ ...s, parentFlight: f });
+      }
+    });
+  });
+
+  const parseTime = (timeStr) => {
+    if (!timeStr) return null;
+    let t = timeStr.toLowerCase().replace(' ', '');
+    // Handle formats like 2p, 2:30p, 11a
+    let meridiem = t.slice(-1);
+    if (meridiem !== 'a' && meridiem !== 'p') meridiem = 'p'; // Default to p if missing
+    let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+    let [h, m] = timePart.split(':').map(Number);
+    if (meridiem === 'p' && h < 12) h += 12;
+    if (meridiem === 'a' && h === 12) h = 0;
+    return h + (m || 0) / 60;
+  };
+
+  const getPosition = (time) => (time / 24) * 100;
+
+  const checkInPos = parseTime(checkInTime) || 14;
+  const checkOutPos = parseTime(checkOutTime) || 11;
+
+  return (
+    <div className="timeline-day-row">
+      <div className="timeline-date-side">
+        <div className="tl-dw">{format(day.date, 'EEE')}</div>
+        <div className="tl-dm">{format(day.date, 'MMM d')}</div>
+        <button className="tl-add-btn" onClick={() => onAddLeg(dayIndex)} title="Add travel leg to this day">
+          <Plus size={10} />
+        </button>
+      </div>
+
+      <div className="timeline-hours-container">
+        {hours.map(h => (
+          <div key={h} className="hour-line" style={{ top: `${(h / 24) * 100}%` }}>
+            <span className="hour-label">{h % 12 || 12}{h < 12 ? 'a' : 'p'}</span>
+          </div>
+        ))}
+
+        {/* Flight Boxes */}
+        {dayFlights.map(s => {
+          const start = s.depDate === dayStr ? parseTime(s.depTime) : 0;
+          const end = s.arrDate === dayStr ? parseTime(s.arrTime) : 23.99;
+          if (start === null || end === null) return null;
+
+          return (
+            <div
+              key={s.id}
+              className="tl-event flight-event"
+              style={{
+                top: `${getPosition(start)}%`,
+                height: `${getPosition(end) - getPosition(start)}%`
+              }}
+            >
+              <div className="tl-event-label">✈️ {s.airlineCode}{s.flightNumber} {s.depPort}→{s.arrPort}</div>
+            </div>
+          );
+        })}
+
+        {/* Hotel Boxes */}
+        {day.hotelRate !== null && (
+          <>
+            <div
+              className="tl-event hotel-event"
+              style={{
+                top: `${getPosition(checkInPos)}%`,
+                height: `${getPosition(24) - getPosition(checkInPos)}%`
+              }}
+            >
+              <div className="tl-event-label">🏨 {day.hotelName || 'Hotel'}</div>
+            </div>
+          </>
+        )}
+        {/* Morning part of hotel if day before had a hotel */}
+        {day.prevHadHotel && (
+          <div
+            className="tl-event hotel-event"
+            style={{
+              top: `0%`,
+              height: `${getPosition(checkOutPos)}%`
+            }}
+          >
+            <div className="tl-event-label">🏨 {day.hotelName || 'Hotel'} (Out)</div>
+          </div>
+        )}
+      </div>
+
+      <div className="timeline-mie-side">
+        <div className="tl-mie-total">{formatCurrency(mieTotal, 'USD')}</div>
+        <div className="tl-mie-stack">
+          {['B', 'L', 'D', 'I'].map(m => (
+            <div
+              key={m}
+              className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
+              onClick={() => onUpdateMeals(day.id, m)}
+            >
+              {m}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- Components ---
 
@@ -473,6 +595,8 @@ function App() {
   const [tripName, setTripName] = useState('Global Tech Summit');
   const [registrationFee, setRegistrationFee] = useState(750);
   const [registrationCurrency, setRegistrationCurrency] = useState('USD');
+  const [checkInTime, setCheckInTime] = useState('2:00p');
+  const [checkOutTime, setCheckOutTime] = useState('11:00a');
   const [flights, setFlights] = useState([
     {
       id: 'f-1',
@@ -1061,379 +1185,178 @@ function App() {
       setFlights((items) => {
         const oldIndex = items.findIndex(i => i.id === active.id);
         const newIndex = items.findIndex(i => i.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        const next = arrayMove(items, oldIndex, newIndex);
+        return next;
       });
     }
   };
 
+  // Auto-populate Hotels based on Flights
+  React.useEffect(() => {
+    setDays(prevDays => {
+      const updatedDays = autoPopulateHotels(flights, prevDays, {
+        rate: prevDays.find(d => d.hotelRate > 0)?.hotelRate || 185,
+        tax: prevDays.find(d => d.hotelTax > 0)?.hotelTax || 25,
+        currency: prevDays.find(d => d.hotelCurrency)?.hotelCurrency || 'USD'
+      });
+      // Only update if something actually changed to avoid loops
+      if (JSON.stringify(updatedDays) !== JSON.stringify(prevDays)) {
+        return updatedDays;
+      }
+      return prevDays;
+    });
+  }, [flights]);
+
+  const totals = useMemo(() => {
+    let registration = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);
+    let fl = flights.reduce((sum, f) => sum + (f.cost || 0), 0);
+    let travel = 0;
+    let mieTotal = 0;
+    let lodging = 0;
+
+    days.forEach((day, idx) => {
+      // M&IE
+      mieTotal += calculateMIE(idx, days.length, day.mieBase, day.meals, day.isForeignMie);
+
+      // Lodging
+      if (day.hotelRate !== null) {
+        lodging += convertCurrency(day.hotelRate + day.hotelTax, day.hotelCurrency || 'USD', 'USD', currentRates);
+      }
+
+      // Travel legs
+      day.legs.forEach(l => {
+        if (l.type !== 'flight') {
+          travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', currentRates);
+        }
+      });
+    });
+
+    return {
+      registration,
+      flights: fl,
+      travel,
+      mie: mieTotal,
+      lodging,
+      grand: registration + fl + travel + mieTotal + lodging
+    };
+  }, [days, flights, registrationFee, registrationCurrency, currentRates]);
+
   return (
     <div className="travel-app dark">
-      <header className="main-header glass">
-        <div className="header-layout">
-          <div className="header-left">
-            <div className="header-meta">
-              <div className="trip-info">
-                <div className="trip-name-wrap">
-                  <input className="trip-name-input" value={tripName} onChange={e => {
-                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                    setTripName(e.target.value);
-                  }} style={{ minWidth: '300px' }} />
-                  <div className="trip-dates">
-                    <span className="dw">{format(days[0].date, 'EEE')}</span>
-                    <DateInput
-                      className="header-date-input"
-                      value={days[0].date}
-                      onChange={d => {
-                        const duration = days.length - 1;
-                        const newEnd = addDays(d, duration);
-                        handleDateRangeChange(d, newEnd);
-                      }}
-                    />
-                    <span className="date-sep">—</span>
-                    <span className="dw">{format(days[days.length - 1].date, 'EEE')}</span>
-                    <DateInput
-                      className="header-date-input"
-                      value={days[days.length - 1].date}
-                      onChange={d => handleDateRangeChange(days[0].date, d)}
-                    />
-                    <span className="days-count">({days.length} {days.length === 1 ? 'day' : 'days'})</span>
-                  </div>
-                </div>
-                <div className="history-controls">
-                  <button className="icon-btn" onClick={undo} disabled={history.past.length === 0} title="Undo (Cmd+Z)">
-                    <span className="icon-emoji">↩️</span>
-                  </button>
-                  <button className="icon-btn" onClick={redo} disabled={history.future.length === 0} title="Redo (Cmd+Shift+Z)">
-                    <span className="icon-emoji">↪️</span>
-                  </button>
-                  <div className="v-divider" />
-                  <button className="icon-btn" onClick={saveToFile} title="Save to File (Cmd+S)">
-                    <span className="icon-emoji">💾</span>
-                  </button>
-                  <label className="icon-btn" title="Load from File">
-                    <span className="icon-emoji">⬆️</span>
-                    <input type="file" onChange={loadFromFile} style={{ display: 'none' }} accept=".json" />
-                  </label>
-                </div>
-              </div>
+      <main className="one-column-layout">
+        <section className="trip-header-section glass">
+          <input 
+            className="trip-name-display" 
+            value={tripName} 
+            onChange={e => setTripName(e.target.value)}
+          />
+          <div className="trip-meta-row">
+            <div className="trip-dates-display">
+              {format(days[0].date, 'EEE MMM d')} — {format(days[days.length-1].date, 'EEE MMM d')}
             </div>
-            <div className="summary-grid">
-              <StatBox
-                label="REGISTRATION"
-                value={registrationFee}
-                currency={registrationCurrency}
-                altCurrency={altCurrency}
-                onCurrencyChange={c => {
+            <div className="trip-location-display">
+              <MapPin size={14} />
+              <span>{days[1]?.location || 'Multiple Locations'}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="totals-section glass">
+          <div className="total-row main-total">
+            <span className="total-label">Grand Total</span>
+            <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
+          </div>
+          <div className="totals-column">
+            <div className="total-row">
+              <span className="total-label">Registration</span>
+              <span className="total-value">{formatCurrency(registrationFee, 'USD')}</span>
+            </div>
+            <div className="total-row">
+              <span className="total-label">Flights</span>
+              <span className="total-value">{formatCurrency(totals.flights, 'USD')}</span>
+            </div>
+            <div className="total-row">
+              <span className="total-label">Hotels</span>
+              <span className="total-value">{formatCurrency(totals.lodging, 'USD')}</span>
+            </div>
+            <div className="total-row">
+              <span className="total-label">M&IE</span>
+              <span className="total-value">{formatCurrency(totals.mie, 'USD')}</span>
+            </div>
+            <div className="total-row">
+              <span className="total-label">Transportation</span>
+              <span className="total-value">{formatCurrency(totals.travel, 'USD')}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="flights-section-panel">
+          <FlightPanel
+            flights={flights}
+            totalCost={flightTotal}
+            onUpdate={updateFlight}
+            onDelete={deleteFlight}
+            onAdd={addFlightLeg}
+            dragEndHandler={handleFlightDragEnd}
+          />
+        </section>
+
+        <section className="hotels-section-panel glass">
+           <div className="section-title"><Hotel size={16} /> HOTELS</div>
+           <div className="hotel-settings-compact">
+             <div className="h-sett">
+               <span>In:</span>
+               <input type="text" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className="mini-inp" />
+             </div>
+             <div className="h-sett">
+               <span>Out:</span>
+               <input type="text" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className="mini-inp" />
+             </div>
+           </div>
+           <div className="hotel-list">
+             {days.filter(d => d.hotelRate !== null).map(d => (
+               <div key={d.id} className="hotel-entry-row">
+                 <div className="h-date">{format(d.date, 'MMM d')}</div>
+                 <input 
+                    className="h-name-input" 
+                    value={d.hotelName || ''} 
+                    onChange={e => syncLocationField(d.location, 'hotelName', e.target.value)}
+                    placeholder="Hotel Name"
+                 />
+                 <div className="h-price">
+                   {formatCurrency((d.hotelRate || 0) + (d.hotelTax || 0), 'USD')}
+                 </div>
+               </div>
+             ))}
+             {days.filter(d => d.hotelRate !== null).length === 0 && (
+               <div className="no-hotels-msg">No hotels booked yet. Update flights to auto-populate.</div>
+             )}
+           </div>
+        </section>
+
+        <section className="timeline-section-panel glass">
+          <div className="section-title"><Calendar size={16} /> TIMELINE</div>
+          <div className="vertical-timeline">
+            {days.map((day, idx) => (
+              <TimelineDay 
+                key={day.id}
+                day={{...day, prevHadHotel: idx > 0 && days[idx-1].hotelRate !== null}}
+                dayIndex={idx}
+                totalDays={days.length}
+                flights={flights}
+                currentRates={currentRates}
+                checkInTime={checkInTime}
+                checkOutTime={checkOutTime}
+                onUpdateMeals={(dayId, meal) => {
                   saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                  setRegistrationCurrency(c);
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
                 }}
-                onChange={v => {
-                  saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                  setRegistrationFee(v);
-                }}
-                rates={currentRates}
+                onAddLeg={(dIdx) => addLeg(dIdx)}
               />
-              <div className="v-divider-summary" />
-              <StatBox label="FLIGHTS" value={totals.flights} rates={currentRates} />
-              <div className="v-divider-summary" />
-              <StatBox label="TRANSPORTATION" value={totals.travel} rates={currentRates} />
-              <div className="v-divider-summary" />
-              <StatBox label="M&IE" value={totals.mie} rates={currentRates} />
-              <div className="v-divider-summary" />
-              <StatBox label="LODGING" value={totals.lodging} rates={currentRates} />
-              <div className="v-divider-summary" />
-              <StatBox label="TOTAL" value={totals.grand} main rates={currentRates} />
-            </div>
-            <div className="x-rate-panel" style={{ marginTop: '1rem' }}>
-              <div className="use-alt-toggle" onClick={() => setUseAlt(!useAlt)}>
-                <span className="icon-emoji">{useAlt ? '🌍' : '$'}</span>
-                <span className="toggle-label">{useAlt ? 'Global Rates On' : 'USD Only'}</span>
-              </div>
-              {useAlt && (
-                <div className="rate-inputs">
-                  <span className="rate-hint">1 USD = </span>
-                  <input
-                    className="custom-rate-input narrow-dark"
-                    type="number"
-                    value={customRates[altCurrency] || ''}
-                    onChange={e => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setCustomRates(prev => ({ ...prev, [altCurrency]: val }));
-                    }}
-                  />
-                  <input
-                    className="custom-curr-name narrow-dark"
-                    value={altCurrency}
-                    onChange={e => {
-                      const val = e.target.value.toUpperCase();
-                      if (val.length <= 3) {
-                        const old = altCurrency;
-                        setAltCurrency(val);
-                        setCustomRates(prev => {
-                          const next = { ...prev };
-                          next[val] = next[old];
-                          if (val !== old) delete next[old];
-                          return next;
-                        });
-                      }
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            ))}
           </div>
-          <div className="header-right">
-            <FlightPanel
-              flights={flights}
-              totalCost={flightTotal}
-              onUpdate={updateFlight}
-              onDelete={deleteFlight}
-              onAdd={addFlightLeg}
-              dragEndHandler={handleFlightDragEnd}
-            />
-          </div>
-        </div>
-      </header>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="days-list">
-          {days.map((day, dIdx) => {
-            const mie = calculateMIE(dIdx, days.length, day.mieBase, day.meals, day.isForeignMie !== false);
-            const hotelSubtotalRaw = day.hotelRate + day.hotelTax;
-            const hotelTotalUSD = convertCurrency(hotelSubtotalRaw, day.hotelCurrency || 'USD', 'USD', currentRates);
-            const hotelRateUSD = convertCurrency(day.hotelRate, day.hotelCurrency || 'USD', 'USD', currentRates);
-
-            const lodgingOverageCap = day.overageCapPercent || 25;
-            const valueToCompare = day.isForeignHotel !== false ? hotelTotalUSD : hotelRateUSD;
-            const isOverMax = valueToCompare > day.maxLodging;
-            const isRedZone = valueToCompare > (day.maxLodging * (1 + lodgingOverageCap / 100));
-
-            return (
-              <div key={day.id} className="day-card glass">
-                <div className="day-meta">
-                  <div className="date-badge">
-                    <span className="dow">{format(day.date, 'EEE')}</span>
-                    <span className="dom">{format(day.date, 'MMM d')}</span>
-                  </div>
-                  <div className="loc-pill">
-                    <MapPin size={11} />
-                    <input
-                      className="loc-input"
-                      value={day.location}
-                      onChange={e => syncLocationField(day.location, 'location', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="travel-rail">
-                  <SortableContext
-                    id={day.id}
-                    items={day.legs.map(l => l.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="legs-stack">
-                      {day.legs.map((leg, lIdx) => (
-                        <SortableTravelLeg
-                          key={leg.id}
-                          leg={leg}
-                          isLockedStart={dIdx === 0 && lIdx === 0}
-                          isLockedEnd={dIdx === days.length - 1 && lIdx === day.legs.length - 1}
-                          onUpdate={(f, v) => updateLeg(day.id, leg.id, f, v)}
-                          onDelete={() => deleteLeg(day.id, leg.id)}
-                          onLinkToggle={() => toggleLink(leg.id)}
-                          currentRates={currentRates}
-                          flights={flights}
-                        />
-
-                      ))}
-                      {day.legs.length === 0 && <div className="no-travel">No travel for this day</div>}
-                    </div>
-                  </SortableContext>
-                  <button className="add-trip-btn" onClick={() => addLeg(dIdx)}>
-                    <Plus size={12} /> ADD TRIP
-                  </button>
-                </div>
-
-                <div className="per-diem-panel">
-                  <div className="mie-header-compact">
-                    <div className="p-label">M&IE</div>
-                    <div className="rate-input-wrap">
-                      <span className="unit">$</span>
-                      <input
-                        type="number"
-                        className="mie-base-inp"
-                        value={day.mieBase}
-                        onChange={e => {
-                          saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                          syncLocationField(day.location, 'mieBase', parseFloat(e.target.value) || 0);
-                        }}
-                      />
-                    </div>
-                    <span className={`day-status ${dIdx === 0 || dIdx === days.length - 1 ? 'q75' : 'full'}`}>
-                      {dIdx === 0 || dIdx === days.length - 1 ? '75%' : '100%'}
-                    </span>
-                    <span className="mie-sep">=</span>
-                    <strong className="mie-net">{formatCurrency(mie, 'USD')}</strong>
-                    <div className="mie-toggle-small" onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, isForeignMie: !d.isForeignMie } : d));
-                    }}>
-                      <span className="icon-emoji">{day.isForeignMie ? '🌍' : '🇺🇸'}</span>
-                    </div>
-                  </div>
-
-                  <div className="meal-controls compact-btns">
-                    <MealChip label="B" active={day.meals.B} cost={getMealCost(day.mieBase, 'B', day.isForeignMie !== false)} onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      const m = { ...day.meals, B: !day.meals.B };
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, meals: m } : d));
-                    }} />
-                    <MealChip label="L" active={day.meals.L} cost={getMealCost(day.mieBase, 'L', day.isForeignMie !== false)} onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      const m = { ...day.meals, L: !day.meals.L };
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, meals: m } : d));
-                    }} />
-                    <MealChip label="D" active={day.meals.D} cost={getMealCost(day.mieBase, 'D', day.isForeignMie !== false)} onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      const m = { ...day.meals, D: !day.meals.D };
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, meals: m } : d));
-                    }} />
-                    <MealChip label="I" active={day.meals.I !== false} cost={getMealCost(day.mieBase, 'I', day.isForeignMie !== false)} onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      const m = { ...day.meals, I: day.meals.I === false };
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, meals: m } : d));
-                    }} />
-                  </div>
-                </div>
-
-                <div className="lodging-panel">
-                  <div className="mie-header-compact">
-                    <div className="p-label">HOTEL</div>
-                    <input
-                      className="hotel-name-inp"
-                      placeholder="Hotel name..."
-                      value={day.hotelName || ''}
-                      onChange={e => {
-                        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                        syncLocationField(day.location, 'hotelName', e.target.value);
-                      }}
-                    />
-                    {day.hotelRate !== null ? (
-                      <button className="delete-leg-btn mini-del" style={{ opacity: 0.8 }} onClick={() => {
-                        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                        setDays(prev => prev.map(d => d.id === day.id ? { ...d, hotelRate: null, hotelTax: 0 } : d));
-                      }}>
-                        <Trash2 size={10} />
-                      </button>
-                    ) : null}
-                    <div className="mie-toggle-small" onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      setDays(prev => prev.map(d => d.id === day.id ? {
-                        ...d,
-                        isForeignHotel: !d.isForeignHotel,
-                        hotelCurrency: !d.isForeignHotel ? altCurrency : 'USD'
-                      } : d));
-                    }}>
-                      <span className="icon-emoji">{day.isForeignHotel ? '🌍' : '🇺🇸'}</span>
-                    </div>
-                  </div>
-
-                  {day.hotelRate !== null ? (
-                    <div className="hotel-header-compact">
-                      <div className="hotel-row">
-                        <span className="h-lab">Room</span>
-                        <div className="h-inp-wrap" style={(!day.isForeignHotel && isOverMax) ? { borderColor: isRedZone ? '#f43f5e' : '#f59e0b', background: isRedZone ? 'rgba(244,63,94,0.15)' : 'rgba(245,158,11,0.15)' } : {}}>
-                          <span className="h-unit">{day.hotelCurrency === 'EUR' ? '€' : (day.hotelCurrency === 'GBP' ? '£' : '$')}</span>
-                          <input
-                            type="number"
-                            value={day.hotelRate === 0 ? '' : day.hotelRate}
-                            placeholder="0"
-                            onChange={e => {
-                              saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                              setDays(prev => prev.map(d => d.id === day.id ? { ...d, hotelRate: parseFloat(e.target.value) || 0 } : d));
-                            }}
-                          />
-                        </div>
-                        <span className="h-op">+</span>
-                        <span className="h-lab">Taxes</span>
-                        <div className="h-inp-wrap">
-                          <span className="h-unit">{day.hotelCurrency === 'EUR' ? '€' : (day.hotelCurrency === 'GBP' ? '£' : '$')}</span>
-                          <input
-                            type="number"
-                            value={day.hotelTax === 0 ? '' : day.hotelTax}
-                            placeholder="0"
-                            onChange={e => {
-                              saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                              setDays(prev => prev.map(d => d.id === day.id ? { ...d, hotelTax: parseFloat(e.target.value) || 0 } : d));
-                            }}
-                          />
-                        </div>
-                        <span className="h-op">=</span>
-                        <span className="hotel-calc-val" style={(day.isForeignHotel && isOverMax) ? { color: isRedZone ? '#f43f5e' : '#f59e0b' } : {}}>
-                          {formatCurrency(hotelTotalUSD, 'USD')}
-                        </span>
-                      </div>
-
-                      <div className="hotel-row" title={day.isForeignHotel !== false ? "FOREIGN RULES: Cap includes taxes" : "DOMESTIC RULES: Cap excludes taxes"}>
-                        <span className="h-lab">Max</span>
-                        <div className="h-inp-wrap" style={{ borderColor: isRedZone ? '#f43f5e' : isOverMax ? '#f59e0b' : 'rgba(34, 197, 94, 0.3)' }}>
-                          <span className="h-unit">$</span>
-                          <input
-                            type="number"
-                            value={day.maxLodging}
-                            onChange={e => {
-                              saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                              syncLocationField(day.location, 'maxLodging', parseFloat(e.target.value) || 0);
-                            }}
-                          />
-                        </div>
-                        <span className="h-op">+</span>
-                        <span className="h-lab">Extra</span>
-                        <div className="h-inp-wrap">
-                          <input
-                            type="number"
-                            value={day.overageCapPercent || 25}
-                            onChange={e => {
-                              saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                              const val = parseFloat(e.target.value) || 0;
-                              setDays(prev => prev.map(d => d.id === day.id ? { ...d, overageCapPercent: val } : d));
-                            }}
-                          />
-                          <span className="h-unit">%</span>
-                        </div>
-                        <span className="h-op">=</span>
-                        <span className="hotel-calc-val">
-                          {formatCurrency(day.maxLodging * (1 + (day.overageCapPercent || 25) / 100), 'USD')}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="no-hotel-placeholder" onClick={() => {
-                      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-                      setDays(prev => prev.map(d => d.id === day.id ? { ...d, hotelRate: 0, hotelTax: 0 } : d));
-                    }}>
-                      <Plus size={12} /> Add Hotel
-                    </div>
-                  )}
-                </div>
-
-
-                <div className="day-total-sum">
-                  {formatCurrency(miesToDayTotal(day, mie, hotelSubtotalRaw, currentRates), 'USD')}
-                </div>
-              </div>
-            );
-          })}
-          <button className="add-day-btn-wide" onClick={addDay}>
-            <Plus size={20} /> ADD DAY
-          </button>
-        </div>
+        </section>
+      </main>
 
         <DragOverlay>
           {activeId ? (
@@ -1448,170 +1371,77 @@ function App() {
       </DndContext>
 
       <style>{`
-        .travel-app { min-height: 100vh; background: #0f172a; padding: 1.5rem 1rem; color: #f8fafc; font-family: 'Outfit', sans-serif; }
-        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); border-radius: 1.25rem; }
+        .travel-app { min-height: 100vh; background: #020617; padding: 1rem; color: #f8fafc; font-family: 'Outfit', sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 1.5rem; }
         
-        .main-header { padding: 1.5rem 2rem; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .header-layout { display: flex; gap: 2rem; justify-content: space-between; align-items: flex-start; }
-        .header-left { flex: 1; min-width: 0; }
-        .header-right { width: 440px; flex-shrink: 0; }
-
-        .header-meta { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem; }
-        .trip-info { display: flex; align-items: flex-end; gap: 2rem; flex: 1; }
-        .trip-name-wrap { display: flex; flex-direction: column; gap: 0.2rem; }
-        .trip-name-input { background: transparent; border: none; font-size: 2rem; font-weight: 900; color: #fff; outline: none; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; width: auto; min-width: 400px; line-height: 1; }
+        .one-column-layout { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
         
-        .trip-dates { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; font-weight: 600; color: #94a3b8; }
-        .date-input-wrap { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); transition: all 0.2s; cursor: text; }
-        .header-date-input { background: transparent; border: none; color: #fff; font-family: inherit; font-size: 0.85rem; font-weight: 700; outline: none; width: 62px; padding: 0; text-align: center; }
-        .calendar-icon-wrap { position: relative; display: flex; align-items: center; cursor: pointer; opacity: 0.4; padding-left: 4px; border-left: 1px solid rgba(255,255,255,0.1); }
-        .date-sep { opacity: 0.3; font-weight: 100; font-size: 1.2rem; }
-        .days-count { color: #6366f1; font-weight: 800; }
+        /* Header Section */
+        .trip-header-section { padding: 1.5rem; text-align: center; }
+        .trip-name-display { background: transparent; border: none; font-size: 1.75rem; font-weight: 900; color: #fff; text-align: center; width: 100%; outline: none; margin-bottom: 0.5rem; }
+        .trip-meta-row { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.9rem; }
+        .trip-dates-display { font-weight: 700; color: #6366f1; }
+        .trip-location-display { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+
+        /* Totals Section */
+        .totals-section { padding: 1.5rem; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .total-row:last-child { border-bottom: none; }
+        .total-label { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .total-value { font-weight: 800; color: #fff; }
+        .main-total { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #6366f1; }
+        .main-total .total-label { font-size: 1rem; color: #fff; }
+        .main-total .total-value { font-size: 1.5rem; color: #6366f1; }
+
+        .section-title { font-size: 0.75rem; font-weight: 900; color: #6366f1; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+
+        /* Flights Panel Overrides */
+        .flight-panel { background: rgba(15, 23, 42, 0.4) !important; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 1.5rem !important; }
         
-        .summary-grid { display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; }
-        .v-divider-summary { width: 1px; height: 20px; background: rgba(255,255,255,0.1); }
-        .stat-box { display: flex; flex-direction: column; align-items: flex-start; min-width: 80px; }
-        .stat-header-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-        .stat-label { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0px; }
+        /* Hotels Section */
+        .hotels-section-panel { padding: 1.5rem; }
+        .hotel-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .hotel-entry-row { display: flex; align-items: center; gap: 1rem; background: rgba(255,255,255,0.03); padding: 0.75rem; border-radius: 0.75rem; }
+        .h-date { font-size: 0.75rem; font-weight: 800; color: #64748b; width: 50px; }
+        .h-name-input { background: transparent; border: none; font-weight: 700; color: #fff; flex: 1; outline: none; font-size: 0.9rem; }
+        .h-price { font-weight: 800; color: #6366f1; }
+
+        /* Timeline Section */
+        .timeline-section-panel { padding: 1.5rem; }
+        .vertical-timeline { position: relative; display: flex; flex-direction: column; border-left: 2px solid rgba(255,255,255,0.05); margin-left: 10px; }
         
-        .stat-value-container { display: flex; align-items: center; gap: 6px; }
-        .stat-mini-toggle { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px; color: #6366f1; font-size: 0.65rem; font-weight: 950; padding: 1px 4px; cursor: pointer; transition: all 0.2s; line-height: 1; height: 16px; display: flex; align-items: center; justify-content: center; }
-        .stat-mini-toggle:hover { background: rgba(99, 102, 241, 0.2); border-color: #6366f1; }
+        .timeline-day-row { display: flex; gap: 1rem; padding: 1.5rem 0; border-bottom: 1px dashed rgba(255,255,255,0.1); position: relative; }
+        .timeline-date-side { width: 50px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start; pt: 0.5rem; gap: 0.5rem; }
+        .tl-dw { font-weight: 900; color: #6366f1; font-size: 0.8rem; text-transform: uppercase; }
+        .tl-dm { font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
+        .tl-add-btn { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: #6366f1; border-radius: 4px; padding: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .tl-add-btn:hover { background: #6366f1; color: #fff; }
+
+        .timeline-hours-container { flex: 1; height: 350px; position: relative; background: rgba(0,0,0,0.1); border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
         
-        .stat-val { font-size: 1.25rem; font-weight: 900; color: #fff; white-space: nowrap; }
-        .stat-box.main .stat-val { color: #6366f1; background: linear-gradient(to bottom, #fff, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 1.65rem; }
+        /* Hotel Settings */
+        .hotel-settings-compact { display: flex; gap: 1rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem; }
+        .h-sett { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; }
+        .mini-inp { background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: #fff; width: 45px; text-align: center; font-weight: 800; }
+        .no-hotels-msg { font-size: 0.8rem; color: #475569; font-style: italic; text-align: center; padding: 1rem; }
+        .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.02); display: flex; align-items: center; }
+        .hour-label { position: absolute; left: -25px; font-size: 0.55rem; color: #475569; font-weight: 700; }
         
-        .stat-input-wrap { display: flex; align-items: center; gap: 4px; }
-        .stat-curr-label { font-size: 0.75rem; font-weight: 800; color: #64748b; margin-left: 2px; }
-        .stat-equiv { font-size: 0.8rem; font-weight: 600; color: #64748b; margin-left: 4px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 8px; }
+        .tl-event { position: absolute; left: 10%; right: 5%; border-radius: 6px; padding: 4px 8px; font-size: 0.7rem; font-weight: 800; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-left: 3px solid #fff; }
+        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-left: 3px solid #4ade80; }
+        .tl-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .stat-input { background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: #fff; font-weight: 900; font-size: 1.25rem; width: 65px; outline: none; padding: 0; }
-        .history-controls { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
-        .icon-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-        .v-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); margin: 0 4px; }
-
-        .x-rate-panel { display: flex; align-items: center; gap: 1rem; }
-        .rate-inputs { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
-        .rate-hint { font-size: 0.75rem; color: #64748b; font-weight: 600; }
-        .custom-rate-input.narrow-dark { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); color: #6366f1; font-weight: 900; font-size: 0.85rem; width: 60px; border-radius: 4px; padding: 2px 6px; outline: none; }
-        .custom-curr-name.narrow-dark { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); color: #fff; font-weight: 900; font-size: 0.85rem; width: 45px; border-radius: 4px; padding: 2px 6px; outline: none; text-transform: uppercase; }
-        .trip-dates .dw { font-size: 0.85rem; font-weight: 800; color: #64748b; margin-right: -4px; }
-
-        .flight-panel { padding: 1rem; border-radius: 1rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); }
-        .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-        .f-title { font-size: 0.7rem; font-weight: 950; color: #6366f1; letter-spacing: 0.1em; display: flex; align-items: center; gap: 6px; }
-        .f-total-wrap { display: flex; align-items: center; gap: 8px; }
-        .f-total-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; }
-        .f-total-inp-wrap { display: flex; align-items: center; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px; padding: 2px 6px; }
-        .f-total-val { color: #fff; font-weight: 900; font-size: 0.9rem; width: 70px; text-align: right; }
-
-        .f-list { display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 0.75rem; max-height: 400px; overflow-y: auto; padding-right: 4px; }
-        .f-list::-webkit-scrollbar { width: 4px; }
-        .f-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-        .flight-group { background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
-        .f-group-header { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .f-grip-group { cursor: grab; opacity: 0.3; }
-        .f-inp.g-air { font-weight: 900; width: 120px; font-size: 0.85rem; }
-        .f-inp.g-conf { font-weight: 700; color: #94a3b8; width: 80px; font-size: 0.8rem; }
-        .f-cost-wrap { display: flex; align-items: center; gap: 2px; margin-left: auto; background: rgba(0,0,0,0.2); padding: 1px 6px; border-radius: 4px; }
-        .f-inp.g-cost { width: 60px; text-align: right; color: #6366f1; font-weight: 900; }
-        .f-del-group { background: transparent; border: none; color: #f43f5e; opacity: 0.5; cursor: pointer; }
-
-        .f-segments-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
-        .f-segment { display: flex; flex-direction: column; gap: 2px; padding: 4px 6px; border-radius: 6px; transition: background 0.2s; }
-        .f-segment:hover { background: rgba(255,255,255,0.02); }
-        .f-seg-main { display: flex; align-items: center; gap: 12px; }
-        .f-seg-info { display: flex; align-items: center; gap: 4px; width: 65px; flex-shrink: 0; }
-        .f-seg-routes { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-        .f-row-line { display: flex; align-items: center; gap: 12px; }
-
-        .f-inp { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 1px 2px; }
-        .f-inp::placeholder { color: #475569; font-weight: 400; font-size: 0.7rem; }
-        
-        .f-inp.s-code { width: 22px; color: #6366f1; font-weight: 950; text-transform: uppercase; }
-        .f-inp.s-num { width: 35px; }
-        .f-inp.s-date { width: 85px; color: #94a3b8; }
-        .f-inp.s-time { width: 55px; text-align: right; }
-        .f-inp.s-port { width: 40px; font-weight: 900; color: #fff; text-transform: uppercase; }
-        
-        .f-seg-del { margin-left: auto; visibility: hidden; background: transparent; border: none; color: #f43f5e; padding: 2px; opacity: 0.5; }
-        .f-segment:hover .f-seg-del { visibility: visible; }
-        
-        .f-layover { font-size: 0.65rem; color: #64748b; font-style: italic; padding-left: 77px; margin: 0px 0 4px 0; }
-
-        .f-add-seg { background: transparent; border: 1px dashed rgba(255,255,255,0.05); color: #64748b; font-size: 0.6rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; align-self: flex-start; margin-top: 4px; }
-        .f-add-seg:hover { border-color: #6366f1; color: #fff; }
-
-        .f-add-btn { background: transparent; border: 1px dashed rgba(255,255,255,0.1); color: #94a3b8; width: 100%; padding: 6px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
-        .f-add-btn:hover { border-color: #6366f1; color: #fff; background: rgba(99, 102, 241, 0.05); }
-
-
-        .themed-select-wrap { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px; padding-left: 4px; }
-        .themed-select { background: transparent; border: none; color: #fff; font-size: 0.75rem; font-weight: 700; outline: none; padding: 2px; cursor: pointer; }
-
-        .day-card { display: grid; grid-template-columns: 80px 1.4fr 180px 320px 140px; gap: 1rem; padding: 1.25rem 1rem; align-items: center; width: 100%; border-radius: 1.25rem; }
-        .travel-rail { min-width: 400px; }
-        
-        .leg-content { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
-        .place-item.compact { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 4px; width: 105px; flex-shrink: 0; }
-        .leg-input-text-compact { background: transparent; border: none; font-size: 0.8rem; color: #fff; width: 100%; outline: none; font-weight: 700; }
-        
-        .mode-box-compact { display: flex; align-items: center; flex-shrink: 0; }
-        .leg-type-select-compact { font-size: 0.8rem !important; padding: 2px 4px !important; min-width: 90px; }
-
-        .leg-money-compact { display: flex; align-items: center; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); gap: 4px; flex-shrink: 0; }
-        .leg-amount-input-compact { background: transparent; border: none; color: #fff; font-weight: 900; font-size: 0.85rem; width: 45px; outline: none; text-align: right; }
-        .leg-curr-label { font-size: 0.75rem; font-weight: 950; color: #6366f1; width: 12px; }
-        .leg-calc-val { font-size: 0.7rem; font-weight: 900; color: #64748b; min-width: 50px; flex-shrink: 0; }
-
-        .leg-actions-compact { display: flex; gap: 4px; align-items: center; margin-left: auto; }
-        .delete-leg-btn-compact { color: #f43f5e; opacity: 0.3; }
-
-        .legs-stack { display: flex; flex-direction: column; gap: 0.4rem; min-height: 44px; }
-        .travel-leg-item { background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 0.6rem; border: 1px solid rgba(255,255,255,0.04); transition: border-color 0.2s; }
-        .drag-handle { cursor: grab; opacity: 0.2; }
-
-        .per-diem-panel, .lodging-panel { background: rgba(255,255,255,0.01); border-radius: 12px; padding: 0.6rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; }
-        .mie-header-compact { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 800; color: #6366f1; margin-bottom: 0.4rem; white-space: nowrap; }
-        .rate-input-wrap { display: flex; align-items: center; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
-        .mie-base-inp { background: transparent; border: none; color: #fff; font-weight: 900; font-size: 0.85rem; width: 35px; outline: none; text-align: center; }
-
-        .hotel-header-compact { display: flex; flex-direction: column; gap: 0.4rem; }
-        .hotel-row { display: grid; grid-template-columns: 40px 75px 15px 45px 75px 10px 1fr; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 800; color: #64748b; white-space: nowrap; }
-        .h-lab { font-size: 0.65rem; text-transform: uppercase; opacity: 0.7; }
-        .h-op { text-align: center; opacity: 0.4; font-weight: 400; }
-        .h-inp-wrap { display: flex; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; padding: 0 4px; height: 24px; transition: all 0.2s; }
-        .h-inp-wrap:focus-within { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
-        .h-inp-wrap input { background: transparent; border: none; color: #fff; font-weight: 900; font-size: 0.8rem; width: 100%; outline: none; padding: 0; }
-        .h-unit { font-size: 0.7rem; color: #6366f1; font-weight: 900; margin-right: 2px; flex-shrink: 0; }
-        .hotel-calc-val { font-size: 0.85rem; font-weight: 950; color: #6366f1; text-align: right; }
-        .hotel-name-inp { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; color: #fff; font-size: 0.75rem; font-weight: 900; outline: none; width: 140px; padding: 2px 6px; }
-        .hotel-name-inp:focus { border-color: #6366f1; }
-
-        .meal-controls { display: flex; gap: 0.25rem; }
-        .meal-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); padding: 3px 0; border-radius: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); flex: 1; min-height: 32px; }
-        .meal-chip.active { background: #6366f1; border-color: transparent; }
-        .meal-chip .l { font-weight: 950; font-size: 0.65rem; color: #fff; line-height: 1; }
-        .meal-chip .c { font-size: 0.5rem; color: #fff; opacity: 0.8; font-weight: 700; margin-top: 1px; }
-
-        .no-travel { font-size: 0.7rem; color: #64748b; font-style: italic; opacity: 0.5; padding: 0.75rem; border: 1px dashed rgba(255,255,255,0.05); border-radius: 6px; text-align: center; cursor: default; flex: 1; display: flex; align-items: center; justify-content: center; }
-        .add-day-btn-wide { background: rgba(99, 102, 241, 0.1); border: 1px dashed rgba(99, 102, 241, 0.4); color: #6366f1; padding: 1.25rem; border-radius: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 900; letter-spacing: 0.1em; transition: all 0.2s; margin-top: 1rem; width: 100%; }
-        .day-total-sum { text-align: right; font-size: 1.5rem; font-weight: 950; color: #6366f1; align-self: center; background: linear-gradient(to bottom, #fff, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; min-width: 120px; }
-
-        .add-trip-btn { background: transparent; border: 1.25px dashed rgba(255,255,255,0.1); color: #64748b; border-radius: 6px; padding: 6px; width: 100%; margin-top: 0.6rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.05em; transition: all 0.2s; }
-
-        .x-rate-panel { display: flex; align-items: center; gap: 1rem; }
-        .use-alt-toggle { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
-        .custom-rate-input { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); color: #6366f1; font-weight: 900; font-size: 0.85rem; width: 60px; border-radius: 4px; padding: 2px 6px; outline: none; }
-
-        .leg-layover-faint { font-size: 0.65rem; color: #64748b; font-style: italic; margin-top: -4px; margin-bottom: 4px; padding-left: 24px; opacity: 0.8; }
-        .leg-money-compact.grayed { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+        .timeline-mie-side { width: 80px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+        .tl-mie-total { font-weight: 900; color: #6366f1; font-size: 0.9rem; }
+        .tl-mie-stack { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+        .tl-meal-chip { height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.75rem; font-weight: 900; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+        .tl-meal-chip.active { background: #6366f1; color: #fff; border-color: transparent; box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3); }
 
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
       `}</style>
-    </div>
+    </div >
   );
 }
 
