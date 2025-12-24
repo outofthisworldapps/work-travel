@@ -1036,30 +1036,7 @@ function App() {
   }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory]);
 
 
-  const totals = useMemo(() => {
-    const base = days.reduce((acc, d, idx) => {
-      const mie = calculateMIE(idx, days.length, d.mieBase, d.meals, d.isForeignMie !== false);
-      let travel = 0;
-      d.legs.forEach(l => travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', currentRates));
 
-      const hotelTotal = d.hotelRate + d.hotelTax;
-      const hotelInUSD = convertCurrency(hotelTotal, d.hotelCurrency || 'USD', 'USD', currentRates);
-
-      acc.travel += travel;
-      acc.mie += mie;
-      acc.lodging += hotelInUSD;
-      return acc;
-    }, { travel: 0, mie: 0, lodging: 0 });
-
-    const registrationInUSD = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);
-
-    return {
-      ...base,
-      fees: registrationInUSD,
-      flights: flightTotal,
-      grand: base.travel + base.mie + base.lodging + registrationInUSD + flightTotal
-    };
-  }, [days, registrationFee, registrationCurrency, flightTotal, currentRates]);
 
   const handleDateRangeChange = (newStart, newEnd) => {
     saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
