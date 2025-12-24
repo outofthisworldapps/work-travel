@@ -1182,7 +1182,6 @@ function App() {
               onUpdate={updateFlight}
               onDelete={deleteFlight}
               onAdd={addFlightLeg}
-              onTotalChange={setFlightTotal}
               dragEndHandler={handleFlightDragEnd}
             />
           </div>
