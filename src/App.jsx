@@ -383,8 +383,14 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
   let depDate = new Date();
   let arrDate = new Date();
   try {
-    if (segment.depDate) depDate = parse(segment.depDate, 'M/d/yy', new Date());
-    if (segment.arrDate) arrDate = parse(segment.arrDate, 'M/d/yy', new Date());
+    if (segment.depDate) {
+      const p = parse(segment.depDate, 'M/d/yy', new Date());
+      if (!isNaN(p.getTime())) depDate = p;
+    }
+    if (segment.arrDate) {
+      const p = parse(segment.arrDate, 'M/d/yy', new Date());
+      if (!isNaN(p.getTime())) arrDate = p;
+    }
   } catch (e) { }
 
   const handleDateChange = (field, date) => {
@@ -626,20 +632,31 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 // --- Components ---
 
 const DateInput = ({ value, onChange, className, displayFormat = 'EEE M/d/yy' }) => {
-  const [localValue, setLocalValue] = useState(format(value, displayFormat));
+  const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+
+  const getFormattedValue = (date) => {
+    if (!isValidDate(date)) return '';
+    try {
+      return format(date, displayFormat);
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const [localValue, setLocalValue] = useState(getFormattedValue(value));
   const dateInputRef = React.useRef(null);
 
   React.useEffect(() => {
-    setLocalValue(format(value, displayFormat));
+    setLocalValue(getFormattedValue(value));
   }, [value, displayFormat]);
 
   const commit = () => {
     if (!localValue) {
-      setLocalValue(format(value, displayFormat));
+      setLocalValue(getFormattedValue(value));
       return;
     }
     const formats = [
-      'MM/dd/yy', 'M/d/yy', 'MM-dd-yy', 'M-d-yy', 'yyyy-MM-dd',
+      'EEE M/d/yy', 'MM/dd/yy', 'M/d/yy', 'MM-dd-yy', 'M-d-yy', 'yyyy-MM-dd',
       'MMM d, yyyy', 'MMM d, yy', 'MMM d', 'MMMM d', 'MMMM d, yyyy',
       'EEE MM/dd/yy', 'EEE MMM d'
     ];
@@ -658,7 +675,7 @@ const DateInput = ({ value, onChange, className, displayFormat = 'EEE M/d/yy' })
       if (parsed.getFullYear() < 100) parsed.setFullYear(2000 + parsed.getFullYear());
       onChange(parsed);
     } else {
-      setLocalValue(format(value, displayFormat));
+      setLocalValue(getFormattedValue(value));
     }
   };
 
