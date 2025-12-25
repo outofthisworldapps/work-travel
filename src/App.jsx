@@ -97,9 +97,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     <div className="timeline-day-row">
       <div className="timeline-date-side">
         <div className="tl-dw">{format(day.date, 'EEE')}</div>
-        <div className="tl-dm">{format(day.date, 'MMM d')}</div>
+        <div className="tl-dm">{format(day.date, 'M/d/yy')}</div>
         <button className="tl-add-btn" onClick={() => onAddLeg(dayIndex)} title="Add travel leg to this day">
-          <Plus size={10} />
+          <Plus size={12} />
         </button>
       </div>
 
@@ -162,6 +162,31 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               }}
             >
               <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
+            </div>
+          );
+        })}
+
+        {/* Travel Legs (Uber, etc.) */}
+        {day.legs.map(l => {
+          if (!l.time || l.type === 'flight') return null;
+          const start = parseTime(l.time);
+          if (start === null) return null;
+
+          return (
+            <div
+              key={l.id}
+              className="tl-event travel-event"
+              style={{
+                top: `${getPosition(start)}%`,
+                height: '20px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: '#818cf8',
+                border: '1px solid rgba(99, 102, 241, 0.3)'
+              }}
+            >
+              <div className="tl-event-label">
+                {l.type === 'uber' ? '🚕' : (l.type === 'drive' ? '🚗' : '📍')} {l.from}→{l.to} {l.amount > 0 ? `(${formatCurrency(l.amount, l.currency || 'USD')})` : ''}
+              </div>
             </div>
           );
         })}
@@ -288,14 +313,25 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
           {isLockedEnd ? <span className="locked-icon">🏠</span> : (leg.to.toLowerCase().includes('hotel') ? <span className="locked-icon">🏨</span> : null)}
         </div>
 
+        <input
+          className="f-inp s-time h-time-col"
+          value={leg.time || ''}
+          onChange={e => onUpdate('time', e.target.value)}
+          placeholder="Time"
+        />
+
         {leg.type === 'flight' && leg.layover && (
           <div className="leg-layover-faint">via {leg.layover}</div>
         )}
 
         <div className="leg-money-compact">
-          <div className="leg-foreign-wrap" onClick={() => onUpdate('isForeign', !leg.isForeign)}>
-            <span className="icon-emoji">{leg.isForeign ? '🌍' : '🇺🇸'}</span>
-          </div>
+          <button
+            className={`currency-toggle-mini ${leg.isForeign ? 'active' : ''}`}
+            onClick={() => onUpdate('isForeign', !leg.isForeign)}
+            title="Toggle Foreign/Domestic"
+          >
+            {leg.isForeign ? <Globe size={11} /> : <span className="unit-mini">$</span>}
+          </button>
           <input
             type="number"
             className="leg-amount-input-compact"
@@ -303,7 +339,6 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
             onChange={(e) => onUpdate('amount', parseFloat(e.target.value) || 0)}
             disabled={leg.type === 'flight'}
           />
-          <span className="leg-curr-label">{leg.currency === 'USD' ? '$' : (leg.currency === 'EUR' ? '€' : (leg.currency === 'GBP' ? '£' : leg.currency))}</span>
         </div>
 
         {calculatedUSD !== null && (
@@ -369,13 +404,13 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
           }}
           placeholder="FI 642"
         />
-        <input className="f-inp s-date" value={segment.depDate || ''} onChange={e => onUpdate('depDate', e.target.value)} placeholder="8/16/26" />
+        <DateInput value={depDate} onChange={(d) => handleDateChange('depDate', d)} className="s-date" />
         <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
         <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
         <span className="seg-arrow">→</span>
         <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
         <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
-        <input className="f-inp s-date" value={segment.arrDate || ''} onChange={e => onUpdate('arrDate', e.target.value)} placeholder="8/17/26" />
+        <DateInput value={arrDate} onChange={(d) => handleDateChange('arrDate', d)} className="s-date" />
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={10} /></button>
       </div>
       {layover && (
@@ -396,7 +431,7 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
     if (!s1 || !s2 || !s1.arrDate || !s1.arrTime || !s2.depDate || !s2.depTime) return null;
     try {
       const parseDateTime = (dateStr, timeStr) => {
-        const d = parse(dateStr, 'EEE MMM d', new Date());
+        const d = parse(dateStr, 'M/d/yy', new Date());
         let t = timeStr.toLowerCase().replace(' ', '');
         let meridiem = t.slice(-1);
         let time = t.slice(0, -1);
@@ -590,7 +625,7 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 // --- Components ---
 
-const DateInput = ({ value, onChange, className, displayFormat = 'M/d/yy' }) => {
+const DateInput = ({ value, onChange, className, displayFormat = 'EEE M/d/yy' }) => {
   const [localValue, setLocalValue] = useState(format(value, displayFormat));
   const dateInputRef = React.useRef(null);
 
@@ -1204,7 +1239,36 @@ function App() {
   const handleStartDateChange = (newStart) => {
     saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
     const diff = differenceInDays(newStart, days[0].date);
+    if (diff === 0) return;
+
+    // Shift days
     setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
+
+    // Shift flights
+    setFlights(prev => prev.map(f => ({
+      ...f,
+      segments: (f.segments || []).map(s => {
+        const updateSegDate = (dateStr) => {
+          if (!dateStr) return '';
+          try {
+            const d = parse(dateStr, 'M/d/yy', new Date());
+            return format(addDays(d, diff), 'M/d/yy');
+          } catch (e) { return dateStr; }
+        };
+        return {
+          ...s,
+          depDate: updateSegDate(s.depDate),
+          arrDate: updateSegDate(s.arrDate)
+        };
+      })
+    })));
+
+    // Shift hotels
+    setHotels(prev => prev.map(h => ({
+      ...h,
+      checkIn: addDays(h.checkIn, diff),
+      checkOut: addDays(h.checkOut, diff)
+    })));
   };
 
   const handleEndDateChange = (newEnd) => {
@@ -1314,6 +1378,76 @@ function App() {
     }
   };
 
+  // Auto-populate Travel Legs based on Flights
+  React.useEffect(() => {
+    setDays(prevDays => {
+      let changed = false;
+      const nextDays = prevDays.map((day, dIdx) => {
+        const dayStr = format(day.date, 'M/d/yy');
+        const newLegs = [...day.legs];
+
+        flights.forEach(flight => {
+          (flight.segments || []).forEach(seg => {
+            // Uber to airport (2 hours before dep)
+            if (seg.depDate === dayStr) {
+              const hasUberTo = newLegs.some(l => l.type === 'uber' && l.to === seg.depPort);
+              if (!hasUberTo) {
+                const origin = dIdx === 0 ? 'Home' : 'Hotel';
+                // Calculate time: 2 hours before flight
+                const flTime = parseTime(seg.depTime);
+                let uberTime = '8:00a';
+                if (flTime !== null) {
+                  const uT = (flTime - 2 + 24) % 24;
+                  const h = Math.floor(uT);
+                  const m = Math.round((uT - h) * 60);
+                  const period = h >= 12 ? 'p' : 'a';
+                  const dispH = h % 12 || 12;
+                  uberTime = `${dispH}:${m.toString().padStart(2, '0')}${period}`;
+                }
+
+                newLegs.push({
+                  id: generateId(),
+                  from: origin,
+                  to: seg.depPort,
+                  type: 'uber',
+                  time: uberTime,
+                  amount: 25,
+                  currency: 'USD',
+                  isForeign: false
+                });
+                changed = true;
+              }
+            }
+            // Uber from airport to hotel/home (on arrival)
+            if (seg.arrDate === dayStr) {
+              const hasUberFrom = newLegs.some(l => l.type === 'uber' && l.from === seg.arrPort);
+              if (!hasUberFrom) {
+                const dest = dIdx === prevDays.length - 1 ? 'Home' : 'Hotel';
+                newLegs.push({
+                  id: generateId(),
+                  from: seg.arrPort,
+                  to: dest,
+                  type: 'uber',
+                  time: seg.arrTime || '12:00p',
+                  amount: 25,
+                  currency: 'USD',
+                  isForeign: false
+                });
+                changed = true;
+              }
+            }
+          });
+        });
+
+        if (changed) return { ...day, legs: newLegs };
+        return day;
+      });
+
+      if (changed) return nextDays;
+      return prevDays;
+    });
+  }, [flights]);
+
   // Auto-populate Hotels based on Flights
   React.useEffect(() => {
     setDays(prevDays => {
@@ -1322,7 +1456,6 @@ function App() {
         tax: prevDays.find(d => d.hotelTax > 0)?.hotelTax || 25,
         currency: prevDays.find(d => d.hotelCurrency)?.hotelCurrency || 'USD'
       });
-      // Only update if something actually changed to avoid loops
       if (JSON.stringify(updatedDays) !== JSON.stringify(prevDays)) {
         return updatedDays;
       }
@@ -1422,28 +1555,49 @@ function App() {
             </div>
             <div className="totals-grid">
               <div className="stat-card">
-                <CreditCard size={12} />
-                <span className="stat-label">REGISTRATION</span>
-                <span className="stat-value">{formatCurrency(registrationFee, 'USD')}</span>
+                <div className="stat-header">
+                  <CreditCard size={12} />
+                  <span className="stat-label">REGISTRATION</span>
+                  <button
+                    className={`currency-toggle-mini ${registrationCurrency !== 'USD' ? 'active' : ''}`}
+                    onClick={() => setRegistrationCurrency(prev => prev === 'USD' ? altCurrency : 'USD')}
+                  >
+                    {registrationCurrency !== 'USD' ? <Globe size={11} /> : <span className="unit-mini">$</span>}
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  className="stat-inp"
+                  value={registrationFee}
+                  onChange={e => setRegistrationFee(parseFloat(e.target.value) || 0)}
+                />
               </div>
               <div className="stat-card">
-                <Plane size={12} />
-                <span className="stat-label">FLIGHTS</span>
+                <div className="stat-header">
+                  <Plane size={12} />
+                  <span className="stat-label">FLIGHTS</span>
+                </div>
                 <span className="stat-value">{formatCurrency(totals.flights, 'USD')}</span>
               </div>
               <div className="stat-card">
-                <Hotel size={12} />
-                <span className="stat-label">HOTELS</span>
+                <div className="stat-header">
+                  <Hotel size={12} />
+                  <span className="stat-label">HOTELS</span>
+                </div>
                 <span className="stat-value">{formatCurrency(totals.lodging, 'USD')}</span>
               </div>
               <div className="stat-card">
-                <Utensils size={12} />
-                <span className="stat-label">M&IE</span>
+                <div className="stat-header">
+                  <Utensils size={12} />
+                  <span className="stat-label">M&IE</span>
+                </div>
                 <span className="stat-value">{formatCurrency(totals.mie, 'USD')}</span>
               </div>
               <div className="stat-card">
-                <Car size={12} />
-                <span className="stat-label">TRANSPORT</span>
+                <div className="stat-header">
+                  <Navigation size={12} />
+                  <span className="stat-label">TRAVEL</span>
+                </div>
                 <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
               </div>
             </div>
@@ -1518,7 +1672,7 @@ function App() {
         body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
         
         .travel-app { min-height: 100vh; background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%); padding: 2rem 1rem; }
-        .one-column-layout { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+        .one-column-layout { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
         .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
 
         /* Header */
@@ -1541,14 +1695,18 @@ function App() {
 
         /* Totals */
         .totals-section { padding: 1.5rem; }
-        .main-total-card { margin-bottom: 1.5rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
-        .main-total-card .total-label { font-size: 0.75rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
-        .main-total-card .total-value { font-size: 2.5rem; font-weight: 950; color: #fff; text-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
-        .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem; }
-        .stat-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 1rem; padding: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .stat-label { font-size: 0.55rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.05em; }
-        .stat-value { font-size: 0.85rem; font-weight: 850; color: #fff; }
-        .stat-card svg { color: var(--accent); margin-bottom: 2px; }
+        .main-total-card { margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+        .main-total-card .total-label { font-size: 0.8rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .main-total-card .total-value { font-size: 3rem; font-weight: 1000; color: #fff; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); letter-spacing: -0.02em; }
+        
+        .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; }
+        .stat-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; }
+        .stat-card:hover { border-color: rgba(99, 102, 241, 0.3); background: rgba(0,0,0,0.4); }
+        .stat-header { display: flex; align-items: center; gap: 6px; width: 100%; }
+        .stat-label { font-size: 0.65rem; font-weight: 900; color: var(--subtext); flex: 1; letter-spacing: 0.05em; }
+        .stat-value { font-size: 1rem; font-weight: 950; color: #fff; }
+        .stat-inp { background: transparent; border: none; color: #fff; font-size: 1rem; font-weight: 950; width: 100%; outline: none; padding: 0; }
+        .stat-card svg { color: var(--accent); }
 
         /* Shared Form Styling - darker inputs */
         .f-inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 6px; color: #94a3b8; outline: none; font-size: 0.75rem; transition: all 0.2s; }
@@ -1612,36 +1770,36 @@ function App() {
         .header-date-input { background: transparent !important; border: none !important; color: var(--accent) !important; font-weight: 800 !important; font-size: 0.85rem !important; width: 65px !important; text-align: center !important; cursor: pointer; }
 
         /* Timeline */
-        .timeline-section-panel { padding: 1rem; background: var(--glass); border-radius: 1rem; border: 1px solid var(--border); }
-        .section-title { font-size: 0.7rem; font-weight: 900; color: var(--accent); letter-spacing: 0.08em; display: flex; align-items: center; gap: 6px; margin-bottom: 0.75rem; }
-        .vertical-timeline { display: flex; flex-direction: column; gap: 0; }
+        .timeline-section-panel { padding: 1.5rem 1rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }
+        .section-title { font-size: 0.75rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+        .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 600px; }
         
-        .timeline-day-row { display: flex; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .timeline-day-row { display: flex; gap: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.02); position: relative; min-height: 120px; }
         .timeline-day-row:last-child { border-bottom: none; }
-        .timeline-date-side { width: 50px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .tl-dw { font-weight: 900; color: var(--accent); font-size: 0.65rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.6rem; color: #64748b; font-weight: 600; }
-        .tl-add-btn { background: transparent; border: 1px dashed rgba(99, 102, 241, 0.3); color: #6366f1; border-radius: 4px; padding: 2px 4px; cursor: pointer; margin-top: 4px; font-size: 0.6rem; }
-        .tl-add-btn:hover { background: rgba(99, 102, 241, 0.1); border-color: var(--accent); }
+        .timeline-date-side { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1rem; gap: 4px; }
+        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.75rem; text-transform: uppercase; }
+        .tl-dm { font-size: 0.65rem; color: var(--subtext); font-weight: 800; }
+        .tl-add-btn { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--accent); border-radius: 6px; padding: 4px; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+        .tl-add-btn:hover { background: var(--accent); color: white; }
 
-        .timeline-hours-container { flex: 1; height: 100px; position: relative; background: rgba(0,0,0,0.15); border-radius: 6px; overflow: hidden; }
+        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); overflow: hidden; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.03); }
-        .hour-label { position: absolute; left: 4px; font-size: 0.45rem; color: #475569; font-weight: 700; }
+        .hour-label { position: absolute; left: 6px; font-size: 0.5rem; color: #475569; font-weight: 900; transform: translateY(-50%); text-transform: uppercase; }
         
-        .tl-event { position: absolute; left: 2px; right: 2px; border-radius: 3px; padding: 2px 6px; font-size: 0.55rem; font-weight: 800; overflow: hidden; display: flex; align-items: center; min-height: 16px; }
-        .tl-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .flight-event { background: linear-gradient(135deg, #6366f1, #4338ca); color: #fff; }
-        .hotel-event { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .tl-event { position: absolute; left: 4px; right: 4px; border-radius: 6px; padding: 4px 10px; font-size: 0.65rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); }
+        .tl-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+        .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
 
-        .timeline-mie-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-        .tl-mie-header { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
-        .tl-mie-total { font-weight: 900; color: var(--accent); font-size: 0.7rem; }
-        .tl-mie-75 { font-size: 0.5rem; font-weight: 900; color: #f97316; background: rgba(249, 115, 22, 0.15); padding: 1px 4px; border-radius: 3px; }
-        .tl-mie-stack { display: flex; flex-direction: column; gap: 1px; width: 100%; }
-        .tl-meal-chip { height: 16px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 3px; cursor: pointer; }
-        .tl-meal-chip.active { background: var(--accent); border-color: transparent; }
-        .tl-m-label { font-size: 0.5rem; font-weight: 900; color: #64748b; }
-        .tl-m-price { font-size: 0.45rem; font-weight: 700; color: #475569; }
+        .timeline-mie-side { width: 85px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1rem; padding-right: 0.5rem; gap: 4px; }
+        .tl-mie-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.85rem; }
+        .tl-mie-75 { font-size: 0.55rem; font-weight: 900; color: #f97316; background: rgba(249, 115, 22, 0.2); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(249, 115, 22, 0.3); }
+        .tl-mie-stack { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+        .tl-meal-chip { height: 22px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .tl-meal-chip.active { background: var(--accent); border-color: transparent; box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
+        .tl-m-label { font-size: 0.6rem; font-weight: 950; color: #64748b; }
+        .tl-m-price { font-size: 0.55rem; font-weight: 850; color: #475569; }
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
 
         /* Travel Legs */
