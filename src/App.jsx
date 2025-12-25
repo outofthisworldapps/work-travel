@@ -693,8 +693,10 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           onChange={e => {
             const val = e.target.value;
             setMon(val);
-            if (val.length === 2) dayRef.current?.focus();
-            if (val.length >= 1) commitParts(val, day, year);
+            if (val.length === 2) {
+              dayRef.current?.focus();
+              commitParts(val, day, year);
+            }
           }}
           onBlur={() => commitParts(mon, day, year)}
           onFocus={handleFocus}
@@ -708,8 +710,10 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           onChange={e => {
             const val = e.target.value;
             setDay(val);
-            if (val.length === 2) yearRef.current?.focus();
-            if (val.length >= 1) commitParts(mon, val, year);
+            if (val.length === 2) {
+              yearRef.current?.focus();
+              commitParts(mon, val, year);
+            }
           }}
           onBlur={() => commitParts(mon, day, year)}
           onFocus={handleFocus}
@@ -723,7 +727,9 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           onChange={e => {
             const val = e.target.value;
             setYear(val);
-            if (val.length >= 2) commitParts(mon, day, val);
+            if (val.length === 2) {
+              commitParts(mon, day, val);
+            }
           }}
           onBlur={() => commitParts(mon, day, year)}
           onFocus={handleFocus}
@@ -1735,9 +1741,9 @@ function App() {
         .trip-header-section { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
         .trip-header-main { flex: 1; }
         .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
-        .trip-meta-row { display: flex; align-items: center; gap: 1.5rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
-        .trip-dates-wrap { display: flex; align-items: center; gap: 0.75rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
-        .date-sep { opacity: 0.3; font-weight: 300; }
+        .trip-meta-row { display: flex; align-items: center; gap: 2rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
+        .trip-dates-wrap { display: flex; align-items: center; gap: 1rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
+        .date-sep { opacity: 0.3; font-weight: 300; margin: 0 4px; }
         .day-count { background: var(--accent); color: white; padding: 2px 10px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
 
         /* Segmented Date Input */
@@ -1867,7 +1873,7 @@ function App() {
         .calendar-trigger { cursor: pointer; color: #64748b; padding: 2px; display: flex; align-items: center; }
         .calendar-trigger:hover { color: var(--accent); }
         .hidden-date-picker { visibility: hidden; width: 0; height: 0; position: absolute; }
-        .header-date-input { background: transparent !important; border: none !important; color: var(--accent) !important; font-weight: 800 !important; font-size: 0.85rem !important; width: 65px !important; text-align: center !important; cursor: pointer; }
+        .header-date-input { background: transparent !important; border: none !important; cursor: pointer; }
 
         /* Timeline */
         .timeline-section-panel { padding: 1.5rem 1rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }
