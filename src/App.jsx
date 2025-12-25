@@ -53,9 +53,25 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
   const dayFlights = [];
   flights.forEach(f => {
     (f.segments || []).forEach(s => {
-      // Try to match segment dates with day
-      const segDepDate = s.depDate ? format(parse(s.depDate, 'M/d/yy', new Date()), 'yyyy-MM-dd') : null;
-      const segArrDate = s.arrDate ? format(parse(s.arrDate, 'M/d/yy', new Date()), 'yyyy-MM-dd') : null;
+      // Try to match segment dates with day - safely parse dates
+      let segDepDate = null;
+      let segArrDate = null;
+      try {
+        if (s.depDate) {
+          const parsed = parse(s.depDate, 'M/d/yy', new Date());
+          if (!isNaN(parsed.getTime())) {
+            segDepDate = format(parsed, 'yyyy-MM-dd');
+          }
+        }
+        if (s.arrDate) {
+          const parsed = parse(s.arrDate, 'M/d/yy', new Date());
+          if (!isNaN(parsed.getTime())) {
+            segArrDate = format(parsed, 'yyyy-MM-dd');
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
       if (segDepDate === dayStr || segArrDate === dayStr) {
         dayFlights.push({ ...s, parentFlight: f, segDepDate, segArrDate, dayStr });
       }
