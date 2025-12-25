@@ -35,11 +35,18 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- Vertical Timeline Components ---
 
-const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, checkInTime, checkOutTime }) => {
+const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels }) => {
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   // Calculate M&IE components
   const mieTotal = calculateMIE(dayIndex, totalDays, day.mieBase, day.meals, day.isForeignMie);
+
+  // Get individual meal costs
+  const getMealPrice = (meal) => {
+    const isFirstOrLast = totalDays > 1 && (dayIndex === 0 || dayIndex === totalDays - 1);
+    const dayFactor = isFirstOrLast ? 0.75 : 1.0;
+    return getMealCost(day.mieBase, meal, day.isForeignMie) * dayFactor;
+  };
 
   // Find flight segments for this day
   const dayStr = format(day.date, 'EEE MMM d');
@@ -67,9 +74,6 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   const getPosition = (time) => (time / 24) * 100;
 
-  const checkInPos = parseTime(checkInTime) || 14;
-  const checkOutPos = parseTime(checkOutTime) || 11;
-
   return (
     <div className="timeline-day-row">
       <div className="timeline-date-side">
@@ -83,7 +87,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
       <div className="timeline-hours-container">
         {hours.map(h => (
           <div key={h} className="hour-line" style={{ top: `${(h / 24) * 100}%` }}>
-            <span className="hour-label">{h % 12 || 12}{h < 12 ? 'a' : 'p'}</span>
+            {h % 6 === 0 && (
+              <span className="hour-label">{h % 12 || 12}{h < 12 ? 'a' : 'p'}</span>
+            )}
           </div>
         ))}
 
@@ -107,32 +113,37 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           );
         })}
 
-        {/* Hotel Boxes */}
-        {day.hotelRate !== null && (
-          <>
+        {/* Hotel Boxes from Bookings */}
+        {hotels.map(h => {
+          const checkInDate = format(h.checkIn, 'yyyy-MM-dd');
+          const checkOutDate = format(h.checkOut, 'yyyy-MM-dd');
+          const currDate = format(day.date, 'yyyy-MM-dd');
+
+          const isCheckInDay = checkInDate === currDate;
+          const isCheckOutDay = checkOutDate === currDate;
+          const isMidStay = currDate > checkInDate && currDate < checkOutDate;
+
+          if (!isCheckInDay && !isCheckOutDay && !isMidStay) return null;
+
+          let start = 0;
+          let end = 23.99;
+
+          if (isCheckInDay) start = parseTime(h.checkInTime) || 14;
+          if (isCheckOutDay) end = parseTime(h.checkOutTime) || 11;
+
+          return (
             <div
+              key={h.id}
               className="tl-event hotel-event"
               style={{
-                top: `${getPosition(checkInPos)}%`,
-                height: `${getPosition(24) - getPosition(checkInPos)}%`
+                top: `${getPosition(start)}%`,
+                height: `${getPosition(end) - getPosition(start)}%`
               }}
             >
-              <div className="tl-event-label">🏨 {day.hotelName || 'Hotel'}</div>
+              <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
             </div>
-          </>
-        )}
-        {/* Morning part of hotel if day before had a hotel */}
-        {day.prevHadHotel && (
-          <div
-            className="tl-event hotel-event"
-            style={{
-              top: `0%`,
-              height: `${getPosition(checkOutPos)}%`
-            }}
-          >
-            <div className="tl-event-label">🏨 {day.hotelName || 'Hotel'} (Out)</div>
-          </div>
-        )}
+          );
+        })}
       </div>
 
       <div className="timeline-mie-side">
@@ -144,7 +155,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
               onClick={() => onUpdateMeals(day.id, m)}
             >
-              {m}
+              <span className="tl-m-label">{m}</span>
+              <span className="tl-m-price">${formatCurrency(getMealPrice(m), 'USD').replace('$', '')}</span>
             </div>
           ))}
         </div>
@@ -256,7 +268,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
           <div className="leg-layover-faint">via {leg.layover}</div>
         )}
 
-        <div className={`leg-money-compact ${leg.type === 'flight' ? 'grayed' : ''}`}>
+        <div className="leg-money-compact">
           <div className="leg-foreign-wrap" onClick={() => onUpdate('isForeign', !leg.isForeign)}>
             <span className="icon-emoji">{leg.isForeign ? '🌍' : '🇺🇸'}</span>
           </div>
@@ -308,28 +320,60 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 // --- Components ---
 
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
+  // Parse string dates for DateInput
+  const depDate = segment.depDate ? parse(segment.depDate, 'EEE MMM d', new Date()) : new Date();
+  const arrDate = segment.arrDate ? parse(segment.arrDate, 'EEE MMM d', new Date()) : new Date();
+
+  const handleDateChange = (field, date) => {
+    onUpdate(field, format(date, 'EEE MMM d'));
+  };
+
   return (
     <div className="f-segment">
       <div className="f-seg-main">
-        <div className="f-seg-info">
-          <input className="f-inp s-code" value={segment.airlineCode || ''} onChange={e => onUpdate('airlineCode', e.target.value)} placeholder="FI" />
-          <input className="f-inp s-num" value={segment.flightNumber || ''} onChange={e => onUpdate('flightNumber', e.target.value)} placeholder="642" />
+        <div className="f-seg-num-wrap">
+          <input
+            className="f-inp s-full-num"
+            value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
+            onChange={e => {
+              const parts = e.target.value.split(' ');
+              onUpdate('airlineCode', parts[0] || '');
+              onUpdate('flightNumber', parts.slice(1).join(' ') || '');
+            }}
+            placeholder="FI 642"
+          />
         </div>
         <div className="f-seg-routes">
           <div className="f-row-line">
-            <input className="f-inp s-date" value={segment.depDate || ''} onChange={e => onUpdate('depDate', e.target.value)} placeholder="Sun Apr 21" />
-            <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
-            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+            <div className="f-date-col">
+              <DateInput value={depDate} onChange={(d) => handleDateChange('depDate', d)} className="f-date-sel" />
+            </div>
+            <div className="f-time-col">
+              <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
+            </div>
+            <div className="f-port-col">
+              <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+            </div>
           </div>
           <div className="f-row-line">
-            <input className="f-inp s-date" value={segment.arrDate || ''} onChange={e => onUpdate('arrDate', e.target.value)} placeholder="Mon Apr 22" />
-            <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
-            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+            <div className="f-date-col">
+              <DateInput value={arrDate} onChange={(d) => handleDateChange('arrDate', d)} className="f-date-sel" />
+            </div>
+            <div className="f-time-col">
+              <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+            </div>
+            <div className="f-port-col">
+              <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+            </div>
           </div>
         </div>
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={10} /></button>
       </div>
-      {layover && <div className="f-layover">(layover {layover})</div>}
+      {layover && (
+        <div className="f-layover">
+          <RefreshCcw size={10} /> {layover} layover
+        </div>
+      )}
     </div>
   );
 };
@@ -397,24 +441,39 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
     <div ref={setNodeRef} style={style} className="flight-group glass">
       <div className="f-group-header">
         <div className="drag-handle f-grip-group" {...attributes} {...listeners}><GripVertical size={12} /></div>
-        <input className="f-inp g-air" value={flight.airline || ''} onChange={e => onUpdate('airline', e.target.value)} placeholder="Airline" />
-        <input className="f-inp g-conf" value={flight.confirmation || ''} onChange={e => onUpdate('confirmation', e.target.value)} placeholder="Conf#" />
-        <div className="f-cost-wrap">
-          <span className="unit">$</span>
-          <input className="f-inp g-cost" type="number" value={flight.cost || ''} onChange={e => onUpdate('cost', parseFloat(e.target.value) || 0)} placeholder="0" />
+        <div className="f-meta-primary">
+          <input className="f-inp g-air" value={flight.airline || ''} onChange={e => onUpdate('airline', e.target.value)} placeholder="Airline" />
+          <input className="f-inp g-conf" value={flight.confirmation || ''} onChange={e => onUpdate('confirmation', e.target.value)} placeholder="Confirmation" />
         </div>
-        <button className="f-del-group" onClick={onDelete}><X size={14} /></button>
+        <div className="f-cost-row">
+          <div className="f-cost-box">
+            <button
+              className={`currency-toggle-mini ${flight.isForeign ? 'active' : ''}`}
+              onClick={() => onUpdate('isForeign', !flight.isForeign)}
+              title="Toggle Foreign/Domestic"
+            >
+              {flight.isForeign ? <Globe size={11} /> : <span className="unit-mini">$</span>}
+            </button>
+            <input className="f-inp g-cost" type="number" value={flight.cost || ''} onChange={e => onUpdate('cost', parseFloat(e.target.value) || 0)} placeholder="0" />
+          </div>
+          <button className="f-del-group" onClick={onDelete}><Trash2 size={12} /></button>
+        </div>
       </div>
       <div className="f-segments-list">
         {(flight.segments || []).map((seg, idx) => (
-          <FlightSegmentRow
-            key={seg.id}
-            segment={seg}
-            onUpdate={(f, v) => updateSegment(seg.id, f, v)}
-            onDelete={() => deleteSegment(seg.id)}
-            isLast={idx === flight.segments.length - 1}
-            layover={idx > 0 ? calculateLayover(flight.segments[idx - 1], seg) : null}
-          />
+          <React.Fragment key={seg.id}>
+            {idx > 0 && calculateLayover(flight.segments[idx - 1], seg) && (
+              <div className="f-layover-divider">
+                <RefreshCcw size={10} /> <span>{calculateLayover(flight.segments[idx - 1], seg)} layover</span>
+              </div>
+            )}
+            <FlightSegmentRow
+              segment={seg}
+              onUpdate={(f, v) => updateSegment(seg.id, f, v)}
+              onDelete={() => deleteSegment(seg.id)}
+              isLast={idx === flight.segments.length - 1}
+            />
+          </React.Fragment>
         ))}
         <button className="f-add-seg" onClick={addSegment}><Plus size={10} /> Add Leg</button>
       </div>
@@ -428,31 +487,92 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
     <div className="flight-panel glass">
       <div className="f-header">
         <div className="f-title"><Plane size={14} /> FLIGHTS</div>
-        <div className="f-total-wrap">
-          <span className="f-total-label">Total Flight Cost:</span>
-          <div className="f-total-inp-wrap">
-            <span className="unit">$</span>
-            <span className="f-total-val">{totalCost}</span>
-          </div>
-        </div>
       </div>
-      <DndContext collisionDetection={closestCorners} onDragEnd={dragEndHandler}>
-        <SortableContext items={flights.map(f => f.id)} strategy={verticalListSortingStrategy}>
-          <div className="f-list">
-            {flights.map(f => (
-              <SortableFlightRow
-                key={f.id}
-                flight={f}
-                onUpdate={(field, val) => onUpdate(f.id, field, val)}
-                onDelete={() => onDelete(f.id)}
-              />
-            ))}
-            {flights.length === 0 && <div className="no-travel" style={{ padding: '1rem' }}>No flights added</div>}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className="f-list">
+        {flights.map(f => (
+          <SortableFlightRow
+            key={f.id}
+            flight={f}
+            onUpdate={(field, val) => onUpdate(f.id, field, val)}
+            onDelete={() => onDelete(f.id)}
+          />
+        ))}
+        {flights.length === 0 && <div className="no-travel" style={{ padding: '1rem' }}>No flights added</div>}
+      </div>
       <button className="f-add-btn" onClick={onAdd} title="Adds an outbound and its reverse return leg">
         <Plus size={10} /> ADD OUTBOUND + RETURN PAIR
+      </button>
+    </div>
+  );
+};
+
+const HotelRow = ({ hotel, onUpdate, onDelete }) => {
+  const handleDateChange = (field, date) => {
+    onUpdate(hotel.id, field, date);
+  };
+
+  return (
+    <div className="hotel-row-item">
+      <div className="h-row-main">
+        <input
+          className="f-inp h-name"
+          value={hotel.name || ''}
+          onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
+          placeholder="Hotel Name"
+        />
+        <div className="h-dates-group">
+          <div className="h-date-line">
+            <DateInput value={hotel.checkIn} onChange={(d) => handleDateChange('checkIn', d)} className="f-date-sel" />
+            <input className="f-inp s-time h-time-col" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+          </div>
+          <div className="h-date-line">
+            <DateInput value={hotel.checkOut} onChange={(d) => handleDateChange('checkOut', d)} className="f-date-sel" />
+            <input className="f-inp s-time h-time-col" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+          </div>
+        </div>
+        <div className="f-cost-row">
+          <div className="f-cost-box">
+            <button
+              className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
+              onClick={() => onUpdate(hotel.id, 'isForeign', !hotel.isForeign)}
+              title="Toggle Foreign/Domestic"
+            >
+              {hotel.isForeign ? <Globe size={11} /> : <span className="unit-mini">$</span>}
+            </button>
+            <input
+              className="f-inp h-cost"
+              type="number"
+              value={hotel.cost || ''}
+              onChange={e => onUpdate(hotel.id, 'cost', parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+          <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
+  return (
+    <div className="hotel-panel glass">
+      <div className="f-header">
+        <div className="f-title"><Hotel size={14} /> HOTELS</div>
+      </div>
+      <div className="f-list">
+        {hotels.map(h => (
+          <HotelRow
+            key={h.id}
+            hotel={h}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        ))}
+        {hotels.length === 0 && <div className="no-travel" style={{ padding: '1rem' }}>No hotels added</div>}
+      </div>
+      <button className="f-add-btn" onClick={onAdd}>
+        <Plus size={10} /> ADD HOTEL
       </button>
     </div>
   );
@@ -461,22 +581,26 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
 
 // --- Components ---
 
-const DateInput = ({ value, onChange, className }) => {
-  const [localValue, setLocalValue] = useState(format(value, 'MM/dd/yy'));
+const DateInput = ({ value, onChange, className, displayFormat = 'EEE MMM d' }) => {
+  const [localValue, setLocalValue] = useState(format(value, displayFormat));
+  const dateInputRef = React.useRef(null);
 
   React.useEffect(() => {
-    setLocalValue(format(value, 'MM/dd/yy'));
-  }, [value]);
+    setLocalValue(format(value, displayFormat));
+  }, [value, displayFormat]);
 
   const commit = () => {
     if (!localValue) {
-      setLocalValue(format(value, 'MM/dd/yy'));
+      setLocalValue(format(value, displayFormat));
       return;
     }
-    const formats = ['MM/dd/yy', 'M/d/yy', 'MM-dd-yy', 'M-d-yy', 'yyyy-MM-dd', 'MMM d, yyyy', 'MMM d, yy', 'EEE MM/dd/yy'];
+    const formats = [
+      'MM/dd/yy', 'M/d/yy', 'MM-dd-yy', 'M-d-yy', 'yyyy-MM-dd',
+      'MMM d, yyyy', 'MMM d, yy', 'MMM d', 'MMMM d', 'MMMM d, yyyy',
+      'EEE MM/dd/yy', 'EEE MMM d'
+    ];
     let parsed = null;
     for (const f of formats) {
-      // Try parsing with each format
       try {
         const p = parse(localValue, f, new Date());
         if (!isNaN(p.getTime())) {
@@ -487,12 +611,10 @@ const DateInput = ({ value, onChange, className }) => {
     }
 
     if (parsed) {
-      if (parsed.getFullYear() < 100) {
-        parsed.setFullYear(2000 + parsed.getFullYear());
-      }
+      if (parsed.getFullYear() < 100) parsed.setFullYear(2000 + parsed.getFullYear());
       onChange(parsed);
     } else {
-      setLocalValue(format(value, 'MM/dd/yy'));
+      setLocalValue(format(value, displayFormat));
     }
   };
 
@@ -511,6 +633,19 @@ const DateInput = ({ value, onChange, className }) => {
           }
         }}
       />
+      <div className="calendar-trigger" onClick={() => dateInputRef.current?.showPicker()}>
+        <Calendar size={12} />
+        <input
+          type="date"
+          ref={dateInputRef}
+          className="hidden-date-picker"
+          onChange={(e) => {
+            if (e.target.value) {
+              onChange(new Date(e.target.value + 'T12:00:00'));
+            }
+          }}
+        />
+      </div>
     </div>
   );
 };
@@ -595,8 +730,18 @@ function App() {
   const [tripName, setTripName] = useState('Global Tech Summit');
   const [registrationFee, setRegistrationFee] = useState(750);
   const [registrationCurrency, setRegistrationCurrency] = useState('USD');
-  const [checkInTime, setCheckInTime] = useState('2:00p');
-  const [checkOutTime, setCheckOutTime] = useState('11:00a');
+  const [hotels, setHotels] = useState([
+    {
+      id: 'h-1',
+      name: 'Stayberry Inn',
+      checkIn: new Date('2025-04-21'),
+      checkInTime: '2:00p',
+      checkOut: new Date('2025-04-24'),
+      checkOutTime: '11:00a',
+      cost: 630,
+      currency: 'USD'
+    }
+  ]);
   const [flights, setFlights] = useState([
     {
       id: 'f-1',
@@ -637,7 +782,7 @@ function App() {
     future: []
   });
 
-  const saveToHistory = useCallback((currentDays, currentTripName, currentRegistrationFee, currentRegistrationCurrency, currentAltCurrency, currentCustomRates, currentUseAlt, currentFlights, currentFlightTotal) => {
+  const saveToHistory = useCallback((currentDays, currentTripName, currentRegistrationFee, currentRegistrationCurrency, currentAltCurrency, currentCustomRates, currentUseAlt, currentFlights, currentFlightTotal, currentHotels) => {
     setHistory(prev => ({
       past: [...prev.past.slice(-50), {
         days: currentDays,
@@ -648,7 +793,8 @@ function App() {
         customRates: currentCustomRates,
         useAlt: currentUseAlt,
         flights: currentFlights,
-        flightTotal: currentFlightTotal
+        flightTotal: currentFlightTotal,
+        hotels: currentHotels
       }],
       future: []
     }));
@@ -668,14 +814,15 @@ function App() {
       setCustomRates(previous.customRates);
       setUseAlt(previous.useAlt);
       if (previous.flights) setFlights(previous.flights);
-      if (previous.flightTotal !== undefined) setFlightTotal(previous.flightTotal);
+      if (previous.hotels) setHotels(previous.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+      // Removed setFlightTotal as it's a derived state (useMemo)
 
       return {
         past: newPast,
-        future: [{ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal }, ...prev.future]
+        future: [{ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels }, ...prev.future]
       };
     });
-  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal]);
+  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels]);
 
   const redo = useCallback(() => {
     setHistory(prev => {
@@ -691,19 +838,20 @@ function App() {
       setCustomRates(next.customRates);
       setUseAlt(next.useAlt);
       if (next.flights) setFlights(next.flights);
-      if (next.flightTotal !== undefined) setFlightTotal(next.flightTotal);
+      if (next.hotels) setHotels(next.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+      // Removed setFlightTotal as it's a derived state (useMemo)
 
       return {
-        past: [...prev.past, { days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal }],
+        past: [...prev.past, { days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels }],
         future: newFuture
       };
     });
-  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal]);
+  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels]);
 
   const loadData = useCallback((data) => {
     try {
       if (data.days) {
-        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
         setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
         if (data.tripName) setTripName(data.tripName);
         if (data.registrationFee !== undefined) setRegistrationFee(data.registrationFee);
@@ -711,11 +859,13 @@ function App() {
         if (data.altCurrency) setAltCurrency(data.altCurrency);
         if (data.customRates) setCustomRates(data.customRates);
         if (data.useAlt !== undefined) setUseAlt(data.useAlt);
+        if (data.flights) setFlights(data.flights);
+        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
       }
     } catch (err) {
       alert('Error loading data');
     }
-  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory]);
+  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory, flights, flightTotal, hotels]);
 
   // Handle Keyboard Shortcuts & Drag and Drop
   React.useEffect(() => {
@@ -763,10 +913,10 @@ function App() {
       window.removeEventListener('drop', handleDrop);
       window.removeEventListener('dragover', handleDragOver);
     };
-  }, [undo, redo, days, tripName, loadData]);
+  }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
   const saveToFile = () => {
-    const data = JSON.stringify({ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt }, null, 2);
+    const data = JSON.stringify({ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -887,25 +1037,41 @@ function App() {
     setActiveId(null);
   };
 
+  const addLeg = (dayIdx) => {
+    setDays(prev => {
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+      const newDays = [...prev];
+      const day = newDays[dayIdx];
+      const lastLeg = day.legs[day.legs.length - 1];
+      const newLeg = {
+        id: generateId(),
+        from: lastLeg?.to || 'Hotel',
+        to: 'Site',
+        type: 'uber',
+        amount: 0,
+        currency: 'USD',
+        isForeign: false
+      };
+      newDays[dayIdx] = { ...day, legs: [...day.legs, newLeg] };
+      return newDays;
+    });
+  };
+
   const addDay = () => {
     setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const lastDay = prev[prev.length - 1];
       const newDate = addDays(lastDay?.date || new Date(), 1);
       const newDay = {
+        ...lastDay,
         id: generateId(),
         date: newDate,
         legs: [],
-        mieBase: 105,
-        meals: { B: true, L: true, D: true, I: true },
-        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-        maxLodging: 200,
         registrationFee: 0,
-        location: lastDay?.location || '',
-        isForeignMie: true,
-        isForeignHotel: true,
-        hotelName: '',
-        overageCapPercent: 25
+        hotelRate: lastDay?.hotelRate || 0,
+        hotelTax: lastDay?.hotelTax || 0,
+        hotelCurrency: lastDay?.hotelCurrency || 'USD',
+        hotelName: lastDay?.hotelName || '',
       };
       return [...prev, newDay];
     });
@@ -922,7 +1088,7 @@ function App() {
 
   const toggleLink = (legId) => {
     setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const newDays = JSON.parse(JSON.stringify(prev));
       let targetLeg = null;
       newDays.forEach(d => d.legs.forEach(l => { if (l.id === legId) targetLeg = l }));
@@ -937,7 +1103,7 @@ function App() {
 
   const updateLeg = useCallback((dayId, legId, field, value) => {
     setDays((prev) => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const newDays = JSON.parse(JSON.stringify(prev));
       const day = newDays.find(d => d.id === dayId);
       const leg = day?.legs.find(l => l.id === legId);
@@ -947,9 +1113,7 @@ function App() {
 
       // Handle Flight Sync back to main panel
       if (leg.type === 'flight' && (field === 'from' || field === 'to')) {
-        // If the value contains "–" and "()", it's likely a flight selection
         if (value.includes(' – ') && value.includes('(')) {
-          // Extract flight info or find it
           const match = flights.find(f => {
             const first = f.segments?.[0];
             const last = f.segments?.[f.segments.length - 1];
@@ -967,7 +1131,6 @@ function App() {
               leg.layover = '';
             }
 
-            // Sync mirrored leg
             if (leg.mirrorId) {
               newDays.forEach(d => d.legs.forEach(m => {
                 if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
@@ -979,11 +1142,7 @@ function App() {
               }));
             }
           }
-
-
         } else {
-          // Freehand entry
-          // If both from and to are set, check if we need to add to flights panel
           const otherField = field === 'from' ? 'to' : 'from';
           if (leg[otherField]) {
             setFlights(prevFlights => {
@@ -1007,12 +1166,10 @@ function App() {
         }
       }
 
-      // Flip currency if toggling isForeign
       if (field === 'isForeign') {
         leg.currency = value ? altCurrency : 'USD';
       }
 
-      // Symmetry
       if (leg.mirrorId) {
         newDays.forEach(d => d.legs.forEach(m => {
           if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
@@ -1033,62 +1190,42 @@ function App() {
 
       return newDays;
     });
-  }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory]);
+  }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory, hotels]);
 
+  const handleStartDateChange = (newStart) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+    const diff = differenceInDays(newStart, days[0].date);
+    setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
+  };
 
+  const handleEndDateChange = (newEnd) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+    const newCount = differenceInDays(newEnd, days[0].date) + 1;
+    if (newCount <= 0) return;
 
-
-  const handleDateRangeChange = (newStart, newEnd) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
-
-    const currentCount = days.length;
-    const newCount = differenceInDays(newEnd, newStart) + 1;
-
-    let newDays = [...days];
-
-    if (newCount > currentCount) {
-      // Add days in the middle (before the last day)
-      const daysToAdd = newCount - currentCount;
-      for (let i = 0; i < daysToAdd; i++) {
-        // Use the second to last day as template if possible, else first day
-        const templateIdx = currentCount > 1 ? currentCount - 2 : 0;
-        const templateDay = days[templateIdx];
-
-        const newDay = {
-          ...templateDay,
-          id: generateId(),
-          legs: [],
-          // Keep other settings like location, M&IE base, max lodging
-        };
-        // Insert before the last day
-        newDays.splice(newDays.length - 1, 0, newDay);
-      }
-    } else if (newCount < currentCount) {
-      // Remove days from the middle
-      const daysToRemove = currentCount - newCount;
-      for (let i = 0; i < daysToRemove; i++) {
-        if (newDays.length > 2) {
-          // Remove second-to-last day until only first and last remain
-          newDays.splice(newDays.length - 2, 1);
-        } else if (newDays.length > 1) {
-          // If only 2 days left, remove the last one (becomes 1 day trip)
-          newDays.splice(1, 1);
+    setDays(prev => {
+      if (newCount > prev.length) {
+        let last = prev[prev.length - 1];
+        let added = [];
+        for (let i = 1; i <= newCount - prev.length; i++) {
+          added.push({
+            ...last,
+            id: generateId(),
+            date: addDays(last.date, i),
+            legs: [],
+            registrationFee: 0
+          });
         }
+        return [...prev, ...added];
+      } else {
+        return prev.slice(0, newCount);
       }
-    }
-
-    // Update all dates and IDs
-    newDays = newDays.map((d, idx) => ({
-      ...d,
-      date: addDays(newStart, idx)
-    }));
-
-    setDays(newDays);
+    });
   };
 
   const addFlightLeg = () => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const pairId = generateId();
       const newFlight = {
         id: generateId(),
@@ -1118,14 +1255,14 @@ function App() {
 
   const deleteFlight = (id) => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       return prev.filter(f => f.id !== id);
     });
   };
 
   const updateFlight = (id, field, value) => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const updated = prev.map(f => f.id === id ? { ...f, [field]: value } : f);
 
       const current = updated.find(f => f.id === id);
@@ -1189,16 +1326,10 @@ function App() {
     let fl = flights.reduce((sum, f) => sum + (f.cost || 0), 0);
     let travel = 0;
     let mieTotal = 0;
-    let lodging = 0;
 
     days.forEach((day, idx) => {
       // M&IE
       mieTotal += calculateMIE(idx, days.length, day.mieBase, day.meals, day.isForeignMie);
-
-      // Lodging
-      if (day.hotelRate !== null) {
-        lodging += convertCurrency(day.hotelRate + day.hotelTax, day.hotelCurrency || 'USD', 'USD', currentRates);
-      }
 
       // Travel legs
       day.legs.forEach(l => {
@@ -1208,62 +1339,103 @@ function App() {
       });
     });
 
+    // Hotels
+    const hotelTotal = hotels.reduce((acc, h) => {
+      return acc + convertCurrency(h.cost, h.currency || 'USD', 'USD', currentRates);
+    }, 0);
+
     return {
       registration,
       flights: fl,
       travel,
       mie: mieTotal,
-      lodging,
-      grand: registration + fl + travel + mieTotal + lodging
+      lodging: hotelTotal,
+      grand: registration + fl + travel + mieTotal + hotelTotal
     };
-  }, [days, flights, registrationFee, registrationCurrency, currentRates]);
+  }, [days, flights, hotels, registrationFee, registrationCurrency, currentRates]);
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <input
-              className="trip-name-display"
-              value={tripName}
-              onChange={e => setTripName(e.target.value)}
-            />
-            <div className="trip-meta-row">
-              <div className="trip-dates-display">
-                {format(days[0].date, 'EEE MMM d')} — {format(days[days.length - 1].date, 'EEE MMM d')}
+            <div className="trip-header-main">
+              <input
+                className="trip-name-display"
+                value={tripName}
+                onChange={e => setTripName(e.target.value)}
+              />
+              <div className="trip-meta-row">
+                <div className="trip-dates-wrap">
+                  <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
+                  <span className="date-sep">—</span>
+                  <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
+                  <span className="day-count">{days.length} Days</span>
+                </div>
               </div>
-              <div className="trip-location-display">
-                <MapPin size={14} />
-                <span>{days[1]?.location || 'Multiple Locations'}</span>
+            </div>
+
+            <div className="currency-controls">
+              <div className="curr-toggle-group">
+                <button
+                  className={`btn-toggle ${!useAlt ? 'active' : ''}`}
+                  onClick={() => setUseAlt(false)}
+                >
+                  <DollarSign size={14} /> DOMESTIC
+                </button>
+                <button
+                  className={`btn-toggle ${useAlt ? 'active' : ''}`}
+                  onClick={() => setUseAlt(true)}
+                >
+                  <Navigation size={14} /> FOREIGN
+                </button>
               </div>
+              {useAlt && (
+                <div className="alt-curr-inp">
+                  <select value={altCurrency} onChange={e => setAltCurrency(e.target.value)} className="curr-sel">
+                    {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <input
+                    type="number"
+                    className="rate-inp"
+                    value={customRates[altCurrency]}
+                    onChange={e => setCustomRates({ ...customRates, [altCurrency]: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              )}
             </div>
           </section>
 
           <section className="totals-section glass">
-            <div className="total-row main-total">
+            <div className="main-total-card">
               <span className="total-label">Grand Total</span>
               <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
             </div>
-            <div className="totals-column">
-              <div className="total-row">
-                <span className="total-label">Registration</span>
-                <span className="total-value">{formatCurrency(registrationFee, 'USD')}</span>
+            <div className="totals-grid">
+              <div className="stat-card">
+                <CreditCard size={12} />
+                <span className="stat-label">REGISTRATION</span>
+                <span className="stat-value">{formatCurrency(registrationFee, 'USD')}</span>
               </div>
-              <div className="total-row">
-                <span className="total-label">Flights</span>
-                <span className="total-value">{formatCurrency(totals.flights, 'USD')}</span>
+              <div className="stat-card">
+                <Plane size={12} />
+                <span className="stat-label">FLIGHTS</span>
+                <span className="stat-value">{formatCurrency(totals.flights, 'USD')}</span>
               </div>
-              <div className="total-row">
-                <span className="total-label">Hotels</span>
-                <span className="total-value">{formatCurrency(totals.lodging, 'USD')}</span>
+              <div className="stat-card">
+                <Hotel size={12} />
+                <span className="stat-label">HOTELS</span>
+                <span className="stat-value">{formatCurrency(totals.lodging, 'USD')}</span>
               </div>
-              <div className="total-row">
-                <span className="total-label">M&IE</span>
-                <span className="total-value">{formatCurrency(totals.mie, 'USD')}</span>
+              <div className="stat-card">
+                <Utensils size={12} />
+                <span className="stat-label">M&IE</span>
+                <span className="stat-value">{formatCurrency(totals.mie, 'USD')}</span>
               </div>
-              <div className="total-row">
-                <span className="total-label">Transportation</span>
-                <span className="total-value">{formatCurrency(totals.travel, 'USD')}</span>
+              <div className="stat-card">
+                <Car size={12} />
+                <span className="stat-label">TRANSPORT</span>
+                <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
               </div>
             </div>
           </section>
@@ -1279,37 +1451,13 @@ function App() {
             />
           </section>
 
-          <section className="hotels-section-panel glass">
-            <div className="section-title"><Hotel size={16} /> HOTELS</div>
-            <div className="hotel-settings-compact">
-              <div className="h-sett">
-                <span>In:</span>
-                <input type="text" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className="mini-inp" />
-              </div>
-              <div className="h-sett">
-                <span>Out:</span>
-                <input type="text" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className="mini-inp" />
-              </div>
-            </div>
-            <div className="hotel-list">
-              {days.filter(d => d.hotelRate !== null).map(d => (
-                <div key={d.id} className="hotel-entry-row">
-                  <div className="h-date">{format(d.date, 'MMM d')}</div>
-                  <input
-                    className="h-name-input"
-                    value={d.hotelName || ''}
-                    onChange={e => syncLocationField(d.location, 'hotelName', e.target.value)}
-                    placeholder="Hotel Name"
-                  />
-                  <div className="h-price">
-                    {formatCurrency((d.hotelRate || 0) + (d.hotelTax || 0), 'USD')}
-                  </div>
-                </div>
-              ))}
-              {days.filter(d => d.hotelRate !== null).length === 0 && (
-                <div className="no-hotels-msg">No hotels booked yet. Update flights to auto-populate.</div>
-              )}
-            </div>
+          <section className="hotels-section-panel">
+            <HotelPanel
+              hotels={hotels}
+              onUpdate={(id, f, v) => setHotels(prev => prev.map(h => h.id === id ? { ...h, [f]: v } : h))}
+              onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
+              onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
+            />
           </section>
 
           <section className="timeline-section-panel glass">
@@ -1318,15 +1466,14 @@ function App() {
               {days.map((day, idx) => (
                 <TimelineDay
                   key={day.id}
-                  day={{ ...day, prevHadHotel: idx > 0 && days[idx - 1].hotelRate !== null }}
+                  day={day}
                   dayIndex={idx}
                   totalDays={days.length}
                   flights={flights}
+                  hotels={hotels}
                   currentRates={currentRates}
-                  checkInTime={checkInTime}
-                  checkOutTime={checkOutTime}
                   onUpdateMeals={(dayId, meal) => {
-                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal);
+                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
                     setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
                   }}
                   onAddLeg={(dIdx) => addLeg(dIdx)}
@@ -1348,76 +1495,129 @@ function App() {
         </DragOverlay>
 
         <style>{`
-        .travel-app { min-height: 100vh; background: #020617; padding: 1rem; color: #f8fafc; font-family: 'Outfit', sans-serif; }
-        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 1.5rem; }
-        
-        .one-column-layout { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
-        
-        /* Header Section */
-        .trip-header-section { padding: 1.5rem; text-align: center; }
-        .trip-name-display { background: transparent; border: none; font-size: 1.75rem; font-weight: 900; color: #fff; text-align: center; width: 100%; outline: none; margin-bottom: 0.5rem; }
-        .trip-meta-row { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.9rem; }
-        .trip-dates-display { font-weight: 700; color: #6366f1; }
-        .trip-location-display { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;950&family=JetBrains+Mono:wght@500;800&display=swap');
 
-        /* Totals Section */
+        :root {
+          --bg: #020617;
+          --glass: rgba(15, 23, 42, 0.6);
+          --border: rgba(255, 255, 255, 0.08);
+          --accent: #6366f1;
+          --text: #f8fafc;
+          --subtext: #94a3b8;
+        }
+
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        .travel-app { min-height: 100vh; background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%); padding: 2rem 1rem; }
+        .one-column-layout { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+        .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
+
+        /* Header */
+        .trip-header-section { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+        .trip-header-main { flex: 1; }
+        .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
+        .trip-meta-row { display: flex; align-items: center; gap: 1.5rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
+        .trip-dates-wrap { display: flex; align-items: center; gap: 0.5rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
+        .date-sep { opacity: 0.3; }
+        .day-count { background: var(--accent); color: white; padding: 2px 8px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; }
+        
+        .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
+        .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
+        .btn-toggle { background: transparent; border: none; color: var(--subtext); font-size: 0.65rem; font-weight: 900; padding: 6px 12px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-toggle.active { background: var(--accent); color: white; }
+        
+        .alt-curr-inp { display: flex; gap: 4px; }
+        .curr-sel { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-weight: 800; padding: 0 4px; outline: none; }
+        .rate-inp { width: 60px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-size: 0.75rem; font-weight: 950; text-align: center; padding: 4px; outline: none; }
+
+        /* Totals */
         .totals-section { padding: 1.5rem; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .total-row:last-child { border-bottom: none; }
-        .total-label { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
-        .total-value { font-weight: 800; color: #fff; }
-        .main-total { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #6366f1; }
-        .main-total .total-label { font-size: 1rem; color: #fff; }
-        .main-total .total-value { font-size: 1.5rem; color: #6366f1; }
+        .main-total-card { margin-bottom: 1.5rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+        .main-total-card .total-label { font-size: 0.75rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
+        .main-total-card .total-value { font-size: 2.5rem; font-weight: 950; color: #fff; text-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+        .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem; }
+        .stat-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 1rem; padding: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .stat-label { font-size: 0.55rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.05em; }
+        .stat-value { font-size: 0.85rem; font-weight: 850; color: #fff; }
+        .stat-card svg { color: var(--accent); margin-bottom: 2px; }
 
-        .section-title { font-size: 0.75rem; font-weight: 900; color: #6366f1; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+        /* Shared Form Styling */
+        .f-inp { background: rgba(0,0,0,0.3) !important; border: 1px solid var(--border) !important; border-radius: 6px; padding: 4px 10px; color: #f8fafc !important; outline: none; font-size: 0.85rem; transition: all 0.2s; }
+        .f-inp:focus { border-color: var(--accent); background: rgba(0,0,0,0.4) !important; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); }
+        .unit { color: var(--accent); font-weight: 900; font-size: 0.8rem; margin-right: 4px; }
 
-        /* Flights Panel Overrides */
-        .flight-panel { background: rgba(15, 23, 42, 0.4) !important; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 1.5rem !important; }
+        /* Flight Layout Overhaul */
+        .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; }
+        .f-cost-row { display: flex; align-items: center; gap: 0.5rem; }
+        .f-cost-box { display: flex; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border); padding: 0 4px; }
+        .g-cost { background: transparent!important; border: none!important; width: 65px!important; color: var(--accent)!important; font-weight: 950!important; text-align: right!important; }
+        .currency-toggle { background: transparent; border: none; color: var(--subtext); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .currency-toggle.active { color: var(--accent); }
+
+        .f-layover-divider { margin: 0.25rem 0; padding: 0.5rem 1rem; border-top: 1px solid rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--subtext); font-weight: 850; opacity: 0.6; }
+        .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+        .f-title { font-size: 0.8rem; font-weight: 950; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; }
+        .f-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .f-add-btn { width: 100%; margin-top: 1rem; padding: 0.75rem; background: rgba(99, 102, 241, 0.05); border: 1px dashed rgba(99, 102, 241, 0.3); color: #818cf8; border-radius: 1rem; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+        .f-add-btn:hover { background: rgba(99, 102, 241, 0.1); border-color: var(--accent); color: #fff; }
+
+        .flight-group, .hotel-row-item { background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03); border-radius: 1rem; padding: 1rem; transition: all 0.2s; margin-bottom: 0.75rem; }
+        .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; }
+        .f-cost-row { display: flex; align-items: center; gap: 0.5rem; }
+        .f-cost-box { display: flex; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border); padding: 0 4px; }
+        .g-cost { background: transparent !important; border: none !important; width: 65px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; }
         
-        /* Hotels Section */
-        .hotels-section-panel { padding: 1.5rem; }
-        .hotel-list { display: flex; flex-direction: column; gap: 0.75rem; }
-        .hotel-entry-row { display: flex; align-items: center; gap: 1rem; background: rgba(255,255,255,0.03); padding: 0.75rem; border-radius: 0.75rem; }
-        .h-date { font-size: 0.75rem; font-weight: 800; color: #64748b; width: 50px; }
-        .h-name-input { background: transparent; border: none; font-weight: 700; color: #fff; flex: 1; outline: none; font-size: 0.9rem; }
-        .h-price { font-weight: 800; color: #6366f1; }
+        .f-layover-divider { margin: 0.25rem 0; padding: 0.5rem 1rem; border-top: 1px solid rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--subtext); font-weight: 850; opacity: 0.6; }
+
+        /* Date Input with Calendar */
+        .date-input-wrap { display: flex; align-items: center; gap: 4px; position: relative; }
+        .calendar-trigger { cursor: pointer; color: var(--subtext); padding: 2px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .calendar-trigger:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+        .hidden-date-picker { visibility: hidden; width: 0; height: 0; position: absolute; pointer-events: none; }
+        
+        .header-date-input { background: transparent !important; border: none !important; color: #fff !important; font-weight: 850 !important; font-size: 0.9rem !important; width: 110px !important; text-align: left !important; }
+
+        /* Hotels */
+        .h-info-group { flex: 1; }
+        .h-cost-box { display: flex; align-items: center; background: rgba(0,0,0,0.1); border-radius: 6px; padding-right: 4px; }
+        .unit-mini { font-size: 0.65rem; font-weight: 950; color: var(--accent); width: 12px; display: inline-block; text-align: center; }
+        .currency-toggle-mini { background: transparent; border: none; color: var(--subtext); cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .currency-toggle-mini:hover { background: rgba(255,255,255,0.05); }
+        .currency-toggle-mini.active { color: var(--accent); }
+        .currency-toggle-mini svg { opacity: 0.8; }
 
         /* Timeline Section */
-        .timeline-section-panel { padding: 1.5rem; }
-        .vertical-timeline { position: relative; display: flex; flex-direction: column; border-left: 2px solid rgba(255,255,255,0.05); margin-left: 10px; }
+        .timeline-section-panel { padding: 1.5rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); }
+        .vertical-timeline { position: relative; display: flex; flex-direction: column; gap: 0; border-left: 2px solid rgba(255,255,255,0.03); margin-left: 10px; }
         
-        .timeline-day-row { display: flex; gap: 1rem; padding: 1.5rem 0; border-bottom: 1px dashed rgba(255,255,255,0.1); position: relative; }
-        .timeline-date-side { width: 50px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start; pt: 0.5rem; gap: 0.5rem; }
-        .tl-dw { font-weight: 900; color: #6366f1; font-size: 0.8rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
-        .tl-add-btn { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: #6366f1; border-radius: 4px; padding: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .tl-add-btn:hover { background: #6366f1; color: #fff; }
+        .timeline-day-row { display: flex; gap: 0.4rem; border-bottom: 1px dashed rgba(255,255,255,0.02); position: relative; }
+        .timeline-date-side { width: 42px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start; padding-top: 1rem; gap: 0.2rem; }
+        .tl-dw { font-weight: 900; color: var(--accent); font-size: 0.7rem; text-transform: uppercase; }
+        .tl-dm { font-size: 0.6rem; color: var(--subtext); font-weight: 600; }
 
-        .timeline-hours-container { flex: 1; height: 350px; position: relative; background: rgba(0,0,0,0.1); border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
+        .timeline-hours-container { flex: 1; height: 150px; position: relative; background: rgba(0,0,0,0.08); overflow: hidden; }
+        .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.015); }
+        .hour-label { position: absolute; left: -25px; font-size: 0.5rem; color: #475569; font-weight: 800; text-transform: uppercase; }
         
-        /* Hotel Settings */
-        .hotel-settings-compact { display: flex; gap: 1rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem; }
-        .h-sett { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; }
-        .mini-inp { background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: #fff; width: 45px; text-align: center; font-weight: 800; }
-        .no-hotels-msg { font-size: 0.8rem; color: #475569; font-style: italic; text-align: center; padding: 1rem; }
-        .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.02); display: flex; align-items: center; }
-        .hour-label { position: absolute; left: -25px; font-size: 0.55rem; color: #475569; font-weight: 700; }
-        
-        .tl-event { position: absolute; left: 10%; right: 5%; border-radius: 6px; padding: 4px 8px; font-size: 0.7rem; font-weight: 800; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-left: 3px solid #fff; }
-        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-left: 3px solid #4ade80; }
-        .tl-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tl-event { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 8px; font-size: 0.6rem; font-weight: 900; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .flight-event { background: linear-gradient(135deg, #6366f1, #4338ca); color: #fff; border-left: 3px solid #fff; }
+        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.15); border-left: 3px solid #4ade80; }
 
-        .timeline-mie-side { width: 80px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-        .tl-mie-total { font-weight: 900; color: #6366f1; font-size: 0.9rem; }
-        .tl-mie-stack { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-        .tl-meal-chip { height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.75rem; font-weight: 900; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
-        .tl-meal-chip.active { background: #6366f1; color: #fff; border-color: transparent; box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3); }
+        .timeline-mie-side { width: 65px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 0.75rem; padding-right: 0.4rem; gap: 0.35rem; }
+        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.75rem; margin-bottom: 1px; }
+        .tl-mie-stack { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+        .tl-meal-chip { height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); border-radius: 3px; cursor: pointer; transition: all 0.2s; }
+        .tl-meal-chip.active { background: var(--accent); border-color: transparent; }
+        .tl-m-label { font-size: 0.55rem; font-weight: 950; color: #64748b; }
+        .tl-m-price { font-size: 0.5rem; font-weight: 800; color: #475569; }
+        .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
 
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-      `}</style>
+        /* Travel Leg Items */
+        .travel-leg-item { display: flex; align-items: center; background: rgba(255,255,255,0.02); border-radius: 0.75rem; padding: 0.5rem; margin-bottom: 0.5rem; gap: 0.5rem; }
+        .leg-input-text-compact { background: transparent; border: none; color: #fff; font-weight: 700; font-size: 0.85rem; outline: none; width: 80px; }
+        .leg-money-compact { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 2px 4px; }
+        .leg-amount-input-compact { width: 50px; background: transparent; border: none; color: var(--accent); font-weight: 900; text-align: right; outline: none; }
+        `}</style>
       </div>
     </DndContext>
   );
@@ -1428,7 +1628,7 @@ function StatBox({ label, value, main, onChange, currency, altCurrency, onCurren
   const usdEquiv = isUSD ? value : convertCurrency(value, currency, 'USD', rates);
 
   return (
-    <div className={`stat-box ${main ? 'main' : ''}`}>
+    <div className={`stat - box ${main ? 'main' : ''} `}>
       <span className="stat-label">{label}</span>
 
       <div className="stat-value-container">
@@ -1450,7 +1650,7 @@ function StatBox({ label, value, main, onChange, currency, altCurrency, onCurren
           </div>
         ) : (
           <span className="stat-val">
-            {isUSD ? formatCurrency(value, 'USD') : `${value} ${currency}`}
+            {isUSD ? formatCurrency(value, 'USD') : `${value} ${currency} `}
           </span>
         )}
 
@@ -1466,7 +1666,7 @@ function StatBox({ label, value, main, onChange, currency, altCurrency, onCurren
 
 function MealChip({ label, active, onClick, cost, isForeign }) {
   return (
-    <div className={`meal-chip ${active ? 'active' : ''}`} onClick={onClick} title={label === 'I' ? 'Incidentals' : label}>
+    <div className={`meal - chip ${active ? 'active' : ''} `} onClick={onClick} title={label === 'I' ? 'Incidentals' : label}>
       <span className="l">{label}</span>
       <span className="c">{formatCurrency(cost, 'USD')}</span>
     </div>
