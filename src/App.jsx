@@ -631,70 +631,106 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 // --- Components ---
 
-const DateInput = ({ value, onChange, className, displayFormat = 'EEE M/d/yy' }) => {
-  const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+const SegmentedDateInput = ({ value, onChange, className }) => {
+  const [mon, setMon] = useState(format(value, 'M'));
+  const [day, setDay] = useState(format(value, 'd'));
+  const [year, setYear] = useState(format(value, 'yy'));
+  const [wd, setWd] = useState(format(value, 'EEE'));
 
-  const getFormattedValue = (date) => {
-    if (!isValidDate(date)) return '';
-    try {
-      return format(date, displayFormat);
-    } catch (e) {
-      return '';
-    }
-  };
-
-  const [localValue, setLocalValue] = useState(getFormattedValue(value));
   const dateInputRef = React.useRef(null);
+  const monRef = React.useRef(null);
+  const dayRef = React.useRef(null);
+  const yearRef = React.useRef(null);
 
   React.useEffect(() => {
-    setLocalValue(getFormattedValue(value));
-  }, [value, displayFormat]);
+    setMon(format(value, 'M'));
+    setDay(format(value, 'd'));
+    setYear(format(value, 'yy'));
+    setWd(format(value, 'EEE'));
+  }, [value]);
 
-  const commit = () => {
-    if (!localValue) {
-      setLocalValue(getFormattedValue(value));
-      return;
-    }
-    const formats = [
-      'EEE M/d/yy', 'MM/dd/yy', 'M/d/yy', 'MM-dd-yy', 'M-d-yy', 'yyyy-MM-dd',
-      'MMM d, yyyy', 'MMM d, yy', 'MMM d', 'MMMM d', 'MMMM d, yyyy',
-      'EEE MM/dd/yy', 'EEE MMM d'
-    ];
-    let parsed = null;
-    for (const f of formats) {
-      try {
-        const p = parse(localValue, f, new Date());
-        if (!isNaN(p.getTime())) {
-          parsed = p;
-          break;
-        }
-      } catch (e) { }
-    }
-
-    if (parsed) {
-      if (parsed.getFullYear() < 100) parsed.setFullYear(2000 + parsed.getFullYear());
-      onChange(parsed);
-    } else {
-      setLocalValue(getFormattedValue(value));
+  const commitParts = (newMon, newDay, newYear) => {
+    const m = parseInt(newMon);
+    const d = parseInt(newDay);
+    let y = parseInt(newYear);
+    if (isNaN(m) || isNaN(d) || isNaN(y)) return;
+    if (y < 100) y += 2000;
+    const newDate = new Date(y, m - 1, d, 12, 0, 0);
+    if (!isNaN(newDate.getTime())) {
+      onChange(newDate);
     }
   };
 
+  const handleWdChange = (newWdStr) => {
+    setWd(newWdStr);
+    const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const targetIdx = weekdays.findIndex(w => w.startsWith(newWdStr.toLowerCase().substring(0, 3)));
+    if (targetIdx !== -1) {
+      const currentIdx = value.getDay();
+      let diff = targetIdx - currentIdx;
+      if (diff > 3) diff -= 7;
+      if (diff < -3) diff += 7;
+      onChange(addDays(value, diff));
+    }
+  };
+
+  const handleFocus = (e) => e.target.select();
+
   return (
-    <div className="date-input-wrap">
+    <div className={`segmented-date-input ${className || ''}`}>
       <input
-        type="text"
-        className={className}
-        value={localValue}
-        onChange={e => setLocalValue(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => {
-          if (e.key === 'Enter') {
-            commit();
-            e.currentTarget.blur();
-          }
-        }}
+        className="si-wd"
+        value={wd}
+        onChange={e => handleWdChange(e.target.value)}
+        onFocus={handleFocus}
+        spellCheck="false"
       />
-      <div className="calendar-trigger" onClick={() => dateInputRef.current?.showPicker()}>
+      <div className="si-parts">
+        <input
+          ref={monRef}
+          className="si-num"
+          value={mon}
+          onChange={e => {
+            const val = e.target.value;
+            setMon(val);
+            if (val.length === 2) dayRef.current?.focus();
+            if (val.length >= 1) commitParts(val, day, year);
+          }}
+          onBlur={() => commitParts(mon, day, year)}
+          onFocus={handleFocus}
+          maxLength={2}
+        />
+        <span className="si-sep">/</span>
+        <input
+          ref={dayRef}
+          className="si-num"
+          value={day}
+          onChange={e => {
+            const val = e.target.value;
+            setDay(val);
+            if (val.length === 2) yearRef.current?.focus();
+            if (val.length >= 1) commitParts(mon, val, year);
+          }}
+          onBlur={() => commitParts(mon, day, year)}
+          onFocus={handleFocus}
+          maxLength={2}
+        />
+        <span className="si-sep">/</span>
+        <input
+          ref={yearRef}
+          className="si-num si-year"
+          value={year}
+          onChange={e => {
+            const val = e.target.value;
+            setYear(val);
+            if (val.length >= 2) commitParts(mon, day, val);
+          }}
+          onBlur={() => commitParts(mon, day, year)}
+          onFocus={handleFocus}
+          maxLength={2}
+        />
+      </div>
+      <div className="si-cal" onClick={() => dateInputRef.current?.showPicker()}>
         <Calendar size={12} />
         <input
           type="date"
@@ -710,6 +746,9 @@ const DateInput = ({ value, onChange, className, displayFormat = 'EEE M/d/yy' })
     </div>
   );
 };
+
+// Map DateInput to SegmentedDateInput for now
+const DateInput = SegmentedDateInput;
 
 // --- Main App ---
 
@@ -1697,9 +1736,53 @@ function App() {
         .trip-header-main { flex: 1; }
         .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
         .trip-meta-row { display: flex; align-items: center; gap: 1.5rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
-        .trip-dates-wrap { display: flex; align-items: center; gap: 0.5rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
-        .date-sep { opacity: 0.3; }
-        .day-count { background: var(--accent); color: white; padding: 2px 8px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; }
+        .trip-dates-wrap { display: flex; align-items: center; gap: 0.75rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
+        .date-sep { opacity: 0.3; font-weight: 300; }
+        .day-count { background: var(--accent); color: white; padding: 2px 10px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
+
+        /* Segmented Date Input */
+        .segmented-date-input {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 6px;
+          padding: 3px 8px;
+          transition: all 0.2s;
+        }
+        .segmented-date-input:focus-within {
+          border-color: var(--accent);
+          background: rgba(0,0,0,0.4);
+        }
+        .si-wd {
+          width: 32px;
+          background: transparent;
+          border: none;
+          color: var(--accent);
+          font-weight: 800;
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          outline: none;
+          cursor: text;
+          text-align: left;
+        }
+        .si-parts { display: flex; align-items: center; color: var(--subtext); font-size: 0.8rem; font-weight: 600; }
+        .si-num {
+          width: 18px;
+          background: transparent;
+          border: none;
+          color: #fff;
+          text-align: center;
+          outline: none;
+          font-family: inherit;
+          padding: 0;
+        }
+        .si-year { width: 22px; }
+        .si-sep { color: rgba(255,255,255,0.2); margin: 0 1px; font-weight: 300; }
+        .si-cal { margin-left: 6px; color: #475569; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
+        .si-cal:hover { color: var(--accent); }
+        .hidden-date-picker { display: none; }
         
         .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
         .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
