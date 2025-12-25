@@ -7,7 +7,7 @@ import {
   Bus, Info, Calendar, Home, GripVertical, X,
   Link2, Link2Off, Hash, AlertTriangle, Lock, Globe
 } from 'lucide-react';
-import { format, addDays, differenceInDays, parse } from 'date-fns';
+import { format, addDays, differenceInDays, differenceInCalendarDays, parse } from 'date-fns';
 import {
   DndContext,
   closestCorners,
@@ -762,7 +762,7 @@ function App() {
   const [days, setDays] = useState([
     {
       id: "day-1",
-      date: new Date('2025-04-21'),
+      date: new Date(2025, 3, 21),
       legs: [
         { id: "leg-1", from: 'Home', to: 'BWI', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
         { id: "leg-2", from: 'BWI', to: 'CPH', type: 'flight', amount: 1200, currency: 'USD', mirrorId: 'm2', layover: 'KEF' },
@@ -781,7 +781,7 @@ function App() {
     },
     {
       id: "day-2",
-      date: new Date('2025-04-22'),
+      date: new Date(2025, 3, 22),
       legs: [],
       mieBase: 105,
       meals: { B: true, L: false, D: true, I: true },
@@ -796,7 +796,7 @@ function App() {
     },
     {
       id: "day-3",
-      date: new Date('2025-04-23'),
+      date: new Date(2025, 3, 23),
       legs: [],
       mieBase: 105,
       meals: { B: true, L: false, D: true, I: true },
@@ -811,7 +811,7 @@ function App() {
     },
     {
       id: "day-4",
-      date: new Date('2025-04-24'),
+      date: new Date(2025, 3, 24),
       legs: [
         { id: "leg-4", from: 'Hotel', to: 'CPH', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
         { id: "leg-5", from: 'CPH', to: 'BWI', type: 'flight', amount: 0, currency: 'USD', mirrorId: 'm2' },
@@ -840,9 +840,9 @@ function App() {
     {
       id: 'h-1',
       name: 'Stayberry Inn',
-      checkIn: new Date('2025-04-21'),
+      checkIn: new Date(2025, 3, 21),
       checkInTime: '2:00p',
-      checkOut: new Date('2025-04-24'),
+      checkOut: new Date(2025, 3, 24),
       checkOutTime: '11:00a',
       cost: 630,
       currency: 'USD'
@@ -1300,7 +1300,7 @@ function App() {
 
   const handleStartDateChange = (newStart) => {
     saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-    const diff = differenceInDays(newStart, days[0].date);
+    const diff = differenceInCalendarDays(newStart, days[0].date);
     if (diff === 0) return;
 
     // Shift days
@@ -1335,7 +1335,7 @@ function App() {
 
   const handleEndDateChange = (newEnd) => {
     saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-    const newCount = differenceInDays(newEnd, days[0].date) + 1;
+    const newCount = differenceInCalendarDays(newEnd, days[0].date) + 1;
     if (newCount <= 0) return;
 
     setDays(prev => {
@@ -1754,8 +1754,8 @@ function App() {
           background: rgba(0,0,0,0.3);
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 6px;
-          padding: 3px 8px;
-          transition: all 0.2s;
+          padding: 3px 10px;
+          gap: 4px;
         }
         .segmented-date-input:focus-within {
           border-color: var(--accent);
