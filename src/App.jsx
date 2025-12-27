@@ -5,7 +5,7 @@ import {
   Hotel, Utensils, CreditCard, ChevronRight,
   Download, RefreshCcw, DollarSign, MapPin,
   Bus, Info, Calendar, Home, GripVertical, X,
-  Link2, Link2Off, Hash, AlertTriangle, Lock, Globe
+  Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase
 } from 'lucide-react';
 import { format, addDays, differenceInDays, differenceInCalendarDays, parse } from 'date-fns';
 import {
@@ -33,24 +33,90 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const TIME_ZONES = Intl.supportedValuesOf('timeZone');
+const CUSTOM_TIME_ZONES = [
+  { name: "Hawaii (HST) - Honolulu", tz: "Pacific/Honolulu", abbr: "HST", baseOffset: -5 },
+  { name: "Alaska (AKST/AKDT) - Anchorage", tz: "America/Anchorage", abbr: "AKT", baseOffset: -4 },
+  { name: "US Pacific (PST/PDT) - LA, Seattle, Vancouver", tz: "America/Los_Angeles", abbr: "PT", baseOffset: -3 },
+  { name: "US Mountain (MST/MDT) - Denver, Salt Lake, Edmonton", tz: "America/Denver", abbr: "MT", baseOffset: -2 },
+  { name: "US Arizona (MST) - Phoenix (No DST)", tz: "America/Phoenix", abbr: "MST", baseOffset: -2 },
+  { name: "US Central (CST/CDT) - Chicago, Dallas, Winnipeg", tz: "America/Chicago", abbr: "CT", baseOffset: -1 },
+  { name: "US East (EST/EDT) - NY, DC, Atlanta, Toronto", tz: "America/New_York", abbr: "ET", baseOffset: 0 },
+  { name: "Atlantic (AST/ADT) - Halifax, Puerto Rico", tz: "America/Halifax", abbr: "AT", baseOffset: 1 },
+  { name: "UK/Iceland (GMT/BST) - London, Reykjavik", tz: "Europe/London", abbr: "GMT", baseOffset: 5 },
+  { name: "Central Europe (CET/CEST) - Paris, Berlin, Rome", tz: "Europe/Paris", abbr: "CET", baseOffset: 6 },
+  { name: "Eastern Europe (EET/EEST) - Athens, Cairo, Israel", tz: "Europe/Athens", abbr: "EET", baseOffset: 7 },
+  { name: "Arabia/East Africa - Dubai, Moscow, Nairobi", tz: "Europe/Moscow", abbr: "MSK", baseOffset: 8 },
+  { name: "India (IST) - Mumbai, New Delhi", tz: "Asia/Kolkata", abbr: "IST", baseOffset: 10.5 },
+  { name: "China/Singapore (CST/SGT) - Beijing, HK, Perth", tz: "Asia/Shanghai", abbr: "CST", baseOffset: 13 },
+  { name: "Japan/Korea (JST/KST) - Tokyo, Seoul", tz: "Asia/Tokyo", abbr: "JST", baseOffset: 14 },
+  { name: "Australia East (AEST/AEDT) - Sydney, Melbourne", tz: "Australia/Sydney", abbr: "AEST", baseOffset: 16 },
+  { name: "New Zealand (NZST/NZDT) - Auckland", tz: "Pacific/Auckland", abbr: "NZST", baseOffset: 17 },
+];
 
-const TimeZoneSelector = ({ value, onChange }) => (
-  <select
-    className="tz-select"
-    value={value}
-    onChange={e => onChange(e.target.value)}
-  >
-    {TIME_ZONES.map(tz => (
-      <option key={tz} value={tz}>
-        {tz.replace(/_/g, ' ')}
-      </option>
-    ))}
-  </select>
-);
+const TimeZoneSelector = ({ value, onChange, homeValue = null }) => {
+  const homeTZ = homeValue ? CUSTOM_TIME_ZONES.find(z => z.tz === homeValue) : null;
+  const homeOffset = homeTZ ? homeTZ.baseOffset : 0;
+
+  return (
+    <select
+      className="tz-select"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+    >
+      {CUSTOM_TIME_ZONES.map(item => {
+        let label = item.name;
+        if (homeValue) {
+          const diff = item.baseOffset - homeOffset;
+          const sign = diff >= 0 ? '+' : '–';
+          const absDiff = Math.abs(diff);
+          label = `${sign}${absDiff}: ${item.name}`;
+        }
+        return (
+          <option key={item.tz} value={item.tz}>
+            {label}
+          </option>
+        );
+      })}
+
+
+    </select>
+  );
+};
+
+
+
+
+const getTZOffset = (date, tz1, tz2) => {
+  if (!tz1 || !tz2 || tz1 === tz2) return 0;
+  try {
+    const options = { hour: 'numeric', hour12: false, minute: 'numeric', second: 'numeric', year: 'numeric', month: 'numeric', day: 'numeric' };
+    const formatter1 = new Intl.DateTimeFormat('en-US', { ...options, timeZone: tz1 });
+    const formatter2 = new Intl.DateTimeFormat('en-US', { ...options, timeZone: tz2 });
+
+    const parts1 = formatter1.formatToParts(date);
+    const parts2 = formatter2.formatToParts(date);
+
+    const getVal = (parts, type) => parseInt(parts.find(p => p.type === type).value);
+    const d1 = new Date(getVal(parts1, 'year'), getVal(parts1, 'month') - 1, getVal(parts1, 'day'), getVal(parts1, 'hour'), getVal(parts1, 'minute'));
+    const d2 = new Date(getVal(parts2, 'year'), getVal(parts2, 'month') - 1, getVal(parts2, 'day'), getVal(parts2, 'hour'), getVal(parts2, 'minute'));
+
+    return (d1.getTime() - d2.getTime()) / 3600000;
+  } catch (e) { return 0; }
+};
+
+const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ) => {
+  if (!port) return destTZ;
+  const p = port.toUpperCase();
+  const hc = (homeCity || '').toUpperCase();
+  const dc = (destCity || '').toUpperCase();
+  if (hc.includes(p) || (p.length === 3 && hc.includes(p))) return homeTZ;
+  if (dc.includes(p) || (p.length === 3 && dc.includes(p))) return destTZ;
+  return destTZ;
+};
 
 
 // --- Utility Functions ---
+
 
 const parseSegDate = (dateStr) => {
   if (!dateStr) return null;
@@ -107,29 +173,40 @@ const getPosition = (time) => {
   return (time / 24) * 100;
 };
 
-const getDualTime = (timeNum, date, homeTZ, destTZ, relevance) => {
-  if (timeNum === null || isNaN(timeNum)) return null;
-  const [h, min] = [Math.floor(timeNum), Math.round((timeNum % 1) * 60)];
+const getDualTime = (homeTime, date, homeTZ, destTZ, relevance) => {
+  if (homeTime === null || isNaN(homeTime)) return null;
+
   const dateStr = format(date, 'yyyy-MM-dd');
-  // We assume the input time corresponds to the 'relevant' time zone
-  const baseTZ = relevance === 'home' ? homeTZ : destTZ;
-  const otherTZ = relevance === 'home' ? destTZ : homeTZ;
+  // homeTime is already normalized to Home Time Zone.
+  const offset = getTZOffset(new Date(dateStr + 'T12:00:00'), destTZ, homeTZ); // Dest relative to Home
+  const destTimeNum = homeTime + offset;
 
-  // Create a date object that represents the time in the base time zone
-  // This is a bit hacky but works: create a UTC date and then adjust
-  const d = new Date(`${dateStr}T${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`);
+  const formatTimeNum = (num) => {
+    let h = Math.floor(num);
+    let m = Math.round((num % 1) * 60);
+    while (h < 0) { h += 24; }
+    while (h >= 24) { h -= 24; }
+    const meridiem = h < 12 ? 'a' : 'p';
+    const dispH = h % 12 || 12;
+    return `${dispH}:${m.toString().padStart(2, '0')}${meridiem}`;
+  };
 
-  const options = { hour: 'numeric', minute: '2-digit', hour12: true };
-  const homeTime = d.toLocaleTimeString('en-US', { ...options, timeZone: homeTZ }).toLowerCase().replace(' ', '').replace(':00', '');
-  const destTime = d.toLocaleTimeString('en-US', { ...options, timeZone: destTZ }).toLowerCase().replace(' ', '').replace(':00', '');
+  const homeLabel = formatTimeNum(homeTime);
+  const destLabel = formatTimeNum(destTimeNum);
 
-  // Also check if dates are different
-  const homeDateStr = d.toLocaleDateString('en-US', { timeZone: homeTZ, month: 'short', day: 'numeric' });
-  const destDateStr = d.toLocaleDateString('en-US', { timeZone: destTZ, month: 'short', day: 'numeric' });
+  const dHome = new Date(dateStr + 'T00:00:00');
+  const homeDateStr = format(dHome, 'MMM d');
+
+  // Dest date shift
+  let destShift = 0;
+  if (destTimeNum < 0) destShift = -1;
+  else if (destTimeNum >= 24) destShift = 1;
+  const dDest = new Date(dHome.getTime() + destShift * 86400000);
+  const destDateStr = format(dDest, 'MMM d');
 
   return {
-    homeTime,
-    destTime,
+    homeTime: homeLabel,
+    destTime: destLabel,
     homeDate: homeDateStr,
     destDate: destDateStr,
     relevance
@@ -137,27 +214,39 @@ const getDualTime = (timeNum, date, homeTZ, destTZ, relevance) => {
 };
 
 
-const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, isFlight, className, style }) => {
+
+
+const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, side, className, style, inline }) => {
   const dt = getDualTime(timeNum, date, homeTZ, destTZ, relevance);
   if (!dt) return null;
 
-  const showBoth = isDifferentTZ && isFlight;
+  const isHome = side === 'left';
+  // Use destination side only if different TZ
+  if (!isHome && !isDifferentTZ) return null;
+
+  const label = isHome ? dt.homeTime : dt.destTime;
+  const isBold = isHome ? (dt.relevance === 'home') : (dt.relevance === 'dest');
+  const colorClass = isHome ? 'home' : 'dest';
+
+  if (inline) {
+    return (
+      <span className={`time-item ${colorClass} ${isBold ? 'bold' : 'faint'}`} style={style}>
+        {label}
+      </span>
+    );
+  }
 
   return (
-    <div className={`tl-marker-dual ${className} ${showBoth ? 'show-both' : ''}`} style={style}>
-      {(showBoth || dt.relevance === 'home') && (
-        <div className={`time-item home ${dt.relevance === 'home' ? 'bold' : 'faint'}`}>
-          {dt.homeTime}
-        </div>
-      )}
-      {isDifferentTZ && (showBoth || dt.relevance === 'dest') && (
-        <div className={`time-item dest ${dt.relevance === 'dest' ? 'bold' : 'faint'}`}>
-          {dt.destTime}
-        </div>
-      )}
+    <div className={`tl-marker-dual ${side} ${className || ''}`} style={style}>
+      <div className={`time-item ${colorClass} ${isBold ? 'bold' : 'faint'}`}>
+        {label}
+      </div>
     </div>
   );
 };
+
+
+
 
 
 
@@ -199,11 +288,25 @@ const getMidnights = (date, homeTZ, destTZ) => {
 };
 
 
-// --- Vertical Timeline Components ---
+const TimelineHeader = ({ isDifferentTZ }) => (
+  <div className={`timeline-header-icons ${isDifferentTZ ? 'dual-tz' : ''}`}>
+    <div className="side-col day-col left"><Calendar size={12} /></div>
+    <div className="side-col time-col left"><Home size={14} /></div>
+    <div className="center-spacer"></div>
+    {isDifferentTZ && (
+      <>
+        <div className="side-col time-col right"><Briefcase size={14} /></div>
+        <div className="side-col day-col right"><Calendar size={12} style={{ opacity: 0.5 }} /></div>
+      </>
+    )}
+  </div>
+);
 
 
 
-const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels, onEditEvent, showMIE, homeTimeZone, destTimeZone }) => {
+const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels, onEditEvent, showMIE, homeTimeZone, destTimeZone, homeCity, destCity }) => {
+
+
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const isDifferentTZ = homeTimeZone !== destTimeZone;
 
@@ -222,13 +325,49 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
   const dayFlights = [];
   flights.forEach(f => {
     (f.segments || []).forEach(s => {
-      const segDepDate = parseSegDate(s.depDate);
-      const segArrDate = parseSegDate(s.arrDate);
-      if (segDepDate === dayStr || segArrDate === dayStr) {
-        dayFlights.push({ ...s, parentFlight: f, segDepDate, segArrDate, dayStr });
+      const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+      const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+
+      const normDepShift = getTZOffset(new Date(day.date), homeTimeZone, depTZ);
+      const normArrShift = getTZOffset(new Date(day.date), homeTimeZone, arrTZ);
+
+      const depH = parseTime(s.depTime) + normDepShift;
+      const arrH = parseTime(s.arrTime) + normArrShift;
+
+      const depDateStr = parseSegDate(s.depDate);
+      const arrDateStr = parseSegDate(s.arrDate);
+
+      // Calculate which day it sits on in Home Time
+      const d1 = new Date(depDateStr + 'T00:00:00');
+      const d2 = new Date(arrDateStr + 'T00:00:00');
+
+      // Adjusted dep/arr dates based on shift
+      const homeDepDate = format(new Date(d1.getTime() + (depH < 0 ? -1 : (depH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
+      const homeArrDate = format(new Date(d2.getTime() + (arrH < 0 ? -1 : (arrH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
+
+      const finalDepH = (depH + 24) % 24;
+      const finalArrH = (arrH + 24) % 24;
+
+      if (homeDepDate === dayStr || homeArrDate === dayStr || (homeDepDate < dayStr && homeArrDate > dayStr)) {
+        dayFlights.push({
+          ...s,
+          parentFlight: f,
+          homeDepDate,
+          homeArrDate,
+          finalDepH,
+          finalArrH
+        });
       }
     });
   });
+
+  const getEmoji = (loc) => {
+    if (loc === 'Home') return '🏡';
+    if (loc === 'Hotel') return '🏨';
+    return '✈️';
+  };
+
+
 
   // Dedup markers logic
   const renderedMarkerPositions = [];
@@ -255,19 +394,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   return (
     <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''} ${isDifferentTZ ? 'dual-tz' : ''}`}>
-      <div className="timeline-date-side">
-        {midnights.map((m, i) => (
-          <div
-            key={i}
-            className={`midnight-label-stack ${m.tz}`}
-            style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}
-          >
-            <div className={`date-stack ${m.tz}`}>
-              <div className="tl-dw">{m.label}</div>
-            </div>
+      <div className="timeline-col day-col left">
+        {midnights.filter(m => m.tz === 'home').map((m, i) => (
+          <div key={i} className="midnight-label-stack home" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
+            <div className="date-stack home"><div className="tl-dw">{m.label}</div></div>
           </div>
         ))}
       </div>
+      <div className="timeline-col time-col left" />
+
 
       <div className="timeline-hours-container">
         {midnights.map((m, i) => (
@@ -278,52 +413,75 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           />
         ))}
         {hours.map(h => (
-          <div key={h} className="hour-line" style={{ top: `${(h / 24) * 100}%` }}>
-            {/* Removed hour labels as requested */}
-
-          </div>
+          <div key={h} className="hour-line" style={{ top: `${(h / 24) * 100}%` }} />
         ))}
 
         {/* Flight Boxes */}
         {dayFlights.map(s => {
-          const isOvernight = s.segDepDate !== s.segArrDate;
-          const isDeparturePart = s.segDepDate === dayStr;
-          const isArrivalPart = s.segArrDate === dayStr;
+          const isOvernight = s.homeDepDate !== s.homeArrDate;
+          const isDeparturePart = s.homeDepDate === dayStr;
+          const isArrivalPart = s.homeArrDate === dayStr;
+          const isMiddlePart = s.homeDepDate < dayStr && s.homeArrDate > dayStr;
 
-          const start = isDeparturePart ? parseTime(s.depTime) : 0;
-          const end = isArrivalPart ? parseTime(s.arrTime) : 24;
+          const startPos = isDeparturePart ? s.finalDepH : 0;
+          const endPos = isArrivalPart ? s.finalArrH : 24;
 
-          const startPos = (start !== null && !isNaN(start)) ? start : 0;
-          const endPos = (end !== null && !isNaN(end)) ? end : 24;
 
           return (
             <React.Fragment key={s.id + (isArrivalPart && !isDeparturePart ? '-arr' : '')}>
               {startPos > 0 && startPos < 24 && !isPositionTaken(getPosition(startPos)) && (
-                <DualTimeMarker
-                  timeNum={startPos}
-                  date={day.date}
-                  homeTZ={homeTimeZone}
-                  destTZ={destTimeZone}
-                  relevance={getEventRelevance('flight-dep', s)}
-                  isDifferentTZ={isDifferentTZ}
-                  isFlight={true}
-                  className=""
-                  style={{ top: `${getPosition(startPos)}%`, zIndex: 12 }}
-                />
+                <>
+                  <DualTimeMarker
+                    timeNum={startPos}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('flight-dep', s)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="left"
+                    style={{ top: `${getPosition(startPos)}%`, zIndex: 12, left: '-60px' }}
+                  />
+                  <DualTimeMarker
+                    timeNum={startPos}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('flight-dep', s)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="right"
+                    style={{ top: `${getPosition(startPos)}%`, zIndex: 12, right: '-60px' }}
+                  />
+                </>
               )}
               {endPos > 0 && endPos < 24 && !isPositionTaken(getPosition(endPos)) && (
-                <DualTimeMarker
-                  timeNum={endPos}
-                  date={day.date}
-                  homeTZ={homeTimeZone}
-                  destTZ={destTimeZone}
-                  relevance={getEventRelevance('flight-arr', s)}
-                  isDifferentTZ={isDifferentTZ}
-                  isFlight={true}
-                  className="arr"
-                  style={{ top: `${getPosition(endPos)}%`, zIndex: 12 }}
-                />
+                <>
+                  <DualTimeMarker
+                    timeNum={endPos}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('flight-arr', s)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="left"
+                    className="arr"
+                    style={{ top: `${getPosition(endPos)}%`, zIndex: 12, left: '-60px' }}
+                  />
+                  <DualTimeMarker
+                    timeNum={endPos}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('flight-arr', s)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="right"
+                    className="arr"
+                    style={{ top: `${getPosition(endPos)}%`, zIndex: 12, right: '-60px' }}
+                  />
+                </>
               )}
+
+
+
 
 
               <div
@@ -340,20 +498,22 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 }}
               >
                 {(!isOvernight || isDeparturePart) && (
-                  <div className="tl-event-label flight-label-compact" style={{ padding: '2px 4px' }}>
-                    <div className="tl-f-rec">{s.parentFlight.confirmation || ''}</div>
-                    <div className="tl-f-main-row" style={{ marginTop: '0', display: 'flex', alignItems: 'center', height: '100%', gap: '6px' }}>
-                      <div className="tl-f-ports-stack" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1px' }}>
-                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</div>
-                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</div>
-                      </div>
-                      <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                        <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✈️ {s.airlineCode}{s.flightNumber}</div>
-                        {s.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {s.seat}</div>}
-                      </div>
+                  <div className="tl-f-main-wrap" style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative', height: '100%' }}>
+                    <div className="tl-f-ports-stack" style={{ position: 'absolute', left: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1px' }}>
+                      <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</div>
+                      <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</div>
                     </div>
+
+                    <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
+                      <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✈️ {s.airlineCode}{s.flightNumber}</div>
+                      {s.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {s.seat}</div>}
+                    </div>
+
+                    <div className="tl-f-rec" style={{ position: 'absolute', right: '10px', opacity: 0.6, fontSize: '0.6rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
                   </div>
                 )}
+
+
               </div>
             </React.Fragment>
           );
@@ -374,149 +534,194 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           if (!isCheckInDay && !isCheckOutDay && !isMidStay) return null;
 
-          let start = 14;
-          let end = 11;
-          if (isCheckInDay) start = parseTime(h.checkInTime) ?? 14;
-          if (isCheckOutDay) end = parseTime(h.checkOutTime) ?? 11;
-          if (isMidStay) { start = 0; end = 24; }
-          if (isCheckInDay && !isCheckOutDay) end = 24;
-          if (isCheckOutDay && !isCheckInDay) start = 0;
+          const hotelTZ = destTimeZone; // Hotels are ALWAYS at destination
+          const shift = getTZOffset(day.date, homeTimeZone, hotelTZ);
+          const startNum = (parseTime(h.checkInTime) || 14) + shift;
+          const endNum = (parseTime(h.checkOutTime) || 11) + shift;
 
-          const borderRadius = `${isCheckInDay ? '6px' : '0'} ${isCheckInDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'}`;
+          // Normalized start/end
+          const normStart = (startNum + 24) % 24;
+          const normEnd = (endNum + 24) % 24;
+
 
           return (
             <React.Fragment key={h.id}>
-              {isCheckInDay && !isPositionTaken(getPosition(start)) && (
-                <DualTimeMarker
-                  timeNum={start}
-                  date={day.date}
-                  homeTZ={homeTimeZone}
-                  destTZ={destTimeZone}
-                  relevance={getEventRelevance('hotel', h)}
-                  isDifferentTZ={isDifferentTZ}
-                  isFlight={false}
-                  className="hotel"
-                  style={{ top: `${getPosition(start)}%` }}
-                />
+              {isCheckInDay && !isPositionTaken(getPosition(normStart)) && (
+                <>
+                  <DualTimeMarker
+                    timeNum={normStart}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('hotel', h)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="left"
+                    style={{ top: `${getPosition(normStart)}%`, left: '-60px' }}
+                  />
+                  <DualTimeMarker
+                    timeNum={normStart}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('hotel', h)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="right"
+                    style={{ top: `${getPosition(normStart)}%`, right: '-60px' }}
+                  />
+                </>
               )}
-              {isCheckOutDay && !isPositionTaken(getPosition(end)) && (
-                <DualTimeMarker
-                  timeNum={end}
-                  date={day.date}
-                  homeTZ={homeTimeZone}
-                  destTZ={destTimeZone}
-                  relevance={getEventRelevance('hotel', h)}
-                  isDifferentTZ={isDifferentTZ}
-                  isFlight={false}
-                  className="hotel arr"
-                  style={{ top: `${getPosition(end)}%` }}
-                />
+              {isCheckOutDay && !isPositionTaken(getPosition(normEnd)) && (
+                <>
+                  <DualTimeMarker
+                    timeNum={normEnd}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('hotel', h)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="left"
+                    className="arr"
+                    style={{ top: `${getPosition(normEnd)}%`, left: '-60px' }}
+                  />
+                  <DualTimeMarker
+                    timeNum={normEnd}
+                    date={day.date}
+                    homeTZ={homeTimeZone}
+                    destTZ={destTimeZone}
+                    relevance={getEventRelevance('hotel', h)}
+                    isDifferentTZ={isDifferentTZ}
+                    side="right"
+                    className="arr"
+                    style={{ top: `${getPosition(normEnd)}%`, right: '-60px' }}
+                  />
+                </>
               )}
+
+
 
 
               <div
                 className="tl-event hotel-event clickable"
                 onClick={() => onEditEvent({ type: 'hotel', id: h.id })}
                 style={{
-                  top: `${getPosition(start)}%`,
-                  height: `${getPosition(end) - getPosition(start)}%`,
-                  borderRadius,
-                  borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : undefined,
-                  borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : undefined,
-                  left: '60px',
+                  top: `${getPosition(isCheckInDay ? normStart : 0)}%`,
+                  height: `${getPosition(isCheckOutDay ? normEnd : 24) - getPosition(isCheckInDay ? normStart : 0)}%`,
+                  borderLeft: '4px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: `${isCheckInDay ? '8px' : '0'} ${isCheckInDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'}`,
+                  borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
+                  borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
+                  left: 0,
                   right: 0,
-                  zIndex: 1
+                  zIndex: 2,
+                  background: 'linear-gradient(to right, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.02) 20%, rgba(16, 185, 129, 0.02) 80%, rgba(16, 185, 129, 0.12))'
                 }}
               >
-                {(isCheckInDay || (isMidStay && start === 0)) && (
-                  <div className="tl-event-label hotel-label-wrap">
-                    <div className="tl-h-name">🏨 {h.name || 'Hotel'}</div>
+                {(isCheckInDay || (dayIndex === 0 && isMidStay)) && (
+                  <div className="tl-hotel-name" style={{ top: isCheckInDay ? '35px' : '15px' }}>
+                    <span style={{ background: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(8px)', padding: '4px 12px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.4)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                      🏨 {h.name || 'Hotel'}
+                    </span>
                   </div>
                 )}
+
               </div>
+
             </React.Fragment>
           );
         })}
 
         {/* Travel Legs (Uber, etc.) */}
         {day.legs.map(l => {
-          if (!l.time || l.type === 'flight') return null;
-          const start = parseTime(l.time);
-          if (start === null || isNaN(start)) return null;
+          if (l.type === 'flight') return null;
+          const relevance = getEventRelevance('leg', l);
+          const legTZ = relevance === 'home' ? homeTimeZone : destTimeZone;
+          const shift = getTZOffset(day.date, homeTimeZone, legTZ);
+          const start = (parseTime(l.time) || 0) + shift;
+          const end = (parseTime(l.time) + (l.duration || 0) / 60) + shift;
 
-          const duration = (l.from === 'Home' || l.to === 'Home') ? 0.75 : 0.5;
-          const end = start + duration;
-
-          const getEmoji = (loc) => {
-            if (loc === 'Home') return '🏡';
-            if (loc === 'Hotel') return '🏨';
-            return '✈️';
-          };
+          const normStart = (start + 24) % 24;
+          const normEnd = (end + 24) % 24;
 
           return (
             <React.Fragment key={l.id}>
-              <div
-                className="tl-event travel-event clickable"
-                onClick={() => onEditEvent({ type: 'leg', id: l.id, dayId: day.id })}
-                style={{
-                  top: `${getPosition(start)}%`,
-                  height: `${getPosition(end) - getPosition(start)}%`,
-                  background: 'linear-gradient(to right, rgba(129, 140, 248, 0.5), rgba(129, 140, 248, 0.3))',
-                  color: '#818cf8',
-                  border: '1px solid rgba(129, 140, 248, 0.4)',
-                  left: '60px',
-                  width: '55%',
-                  zIndex: 4,
-                  padding: '2px',
-                  overflow: 'visible'
-                }}
-              >
-                {/* Side Labels: Symmetrically centered vertically to the block */}
-                <div style={{
-                  position: 'absolute', top: '50%', left: '100%', marginLeft: '8px',
-                  display: 'flex', flexDirection: 'column', gap: '2px',
-                  fontSize: '0.65rem', fontWeight: 950,
-                  color: '#fff', whiteSpace: 'nowrap', zIndex: 50,
-                  transform: 'translateY(-50%)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {getEmoji(l.from)}
-                    <DualTimeMarker
-                      timeNum={start}
-                      date={day.date}
-                      homeTZ={homeTimeZone}
-                      destTZ={destTimeZone}
-                      relevance={getEventRelevance('leg', l)}
-                      isDifferentTZ={isDifferentTZ}
-                      isFlight={false}
-                      className="inline-leg"
-                    />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {getEmoji(l.to)}
-                    <DualTimeMarker
-                      timeNum={end}
-                      date={day.date}
-                      homeTZ={homeTimeZone}
-                      destTZ={destTimeZone}
-                      relevance={getEventRelevance('leg', l)}
-                      isDifferentTZ={isDifferentTZ}
-                      isFlight={false}
-                      className="inline-leg"
-                    />
+              <div className="tl-abs-wrap" style={{
+                top: `${getPosition(normStart)}%`,
+                height: `${getPosition(normEnd) - getPosition(normStart)}%`,
+                position: 'absolute', left: 0, right: 0
+              }}>
+                <div
+                  className={`tl-event travel-event clickable ${l.type} ${relevance === 'home' ? 'home-side' : 'away-side'}`}
+                  onClick={() => onEditEvent({ type: 'leg', dayIndex, legId: l.id })}
+                  style={{ top: 0, height: '100%' }}
+                >
+                  <div className={`tl-travel-meta ${relevance === 'home' ? 'home-side' : 'away-side'}`}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {getEmoji(l.from)}
+                      <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
+                        <DualTimeMarker
+                          timeNum={normStart}
+                          date={day.date}
+                          homeTZ={homeTimeZone}
+                          destTZ={destTimeZone}
+                          relevance={relevance}
+                          isDifferentTZ={isDifferentTZ}
+                          side={relevance === 'home' ? 'left' : 'right'}
+                          className="inline"
+                          inline={true}
+                          style={{ fontSize: '0.6rem', fontWeight: 950 }}
+                        />
+
+
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {getEmoji(l.to)}
+                      <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
+                        <DualTimeMarker
+                          timeNum={normEnd}
+                          date={day.date}
+                          homeTZ={homeTimeZone}
+                          destTZ={destTimeZone}
+                          relevance={relevance}
+                          isDifferentTZ={isDifferentTZ}
+                          side={relevance === 'home' ? 'left' : 'right'}
+                          className="inline"
+                          inline={true}
+                          style={{ fontSize: '0.6rem', fontWeight: 950 }}
+                        />
+
+
+                      </div>
+                    </div>
                   </div>
 
+
+                  <div className="tl-event-label travel-vertical-label">
+                    <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
+                  </div>
                 </div>
 
-
-                <div className="tl-event-label travel-vertical-label">
-                  <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
-                </div>
               </div>
             </React.Fragment>
           );
         })}
+
       </div>
+
+      {isDifferentTZ && (
+        <>
+          <div className="timeline-col time-col right" />
+          <div className="timeline-col day-col right">
+            {midnights.filter(m => m.tz === 'dest').map((m, i) => (
+              <div key={i} className="midnight-label-stack dest" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
+                <div className="date-stack dest"><div className="tl-dw">{m.label}</div></div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+
 
       {
         showMIE && (
@@ -1975,7 +2180,7 @@ function App() {
   React.useEffect(() => {
     let globalChanged = false;
     const nextDays = days.map((day, dIdx) => {
-      const dayStr = format(day.date, 'yyyy-MM-dd');
+      const dayStr = safeFormat(day.date, 'yyyy-MM-dd');
       let newLegs = [...day.legs];
       let dayChanged = false;
 
@@ -1983,49 +2188,58 @@ function App() {
         (flight.segments || []).forEach((seg, sIdx) => {
           const segDepDate = parseSegDate(seg.depDate);
           const segArrDate = parseSegDate(seg.arrDate);
-
-          // Determine if this is an outbound trip (to destination) or return trip (to home)
-          // Rough heuristic: first segment of first flight is usually outbound home->airport
-          // last segment of last flight is usually return airport->home
           const isOutbound = dIdx < days.length / 2;
 
           if (segDepDate === dayStr) {
-            const hasUberTo = newLegs.some(l => l.type === 'uber' && l.to === seg.depPort);
-            if (!hasUberTo) {
-              const flTime = parseTime(seg.depTime);
-              // Outbound: 45 min drive (0.75h) arriving 3h before -> start 3.75h before
-              // Return: 30 min drive (0.5h) arriving 3h before -> start 3.5h before
-              const leadTime = isOutbound ? 3.75 : 3.5;
-              const uberTimeNum = flTime ? (flTime - leadTime + 24) % 24 : 11;
+            const flTime = parseTime(seg.depTime);
+            // Outbound: arrive 3h before. Travel time 0.75h (45m).
+            // Start of trip = DepTime - 3 - 0.75 = DepTime - 3.75
+            const uberTimeNum = flTime ? (flTime - 3.75 + 24) % 24 : 11;
+            const newTime = formatTime(uberTimeNum);
 
+
+            const existingIdx = newLegs.findIndex(l => l.auto && l.to === seg.depPort);
+            if (existingIdx >= 0) {
+              if (newLegs[existingIdx].time !== newTime) {
+                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime };
+                dayChanged = true;
+              }
+            } else {
               newLegs.push({
                 id: generateId(),
                 from: dIdx === 0 ? 'Home' : 'Hotel',
                 to: seg.depPort,
                 type: 'uber',
-                time: formatTime(uberTimeNum),
+                time: newTime,
                 amount: 45,
-                currency: 'USD'
+                currency: 'USD',
+                auto: true
               });
               dayChanged = true;
             }
           }
 
           if (segArrDate === dayStr) {
-            const hasUberFrom = newLegs.some(l => l.type === 'uber' && l.from === seg.arrPort);
-            if (!hasUberFrom) {
-              const flArrTime = parseTime(seg.arrTime);
-              // Start 1h after arrival
-              const uberStart = flArrTime ? (flArrTime + 1) : 12;
+            const flArrTime = parseTime(seg.arrTime);
+            const uberStart = flArrTime ? (flArrTime + 1) : 12;
+            const newTime = formatTime(uberStart);
 
+            const existingIdx = newLegs.findIndex(l => l.auto && l.from === seg.arrPort);
+            if (existingIdx >= 0) {
+              if (newLegs[existingIdx].time !== newTime) {
+                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime };
+                dayChanged = true;
+              }
+            } else {
               newLegs.push({
                 id: generateId(),
                 from: seg.arrPort,
                 to: dIdx === days.length - 1 ? 'Home' : 'Hotel',
                 type: 'uber',
-                time: formatTime(uberStart),
+                time: newTime,
                 amount: 45,
-                currency: 'USD'
+                currency: 'USD',
+                auto: true
               });
               dayChanged = true;
             }
@@ -2043,7 +2257,7 @@ function App() {
     if (globalChanged) {
       setDays(nextDays);
     }
-  }, [flights, days.length]);
+  }, [flights, days.length, homeTimeZone, destTimeZone]);
 
   // Ensure trip covers all flight segments
   React.useEffect(() => {
@@ -2153,9 +2367,10 @@ function App() {
       travel,
       mie: mieTotal,
       lodging: hotelTotal,
-      grand: registration + fl + travel + mieTotal + hotelTotal
     };
   }, [days, flights, hotels, registrationFee, registrationCurrency, currentRates]);
+
+  const isDifferentTZ = homeTimeZone !== destTimeZone;
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -2170,20 +2385,9 @@ function App() {
                   onChange={e => setTripName(e.target.value)}
                 />
 
-                <div className="header-location-grid">
-                  <div className="header-location-row">
-                    <Plane size={14} className="location-icon" />
-                    <input
-                      className="location-input"
-                      value={destCity}
-                      onChange={e => setDestCity(e.target.value)}
-                      placeholder="Destination City"
-                    />
-                    <TimeZoneSelector value={destTimeZone} onChange={setDestTimeZone} />
-                  </div>
-
-                  <div className="header-location-row">
-                    <Home size={14} className="location-icon" />
+                <div className="location-grid">
+                  <div className="location-row active">
+                    <span className="loc-icon"><Home size={16} /></span>
                     <input
                       className="location-input"
                       value={homeCity}
@@ -2192,7 +2396,22 @@ function App() {
                     />
                     <TimeZoneSelector value={homeTimeZone} onChange={setHomeTimeZone} />
                   </div>
+                  <div className="location-row">
+                    <span className="loc-icon"><Plane size={16} /></span>
+                    <input
+                      className="location-input"
+                      value={destCity}
+                      onChange={e => setDestCity(e.target.value)}
+                      placeholder="Destination City"
+                    />
+                    <TimeZoneSelector
+                      value={destTimeZone}
+                      onChange={setDestTimeZone}
+                      homeValue={homeTimeZone}
+                    />
+                  </div>
                 </div>
+
 
                 <div className="trip-meta-row">
                   <div className="trip-dates-vertical-wrap">
@@ -2238,6 +2457,7 @@ function App() {
               </button>
             </div>
             <div className="vertical-timeline">
+              <TimelineHeader isDifferentTZ={isDifferentTZ} />
               {days.map((day, idx) => (
                 <TimelineDay
                   key={day.id}
@@ -2251,10 +2471,12 @@ function App() {
                   onEditEvent={(ev) => setEditingEvent(ev)}
                   homeTimeZone={homeTimeZone}
                   destTimeZone={destTimeZone}
+                  homeCity={homeCity}
+                  destCity={destCity}
                 />
-
               ))}
             </div>
+
             {editingEvent && (
               <div className="edit-overlay glass" onClick={() => setEditingEvent(null)}>
                 <div className="edit-modal" onClick={e => e.stopPropagation()}>
@@ -2439,12 +2661,13 @@ function App() {
 
         .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
         
-        .header-location-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-
-        .header-location-row { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; }
-        .location-icon { color: var(--accent); opacity: 0.8; }
+        .location-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+        .location-row { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; transition: border-color 0.2s; }
+        .location-row.active { border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.05); }
+        .loc-icon { color: var(--accent); opacity: 0.8; display: flex; align-items: center; }
         .location-input { background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; outline: none; flex: 1; }
-        .tz-select { background: transparent; border: none; color: var(--subtext); font-size: 0.75rem; font-weight: 800; outline: none; cursor: pointer; max-width: 150px; }
+        .tz-select { background: transparent; border: none; color: var(--subtext); font-size: 0.75rem; font-weight: 800; outline: none; cursor: pointer; max-width: 250px; }
+
         .tz-select option { background: #1e293b; color: #fff; }
 
         .trip-meta-row { display: flex; align-items: center; gap: 2rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
@@ -2626,49 +2849,68 @@ function App() {
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
-        .timeline-day-row { display: flex; min-height: 150px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
-        .timeline-date-side { width: 80px; flex-shrink: 0; position: relative; border-right: 1px solid rgba(255,255,255,0.1); }
-        .dual-tz .timeline-date-side { width: 160px; }
+        .timeline-day-row { display: flex; min-height: 80px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .timeline-col { flex-shrink: 0; position: relative; }
+        .day-col { width: 65px; }
+        .time-col { width: 55px; }
+        
+        .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
+        .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
+        .time-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
+        .day-col.right { border-left: 1px solid rgba(255,255,255,0.05); }
+
+        .timeline-header-icons { display: flex; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); height: 32px; }
+        .side-col { display: flex; align-items: center; justify-content: center; color: #64748b; }
+        .center-spacer { flex-grow: 1; }
         
         .midnight-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid currentColor; z-index: 5; opacity: 0.5; }
         .midnight-line.home { color: var(--accent); }
         .midnight-line.dest { color: #f59e0b; border-top-style: dashed; }
         
-        .midnight-label-stack { width: 100%; pointer-events: none; }
+        .midnight-label-stack { width: 100%; pointer-events: none; padding: 0 4px; }
         .midnight-label-stack.home { color: var(--accent); }
         .midnight-label-stack.dest { color: #f59e0b; }
         
-        .date-stack { display: flex; align-items: center; justify-content: center; padding: 4px 0; white-space: nowrap; height: 30px; }
-        .dual-tz .date-stack { width: 80px; }
-        .midnight-label-stack.dest .date-stack { position: absolute; left: 80px; }
+        .date-stack { display: flex; align-items: center; justify-content: center; padding: 4px 0; white-space: nowrap; height: 24px; text-align: center; }
+        .tl-dw { font-size: 0.5rem; font-weight: 950; color: inherit; text-transform: uppercase; line-height: 1; }
 
-
-
-        
-        .tl-dw { font-size: 0.6rem; font-weight: 950; color: inherit; text-transform: uppercase; }
-
-        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 5.25px, rgba(255,255,255,0.02) 5.25px, rgba(255,255,255,0.02) 6.25px); overflow: visible; border-left: 1px solid rgba(255,255,255,0.1); }
+        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(255,255,255,0.02) 4px, rgba(255,255,255,0.02) 5px); overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         
-        .tl-marker-dual { position: absolute; left: -80px; transform: translateY(-50%); pointer-events: none; z-index: 50; display: flex; width: 80px; gap: 0; line-height: 1; }
-        .dual-tz .tl-marker-dual { left: -160px; width: 160px; }
-        .time-item { font-size: 0.65rem; font-weight: 950; text-align: center; width: 80px; flex-shrink: 0; }
+        .tl-marker-dual { position: absolute; width: 60px; transform: translateY(-50%); pointer-events: none; z-index: 50; display: flex; justify-content: center; line-height: 1; }
+        /* time bits are relative to the grid center, so -60px to put in time-col */
+        .tl-marker-dual.left { left: -60px; }
+        .tl-marker-dual.right { right: -60px; }
+        
+        .time-item { font-size: 0.55rem; font-weight: 950; text-align: center; width: 55px; flex-shrink: 0; }
         .time-item.home { color: var(--accent); }
         .time-item.dest { color: #f59e0b; }
         .time-item.bold { font-weight: 950; opacity: 1; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
-        .time-item.faint { font-weight: 500; opacity: 0.4; font-size: 0.55rem; }
-
+        .time-item.faint { font-weight: 500; opacity: 0.35; font-size: 0.5rem; }
         
-        .tl-marker-dual.arr { opacity: 0.9; }
-        .tl-marker-dual.hotel .time-item.dest { color: #4ade80; }
-        
-        .inline-leg { position: static; width: auto; transform: none; display: flex; flex-direction: row; gap: 6px; align-items: center; }
-        .inline-leg .time-item { width: auto; font-size: 0.65rem; }
+        .tl-event { position: absolute; border-radius: 6px; padding: 4px 8px; font-size: 0.62rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event.flight-event { width: auto; left: 0; right: 0; z-index: 10; padding: 2px 8px; background: rgba(99, 102, 241, 0.4); justify-content: center; backdrop-filter: blur(4px); }
+        .tl-event.travel-event { width: 28%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 12px !important; }
+        .tl-event.travel-event.home-side { left: 4px; right: auto; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 3px solid #fff; }
+        .tl-event.travel-event.away-side { right: 4px; left: auto; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 3px solid #fff; }
+        .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 0.95; z-index: 1; background: linear-gradient(to right, rgba(16, 185, 129, 0.22), rgba(16, 185, 129, 0.05) 15%, rgba(16, 185, 129, 0.02) 50%, rgba(16, 185, 129, 0.05) 85%, rgba(16, 185, 129, 0.22)); border: 1px solid rgba(16, 185, 129, 0.15); justify-content: center; }
 
-        .tl-event { position: absolute; left: 10px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
-        .tl-event.flight-event { width: 55%; z-index: 10; }
-        .tl-event.travel-event { z-index: 20; }
-        .tl-event.hotel-event { width: auto; left: 10px; right: 10px; opacity: 0.8; }
+        .tl-hotel-name { font-size: 0.7rem; font-weight: 950; color: #10b981; pointer-events: none; position: absolute; left: 0; right: 0; text-align: center; z-index: 5; }
+        
+        .tl-travel-meta { position: absolute; top: 50%; display: flex; flex-direction: column; gap: 0; fontSize: 0.55rem; fontWeight: 950; color: #fff; white-space: nowrap; zIndex: 50; transform: translateY(-50%); }
+        .tl-travel-meta.home-side { left: 100%; margin-left: 10px; text-align: left; }
+        .tl-travel-meta.away-side { right: 100%; margin-right: 10px; text-align: right; }
+        
+        .tl-travel-meta.away-side .inline-leg { justify-content: flex-end; }
+        .tl-travel-meta.home-side .inline-leg { justify-content: flex-start; }
+
+
+
+
+
+
+
+
 
 
 
