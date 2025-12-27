@@ -163,7 +163,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               >
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-event-label flight-label-compact">
-                    <div className="tl-f-top">{s.airlineCode}{s.flightNumber} {s.depPort}→{s.arrPort}</div>
+                    <div className="tl-f-port">{s.depPort}</div>
+                    <div className="tl-f-mid">✈️ {s.airlineCode} {s.flightNumber}</div>
+                    <div className="tl-f-port">{s.arrPort}</div>
                   </div>
                 )}
               </div>
@@ -251,11 +253,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 style={{
                   top: `${getPosition(start)}%`,
                   height: `${getPosition(end) - getPosition(start)}%`,
-                  background: 'linear-gradient(to right, rgba(129, 140, 248, 0.3), rgba(129, 140, 248, 0.1))',
+                  background: 'linear-gradient(to right, rgba(129, 140, 248, 0.5), rgba(129, 140, 248, 0.3))',
                   color: '#818cf8',
                   border: '1px solid rgba(129, 140, 248, 0.4)',
-                  left: '65%',
-                  right: '10px',
+                  left: '60px',
+                  width: '55%',
                   zIndex: 4,
                   padding: '2px',
                   overflow: 'visible'
@@ -280,26 +282,28 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
         })}
       </div >
 
-      {showMIE && (
-        <div className="timeline-mie-side">
-          <div className="tl-mie-header">
-            <div className="tl-mie-total">{formatCurrency(mieTotal, 'USD')}</div>
-            {isFirstOrLast && <span className="tl-mie-75">75%</span>}
+      {
+        showMIE && (
+          <div className="timeline-mie-side">
+            <div className="tl-mie-header">
+              <div className="tl-mie-total">{formatCurrency(mieTotal, 'USD')}</div>
+              {isFirstOrLast && <span className="tl-mie-75">75%</span>}
+            </div>
+            <div className="tl-mie-stack">
+              {['B', 'L', 'D', 'I'].map(m => (
+                <div
+                  key={m}
+                  className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
+                  onClick={() => onUpdateMeals(day.id, m)}
+                >
+                  <span className="tl-m-label">{m}</span>
+                  <span className="tl-m-price">${getMealPrice(m).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="tl-mie-stack">
-            {['B', 'L', 'D', 'I'].map(m => (
-              <div
-                key={m}
-                className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
-                onClick={() => onUpdateMeals(day.id, m)}
-              >
-                <span className="tl-m-label">{m}</span>
-                <span className="tl-m-price">${getMealPrice(m).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )
+      }
     </div >
   );
 };
@@ -2312,7 +2316,8 @@ function App() {
         .tl-event.clickable:hover { transform: scale(1.005); filter: brightness(1.1); z-index: 30 !important; }
         .flight-event { background: linear-gradient(to right, var(--accent), #4f46e5); color: #fff; }
         .hotel-event { background: linear-gradient(to right, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); }
-        .travel-event { background: linear-gradient(to right, rgba(129, 140, 248, 0.3), rgba(129, 140, 248, 0.1)); }
+        .travel-event { background: linear-gradient(to right, rgba(129, 140, 248, 0.5), rgba(129, 140, 248, 0.3)); }
+
 
 
 
@@ -2330,8 +2335,9 @@ function App() {
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
-        .flight-label-compact { display: flex; align-items: center; width: 100%; height: 100%; padding: 2px 0; }
-        .tl-f-top { font-size: 0.6rem; font-weight: 950; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .flight-label-compact { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; width: 100%; height: 100%; padding: 2px 4px; line-height: 1; overflow: hidden; }
+        .tl-f-port { font-size: 0.6rem; font-weight: 950; color: rgba(255,255,255,0.9); }
+        .tl-f-mid { font-size: 0.55rem; font-weight: 700; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 
         .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; }
         .tl-v-icon { font-size: 0.9rem; margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }
