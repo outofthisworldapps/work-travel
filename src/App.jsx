@@ -612,6 +612,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   right: 0,
                   borderLeft: '4px solid rgba(16, 185, 129, 0.4)',
 
+
                   borderRadius: `${isCheckInDay ? '8px' : '0'} ${isCheckInDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'}`,
                   borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
                   borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
@@ -2898,7 +2899,7 @@ function App() {
         .tl-event.travel-event { width: 28%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 12px !important; }
         .tl-event.travel-event.home-side { left: 4px; right: auto; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 3px solid #fff; }
         .tl-event.travel-event.away-side { right: 4px; left: auto; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 3px solid #fff; }
-        .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 1.0; z-index: 1; background: linear-gradient(to right, rgba(16, 185, 129, 0.4), rgba(16, 185, 129, 0.15) 15%, rgba(16, 185, 129, 0.1) 50%, rgba(16, 185, 129, 0.15) 85%, rgba(16, 185, 129, 0.4)); border: 1px solid rgba(16, 185, 129, 0.35); justify-content: center; }
+        .tl-event.hotel-event { width: 50%; left: 0; right: auto; opacity: 1.0; z-index: 1; background: linear-gradient(to right, rgba(16, 185, 129, 0.4), rgba(16, 185, 129, 0.15) 15%, rgba(16, 185, 129, 0.1) 50%, rgba(16, 185, 129, 0.15) 85%, rgba(16, 185, 129, 0.4)); border: 1px solid rgba(16, 185, 129, 0.35); justify-content: center; }
 
 
         .tl-hotel-name { font-size: 0.7rem; font-weight: 950; color: #10b981; pointer-events: none; position: absolute; left: 0; right: 0; text-align: center; z-index: 5; }
