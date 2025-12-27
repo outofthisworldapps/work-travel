@@ -609,27 +609,23 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   height: `${getPosition(isCheckOutDay ? normEnd : 24) - getPosition(isCheckInDay ? normStart : 0)}%`,
                   width: '50%',
                   left: '50%',
-                  right: 0,
-                  borderLeft: '4px solid rgba(16, 185, 129, 0.6)',
-
-
-
+                  borderLeft: '4px solid rgba(16, 185, 129, 0.7)',
                   borderRadius: `${isCheckInDay ? '8px' : '0'} ${isCheckInDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'} ${isCheckOutDay ? '8px' : '0'}`,
-                  borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
-                  borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.1)',
-                  left: 0,
-                  right: 0,
+                  borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.6)',
+                  borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.6)',
+                  borderRight: '1px solid rgba(16, 185, 129, 0.6)',
                   zIndex: 2,
-                  background: 'linear-gradient(to right, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.02) 20%, rgba(16, 185, 129, 0.02) 80%, rgba(16, 185, 129, 0.12))'
+                  background: 'linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85))'
                 }}
               >
                 {(isCheckInDay || (dayIndex === 0 && isMidStay)) && (
-                  <div className="tl-hotel-name" style={{ top: isCheckInDay ? '35px' : '15px' }}>
-                    <span style={{ background: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(8px)', padding: '4px 12px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.4)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                  <div className="tl-hotel-name" style={{ top: isCheckInDay ? '40px' : '20px' }}>
+                    <span style={{ background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(10px)', padding: '5px 14px', borderRadius: '99px', border: '1.5px solid rgba(16, 185, 129, 0.5)', boxShadow: '0 4px 15px rgba(0,0,0,0.6)' }}>
                       🏨 {h.name || 'Hotel'}
                     </span>
                   </div>
                 )}
+
 
               </div>
 
@@ -2395,7 +2391,8 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontMono: 'monospace' }}>Work Travel: version 2025-12-27 16:07PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 16:15PM</div>
+
             <div className="trip-header-container">
               <div className="trip-header-main">
                 <input
@@ -2912,7 +2909,8 @@ function App() {
         .tl-event.travel-event { width: 28%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 12px !important; }
         .tl-event.travel-event.home-side { left: 4px; right: auto; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 3px solid #fff; }
         .tl-event.travel-event.away-side { right: 4px; left: auto; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 3px solid #fff; }
-        .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 1.0; z-index: 1; background: linear-gradient(to right, rgba(16, 185, 129, 0.9), rgba(16, 185, 129, 0.7) 15%, rgba(16, 185, 129, 0.6) 50%, rgba(16, 185, 129, 0.7) 85%, rgba(16, 185, 129, 0.9)); border: 1px solid rgba(16, 185, 129, 0.5); justify-content: center; }
+        .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 1.0; z-index: 2; background: linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85)); border: 1px solid rgba(16, 185, 129, 0.6); justify-content: center; }
+
 
 
 
