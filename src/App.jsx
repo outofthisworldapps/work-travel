@@ -80,24 +80,33 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   const parseTime = (timeStr) => {
     if (!timeStr) return null;
-    let t = timeStr.toLowerCase().replace(' ', '');
-    // Handle formats like 2p, 2:30p, 11a
-    let meridiem = t.slice(-1);
-    if (meridiem !== 'a' && meridiem !== 'p') meridiem = 'p'; // Default to p if missing
-    let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
-    let [h, m] = timePart.split(':').map(Number);
-    if (meridiem === 'p' && h < 12) h += 12;
-    if (meridiem === 'a' && h === 12) h = 0;
-    return h + (m || 0) / 60;
+    try {
+      let t = timeStr.toLowerCase().replace(' ', '');
+      let meridiem = t.slice(-1);
+      if (meridiem !== 'a' && meridiem !== 'p') {
+        meridiem = 'p';
+      }
+      let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+      let parts = timePart.split(':');
+      let h = parseInt(parts[0]);
+      let m = parseInt(parts[1]) || 0;
+      if (isNaN(h)) return null;
+      if (meridiem === 'p' && h < 12) h += 12;
+      if (meridiem === 'a' && h === 12) h = 0;
+      return h + (m || 0) / 60;
+    } catch (e) { return null; }
   };
 
-  const getPosition = (time) => (time / 24) * 100;
+  const getPosition = (time) => {
+    if (time === null || isNaN(time)) return 0;
+    return (time / 24) * 100;
+  };
 
   return (
     <div className="timeline-day-row">
       <div className="timeline-date-side">
-        <div className="tl-dw">{format(day.date, 'EEE')}</div>
-        <div className="tl-dm">{format(day.date, 'M/d/yy')}</div>
+        <div className="tl-dw">{safeFormat(day.date, 'EEE', '---')}</div>
+        <div className="tl-dm">{safeFormat(day.date, 'M/d/yy', '--/--/--')}</div>
         <button className="tl-add-btn" onClick={() => onAddLeg(dayIndex)} title="Add travel leg to this day">
           <Plus size={12} />
         </button>
@@ -116,9 +125,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
         {dayFlights.map(s => {
           const start = s.segDepDate === dayStr ? parseTime(s.depTime) : 0;
           const end = s.segArrDate === dayStr ? parseTime(s.arrTime) : 23.99;
-          if (start === null && end === null) return null;
-          const startPos = start !== null ? start : 0;
-          const endPos = end !== null ? end : 23.99;
+
+          const startPos = (start !== null && !isNaN(start)) ? start : 0;
+          const endPos = (end !== null && !isNaN(end)) ? end : 23.99;
 
           return (
             <div
@@ -136,9 +145,12 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
         {/* Hotel Boxes from Bookings */}
         {hotels.map(h => {
-          const checkInDate = format(h.checkIn, 'yyyy-MM-dd');
-          const checkOutDate = format(h.checkOut, 'yyyy-MM-dd');
-          const currDate = format(day.date, 'yyyy-MM-dd');
+          if (!h.checkIn || !h.checkOut || isNaN(h.checkIn.getTime()) || isNaN(h.checkOut.getTime())) return null;
+          if (!day.date || isNaN(day.date.getTime())) return null;
+
+          const checkInDate = safeFormat(h.checkIn, 'yyyy-MM-dd');
+          const checkOutDate = safeFormat(h.checkOut, 'yyyy-MM-dd');
+          const currDate = safeFormat(day.date, 'yyyy-MM-dd');
 
           const isCheckInDay = checkInDate === currDate;
           const isCheckOutDay = checkOutDate === currDate;
@@ -146,11 +158,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           if (!isCheckInDay && !isCheckOutDay && !isMidStay) return null;
 
-          let start = 0;
-          let end = 23.99;
+          let start = 14; // Default check-in 2pm
+          let end = 11; // Default check-out 11am
 
-          if (isCheckInDay) start = parseTime(h.checkInTime) || 14;
-          if (isCheckOutDay) end = parseTime(h.checkOutTime) || 11;
+          if (isCheckInDay) start = parseTime(h.checkInTime) ?? 14;
+          if (isCheckOutDay) end = parseTime(h.checkOutTime) ?? 11;
+          if (isMidStay) { start = 0; end = 23.99; }
+          if (isCheckInDay && !isCheckOutDay) end = 23.99;
+          if (isCheckOutDay && !isCheckInDay) start = 0;
 
           return (
             <div
@@ -158,7 +173,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               className="tl-event hotel-event"
               style={{
                 top: `${getPosition(start)}%`,
-                height: `${getPosition(end) - getPosition(start)}%`
+                height: `${Math.max(getPosition(end) - getPosition(start), 5)}%`
               }}
             >
               <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
@@ -170,7 +185,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
         {day.legs.map(l => {
           if (!l.time || l.type === 'flight') return null;
           const start = parseTime(l.time);
-          if (start === null) return null;
+          if (start === null || isNaN(start)) return null;
 
           return (
             <div
@@ -379,22 +394,31 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 // --- Components ---
 
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
-  // Parse string dates for DateInput - expecting M/d/yy format
-  let depDate = new Date();
-  let arrDate = new Date();
-  try {
-    if (segment.depDate) {
-      const p = parse(segment.depDate, 'M/d/yy', new Date());
-      if (!isNaN(p.getTime())) depDate = p;
-    }
-    if (segment.arrDate) {
-      const p = parse(segment.arrDate, 'M/d/yy', new Date());
-      if (!isNaN(p.getTime())) arrDate = p;
-    }
-  } catch (e) { }
+  const parseFrag = (dateStr) => {
+    if (!dateStr) return new Date();
+    try {
+      let d = null;
+      if (dateStr.includes('/')) {
+        d = parse(dateStr, 'M/d/yy', new Date());
+        if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+      } else {
+        d = new Date(dateStr);
+        // Fix year if missing or defaults to 2001
+        if (!isNaN(d.getTime()) && (d.getFullYear() < 2024 || d.getFullYear() > 2099)) {
+          d.setFullYear(new Date().getFullYear());
+        }
+      }
+      return (!d || isNaN(d.getTime())) ? new Date() : d;
+    } catch (e) { return new Date(); }
+  };
+
+  const depDate = parseFrag(segment.depDate);
+  const arrDate = parseFrag(segment.arrDate);
 
   const handleDateChange = (field, date) => {
-    onUpdate(field, format(date, 'M/d/yy'));
+    if (date && !isNaN(date.getTime())) {
+      onUpdate(field, safeFormat(date, 'M/d/yy'));
+    }
   };
 
   return (
@@ -437,23 +461,35 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
     if (!s1 || !s2 || !s1.arrDate || !s1.arrTime || !s2.depDate || !s2.depTime) return null;
     try {
       const parseDateTime = (dateStr, timeStr) => {
-        const d = parse(dateStr, 'M/d/yy', new Date());
+        let d;
+        if (dateStr.includes('/')) {
+          d = parse(dateStr, 'M/d/yy', new Date());
+          if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+        } else {
+          d = new Date(dateStr);
+        }
+        if (!d || isNaN(d.getTime())) return null;
+
         let t = timeStr.toLowerCase().replace(' ', '');
         let meridiem = t.slice(-1);
-        let time = t.slice(0, -1);
-        let [h, m] = time.split(':').map(Number);
+        let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+        let parts = timePart.split(':');
+        let h = parseInt(parts[0]);
+        let m = parseInt(parts[1]) || 0;
+        if (isNaN(h)) return null;
         if (meridiem === 'p' && h < 12) h += 12;
         if (meridiem === 'a' && h === 12) h = 0;
-        d.setHours(h, m || 0, 0, 0);
+        d.setHours(h, m, 0, 0);
         return d;
       };
       const arr = parseDateTime(s1.arrDate, s1.arrTime);
       const dep = parseDateTime(s2.depDate, s2.depTime);
+      if (!arr || !dep || isNaN(arr.getTime()) || isNaN(dep.getTime())) return null;
       const diff = (dep - arr) / (1000 * 60);
-      if (diff <= 0) return null;
+      if (diff <= 0 || isNaN(diff)) return null;
       const hours = Math.floor(diff / 60);
-      const mins = diff % 60;
-      return hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+      const mins = Math.round(diff % 60);
+      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     } catch (e) { return null; }
   };
 
@@ -630,60 +666,101 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 
 // --- Components ---
+const safeFormat = (date, fmt, fallback = '') => {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return fallback;
+  try { return format(date, fmt); } catch (e) { return fallback; }
+};
 
 const SegmentedDateInput = ({ value, onChange, className }) => {
-  const [mon, setMon] = useState(format(value, 'M'));
-  const [day, setDay] = useState(format(value, 'd'));
-  const [year, setYear] = useState(format(value, 'yy'));
-  const [wd, setWd] = useState(format(value, 'EEE'));
+  const [mon, setMon] = useState(safeFormat(value, 'M'));
+  const [day, setDay] = useState(safeFormat(value, 'd'));
+  const [year, setYear] = useState(safeFormat(value, 'yy'));
+  const [wd, setWd] = useState(safeFormat(value, 'EEE'));
 
   const dateInputRef = React.useRef(null);
   const monRef = React.useRef(null);
   const dayRef = React.useRef(null);
   const yearRef = React.useRef(null);
+  const wdRef = React.useRef(null);
+  const isInternalChange = React.useRef(false);
 
   React.useEffect(() => {
-    setMon(format(value, 'M'));
-    setDay(format(value, 'd'));
-    setYear(format(value, 'yy'));
-    setWd(format(value, 'EEE'));
+    if (!value || isNaN(value.getTime())) {
+      setMon(''); setDay(''); setYear(''); setWd('');
+      return;
+    }
+    const isFocused = [monRef.current, dayRef.current, yearRef.current, wdRef.current].includes(document.activeElement);
+    if (!isFocused && !isInternalChange.current) {
+      setMon(format(value, 'M'));
+      setDay(format(value, 'd'));
+      setYear(format(value, 'yy'));
+      setWd(format(value, 'EEE'));
+    }
   }, [value]);
 
   const commitParts = (newMon, newDay, newYear) => {
+    if (newMon.length === 0 || newDay.length === 0 || newYear.length < 2) return;
     const m = parseInt(newMon);
     const d = parseInt(newDay);
     let y = parseInt(newYear);
-    if (isNaN(m) || isNaN(d) || isNaN(y)) return;
+
+    if (isNaN(m) || m < 1 || m > 12) return;
+    if (isNaN(d) || d < 1 || d > 31) return;
+    if (isNaN(y)) return;
+
     if (y < 100) y += 2000;
+
+    // Use local time precisely
     const newDate = new Date(y, m - 1, d, 12, 0, 0);
     if (!isNaN(newDate.getTime())) {
-      onChange(newDate);
+      const currentValStr = safeFormat(value, 'yyyy-MM-dd');
+      if (format(newDate, 'yyyy-MM-dd') !== currentValStr) {
+        isInternalChange.current = true;
+        onChange(newDate);
+        setTimeout(() => { isInternalChange.current = false; }, 100);
+      }
     }
   };
 
   const handleWdChange = (newWdStr) => {
     setWd(newWdStr);
     const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const targetIdx = weekdays.findIndex(w => w.startsWith(newWdStr.toLowerCase().substring(0, 3)));
+    const search = newWdStr.toLowerCase().trim();
+    if (search.length < 2) return;
+
+    const targetIdx = weekdays.findIndex(w => w.startsWith(search.substring(0, 3)));
     if (targetIdx !== -1) {
       const currentIdx = value.getDay();
       let diff = targetIdx - currentIdx;
+      // Find closest (max 3 days away)
       if (diff > 3) diff -= 7;
       if (diff < -3) diff += 7;
-      onChange(addDays(value, diff));
+
+      if (diff !== 0) {
+        const next = addDays(value, diff);
+        onChange(next);
+        if (next && !isNaN(next.getTime())) setWd(format(next, 'EEE'));
+      }
     }
   };
 
-  const handleFocus = (e) => e.target.select();
+  const handleFocus = (e) => {
+    e.target.select();
+  };
 
   return (
     <div className={`segmented-date-input ${className || ''}`}>
       <input
+        ref={wdRef}
         className="si-wd"
         value={wd}
         onChange={e => handleWdChange(e.target.value)}
+        onBlur={() => {
+          if (value && !isNaN(value.getTime())) setWd(format(value, 'EEE'));
+        }}
         onFocus={handleFocus}
         spellCheck="false"
+        placeholder="WED"
       />
       <div className="si-parts">
         <input
@@ -691,16 +768,24 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           className="si-num"
           value={mon}
           onChange={e => {
-            const val = e.target.value;
+            const val = e.target.value.replace(/\D/g, '').substring(0, 2);
             setMon(val);
-            if (val.length === 2) {
+            const isComplete = val.length === 2 || (val.length === 1 && parseInt(val) > 1 && val !== '0');
+            if (isComplete) {
               dayRef.current?.focus();
               commitParts(val, day, year);
             }
           }}
-          onBlur={() => commitParts(mon, day, year)}
+          onBlur={() => {
+            if (value && !isNaN(value.getTime())) {
+              const v = format(value, 'M');
+              setMon(v);
+              commitParts(v, day, year);
+            }
+          }}
           onFocus={handleFocus}
           maxLength={2}
+          placeholder="M"
         />
         <span className="si-sep">/</span>
         <input
@@ -708,16 +793,24 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           className="si-num"
           value={day}
           onChange={e => {
-            const val = e.target.value;
+            const val = e.target.value.replace(/\D/g, '').substring(0, 2);
             setDay(val);
-            if (val.length === 2) {
+            const isComplete = val.length === 2 || (val.length === 1 && parseInt(val) > 3);
+            if (isComplete) {
               yearRef.current?.focus();
               commitParts(mon, val, year);
             }
           }}
-          onBlur={() => commitParts(mon, day, year)}
+          onBlur={() => {
+            if (value && !isNaN(value.getTime())) {
+              const v = format(value, 'd');
+              setDay(v);
+              commitParts(mon, v, year);
+            }
+          }}
           onFocus={handleFocus}
           maxLength={2}
+          placeholder="D"
         />
         <span className="si-sep">/</span>
         <input
@@ -725,15 +818,22 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
           className="si-num si-year"
           value={year}
           onChange={e => {
-            const val = e.target.value;
+            const val = e.target.value.replace(/\D/g, '').substring(0, 2);
             setYear(val);
             if (val.length === 2) {
               commitParts(mon, day, val);
             }
           }}
-          onBlur={() => commitParts(mon, day, year)}
+          onBlur={() => {
+            if (value && !isNaN(value.getTime())) {
+              const v = format(value, 'yy');
+              setYear(v);
+              commitParts(mon, day, v);
+            }
+          }}
           onFocus={handleFocus}
           maxLength={2}
+          placeholder="YY"
         />
       </div>
       <div className="si-cal" onClick={() => dateInputRef.current?.showPicker()}>
@@ -855,8 +955,8 @@ function App() {
       confirmation: '2DUVM2',
       cost: 1200,
       segments: [
-        { id: 's-1', airlineCode: 'FI', flightNumber: '642', depDate: 'Sun Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Mon Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
-        { id: 's-2', airlineCode: 'FI', flightNumber: '204', depDate: 'Mon Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Mon Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
+        { id: 's-1', airlineCode: 'FI', flightNumber: '642', depDate: 'Mon Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Tue Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
+        { id: 's-2', airlineCode: 'FI', flightNumber: '204', depDate: 'Tue Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Tue Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
       ]
     },
     {
@@ -865,7 +965,7 @@ function App() {
       confirmation: '2DUVM2',
       cost: 0,
       segments: [
-        { id: 's-3', airlineCode: 'FI', flightNumber: '', depDate: 'Wed Apr 24', depTime: '', depPort: 'CPH', arrDate: 'Wed Apr 24', arrTime: '', arrPort: 'BWI' }
+        { id: 's-3', airlineCode: 'FI', flightNumber: '', depDate: 'Thu Apr 24', depTime: '', depPort: 'CPH', arrDate: 'Thu Apr 24', arrTime: '', arrPort: 'BWI' }
       ]
     }
   ]);
@@ -1299,22 +1399,39 @@ function App() {
   }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory, hotels]);
 
   const handleStartDateChange = (newStart) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-    const diff = differenceInCalendarDays(newStart, days[0].date);
-    if (diff === 0) return;
+    if (!newStart || isNaN(newStart.getTime())) return;
+    const oldStart = (days && days[0]) ? days[0].date : null;
+    if (!oldStart || isNaN(oldStart.getTime())) return;
 
-    // Shift days
+    const diff = differenceInCalendarDays(newStart, oldStart);
+    if (diff === 0 || isNaN(diff)) return;
+
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+
+    // Update Days
     setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
 
-    // Shift flights
+    // Update Flights
     setFlights(prev => prev.map(f => ({
       ...f,
       segments: (f.segments || []).map(s => {
         const updateSegDate = (dateStr) => {
           if (!dateStr) return '';
           try {
-            const d = parse(dateStr, 'M/d/yy', new Date());
-            return format(addDays(d, diff), 'M/d/yy');
+            let d = null;
+            if (dateStr.includes('/')) {
+              d = parse(dateStr, 'M/d/yy', new Date());
+              if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+            } else {
+              const year = oldStart.getFullYear();
+              d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
+              if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
+            }
+            if (!d || isNaN(d.getTime())) d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+
+            const shifted = addDays(d, diff);
+            return safeFormat(shifted, 'M/d/yy');
           } catch (e) { return dateStr; }
         };
         return {
@@ -1326,7 +1443,7 @@ function App() {
     })));
 
     // Shift hotels
-    setHotels(prev => prev.map(h => ({
+    setHotels(prev => (prev || []).map(h => ({
       ...h,
       checkIn: addDays(h.checkIn, diff),
       checkOut: addDays(h.checkOut, diff)
@@ -1445,6 +1562,7 @@ function App() {
     setDays(prevDays => {
       let changed = false;
       const nextDays = prevDays.map((day, dIdx) => {
+        if (!day.date || isNaN(day.date.getTime())) return day;
         const dayStr = format(day.date, 'M/d/yy');
         const newLegs = [...day.legs];
 
@@ -1750,12 +1868,11 @@ function App() {
         .segmented-date-input {
           display: flex;
           align-items: center;
-          gap: 2px;
+          gap: 6px;
           background: rgba(0,0,0,0.3);
           border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 6px;
-          padding: 3px 10px;
-          gap: 4px;
+          border-radius: 8px;
+          padding: 4px 12px;
         }
         .segmented-date-input:focus-within {
           border-color: var(--accent);
@@ -1775,7 +1892,7 @@ function App() {
         }
         .si-parts { display: flex; align-items: center; color: var(--subtext); font-size: 0.8rem; font-weight: 600; }
         .si-num {
-          width: 18px;
+          width: 20px;
           background: transparent;
           border: none;
           color: #fff;
@@ -1784,7 +1901,7 @@ function App() {
           font-family: inherit;
           padding: 0;
         }
-        .si-year { width: 22px; }
+        .si-year { width: 24px; }
         .si-sep { color: rgba(255,255,255,0.2); margin: 0 1px; font-weight: 300; }
         .si-cal { margin-left: 6px; color: #475569; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
         .si-cal:hover { color: var(--accent); }
@@ -1844,9 +1961,9 @@ function App() {
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.5rem; padding: 0.5rem; margin-bottom: 0.25rem; }
         .f-seg-main { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
         .s-full-num { width: 55px; font-weight: 800; color: var(--accent) !important; text-align: center; }
-        .s-date { width: 55px; font-size: 0.7rem; }
-        .s-time { width: 45px; font-size: 0.7rem; }
-        .s-port { width: 35px; font-weight: 800; text-transform: uppercase; text-align: center; }
+        .s-date { width: 140px; font-size: 0.7rem; }
+        .s-time { width: 50px; font-size: 0.7rem; }
+        .s-port { width: 45px; font-weight: 800; text-transform: uppercase; text-align: center; }
         .seg-arrow { color: #475569; font-size: 0.7rem; }
         .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; margin-left: auto; }
         .f-seg-del:hover { color: #ef4444; }
