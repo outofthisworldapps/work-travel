@@ -111,8 +111,9 @@ const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ) => {
   const dc = (destCity || '').toUpperCase();
   if (hc.includes(p) || (p.length === 3 && hc.includes(p))) return homeTZ;
   if (dc.includes(p) || (p.length === 3 && dc.includes(p))) return destTZ;
-  return destTZ;
+  return homeTZ;
 };
+
 
 
 // --- Utility Functions ---
