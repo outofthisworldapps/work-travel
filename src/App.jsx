@@ -118,6 +118,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     });
   });
 
+  // Dedup markers logic: track positions used in this day to avoid overlapping labels on the left
+  const renderedMarkerPositions = [];
+  const isPositionTaken = (pos) => {
+    const threshold = 3; // 3% threshold
+    const taken = renderedMarkerPositions.some(p => Math.abs(p - pos) < threshold);
+    if (!taken) renderedMarkerPositions.push(pos);
+    return taken;
+  };
+
   return (
     <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''}`}>
       <div className="timeline-date-side">
@@ -147,35 +156,44 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           return (
             <React.Fragment key={s.id + (isArrivalPart && !isDeparturePart ? '-arr' : '')}>
-              <div className="tl-marker-time" style={{ top: `${getPosition(startPos)}%`, zIndex: 3 }}>{s.depTime.toLowerCase()}</div>
-              <div className="tl-marker-time arr" style={{ top: `${getPosition(endPos)}%`, zIndex: 3 }}>{s.arrTime.toLowerCase()}</div>
+              {startPos > 0 && startPos < 24 && !isPositionTaken(getPosition(startPos)) && (
+                <div className="tl-marker-time" style={{ top: `${getPosition(startPos)}%`, zIndex: 12 }}>
+                  {s.depTime.toLowerCase()}
+                </div>
+              )}
+              {endPos > 0 && endPos < 24 && !isPositionTaken(getPosition(endPos)) && (
+                <div className="tl-marker-time arr" style={{ top: `${getPosition(endPos)}%`, zIndex: 12 }}>
+                  {s.arrTime.toLowerCase()}
+                </div>
+              )}
               <div
                 className="tl-event flight-event clickable"
                 onClick={() => onEditEvent({ type: 'flight', id: s.parentFlight.id, segmentId: s.id })}
                 style={{
                   top: `${getPosition(startPos)}%`,
-                  height: isOvernight && isDeparturePart ? `calc(${getPosition(endPos) - getPosition(startPos)}% + 2px)` : `${getPosition(endPos) - getPosition(startPos)}%`,
-                  zIndex: 2,
+                  height: `${getPosition(endPos) - getPosition(startPos)}%`,
+                  minHeight: '24px',
+                  zIndex: 10,
                   borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
                   borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
                   borderTop: (isOvernight && isArrivalPart) ? 'none' : undefined,
+                  padding: 0
                 }}
               >
                 {(!isOvernight || isDeparturePart) && (
-                  <div className="tl-event-label flight-label-compact">
+                  <div className="tl-event-label flight-label-compact" style={{ padding: '2px 4px' }}>
                     <div className="tl-f-rec">{s.parentFlight.confirmation || ''}</div>
-                    <div className="tl-f-main-row">
-                      <div className="tl-f-ports-stack">
-                        <div className="tl-f-port">{s.depPort}</div>
-                        <div className="tl-f-port">{s.arrPort}</div>
+                    <div className="tl-f-main-row" style={{ marginTop: '0', display: 'flex', alignItems: 'center', height: '100%', gap: '6px' }}>
+                      <div className="tl-f-ports-stack" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1px' }}>
+                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</div>
+                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</div>
                       </div>
-                      <div className="tl-f-info-stack">
-                        <div className="tl-f-mid">✈️ {s.airlineCode}{s.flightNumber}</div>
-                        {s.seat && <div className="tl-f-seat">Seat: {s.seat}</div>}
+                      <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✈️ {s.airlineCode}{s.flightNumber}</div>
+                        {s.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {s.seat}</div>}
                       </div>
                     </div>
                   </div>
-                )}
                 )}
               </div>
             </React.Fragment>
@@ -209,11 +227,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           return (
             <React.Fragment key={h.id}>
-              {isCheckInDay && (
-                <div className="tl-marker-time hotel" style={{ top: `${getPosition(start)}%` }}>{h.checkInTime?.toLowerCase() || '2:00p'}</div>
+              {isCheckInDay && !isPositionTaken(getPosition(start)) && (
+                <div className="tl-marker-time hotel" style={{ top: `${getPosition(start)}%` }}>
+                  {h.checkInTime?.toLowerCase() || '2:00p'}
+                </div>
               )}
-              {isCheckOutDay && (
-                <div className="tl-marker-time hotel arr" style={{ top: `${getPosition(end)}%` }}>{h.checkOutTime?.toLowerCase() || '11:00a'}</div>
+              {isCheckOutDay && !isPositionTaken(getPosition(end)) && (
+                <div className="tl-marker-time hotel arr" style={{ top: `${getPosition(end)}%` }}>
+                  {h.checkOutTime?.toLowerCase() || '11:00a'}
+                </div>
               )}
               <div
                 className="tl-event hotel-event clickable"
@@ -272,12 +294,17 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   overflow: 'visible'
                 }}
               >
-                {/* Side Labels */}
-                <div style={{ position: 'absolute', top: 0, left: '100%', marginLeft: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', fontSize: '0.65rem', fontWeight: 900, color: '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', transform: 'translateY(-25%)' }}>
+                {/* Side Labels: Emoji left of time */}
+                <div style={{
+                  position: 'absolute', top: 0, left: '100%', marginLeft: '8px',
+                  display: 'flex', flexDirection: 'column',
+                  height: '100%', fontSize: '0.65rem', fontWeight: 950,
+                  color: '#fff', whiteSpace: 'nowrap', zIndex: 50
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                     {getEmoji(l.from)} {l.time.toLowerCase()}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', transform: 'translateY(25%)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginTop: 'auto' }}>
                     {getEmoji(l.to)} {formatTime(end).toLowerCase()}
                   </div>
                 </div>
@@ -289,7 +316,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
             </React.Fragment>
           );
         })}
-      </div >
+      </div>
 
       {
         showMIE && (
@@ -2221,7 +2248,7 @@ function App() {
         /* Totals */
         .totals-section { padding: 1.5rem; }
         .main-total-card { margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
-        .main-total-card .total-label { font-size: 0.8rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .main-total-card .total-label { font-size: 0.8rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
         .main-total-card .total-value { font-size: 3rem; font-weight: 1000; color: #fff; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); letter-spacing: -0.02em; }
         
         .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; }
@@ -2297,15 +2324,12 @@ function App() {
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
-        .timeline-day-row { display: flex; min-height: 110px; }
-        .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding-top: 1rem; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .timeline-day-row { display: flex; min-height: 280px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .timeline-date-side { width: 60px; border-right: 1px solid rgba(255,255,255,0.05); padding: 0.5rem; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; }
+        .tl-dw { font-size: 0.65rem; font-weight: 950; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+        .tl-dm { font-size: 0.8rem; font-weight: 950; color: #fff; white-space: nowrap; }
 
-
-
-        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.75rem; color: var(--subtext); font-weight: 800; font-family: 'JetBrains Mono', monospace; }
-        
-        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-left: 60px; overflow: visible; }
+        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 11.66px, rgba(255,255,255,0.02) 11.66px, rgba(255,255,255,0.02) 12.66px); overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         .hour-label { position: absolute; left: 70px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
         
