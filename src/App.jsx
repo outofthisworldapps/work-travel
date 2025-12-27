@@ -121,7 +121,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
   // Dedup markers logic: track positions used in this day to avoid overlapping labels on the left
   const renderedMarkerPositions = [];
   const isPositionTaken = (pos) => {
-    const threshold = 3; // 3% threshold
+    const threshold = 2.5; // 2.5% threshold (0.6 hours at 600px/24h)
     const taken = renderedMarkerPositions.some(p => Math.abs(p - pos) < threshold);
     if (!taken) renderedMarkerPositions.push(pos);
     return taken;
@@ -172,7 +172,6 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 style={{
                   top: `${getPosition(startPos)}%`,
                   height: `${getPosition(endPos) - getPosition(startPos)}%`,
-                  minHeight: '24px',
                   zIndex: 10,
                   borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
                   borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
@@ -294,17 +293,17 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   overflow: 'visible'
                 }}
               >
-                {/* Side Labels: Emoji left of time */}
+                {/* Side Labels: Positioned at top/bottom of block on the right */}
                 <div style={{
-                  position: 'absolute', top: 0, left: '100%', marginLeft: '8px',
-                  display: 'flex', flexDirection: 'column',
-                  height: '100%', fontSize: '0.65rem', fontWeight: 950,
+                  position: 'absolute', top: 0, bottom: 0, left: '100%', marginLeft: '8px',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                  fontSize: '0.65rem', fontWeight: 950,
                   color: '#fff', whiteSpace: 'nowrap', zIndex: 50
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', transform: 'translateY(-50%)' }}>
                     {getEmoji(l.from)} {l.time.toLowerCase()}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginTop: 'auto' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', transform: 'translateY(50%)' }}>
                     {getEmoji(l.to)} {formatTime(end).toLowerCase()}
                   </div>
                 </div>
@@ -2324,12 +2323,12 @@ function App() {
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
-        .timeline-day-row { display: flex; min-height: 280px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .timeline-day-row { display: flex; min-height: 600px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-date-side { width: 60px; border-right: 1px solid rgba(255,255,255,0.05); padding: 0.5rem; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; }
         .tl-dw { font-size: 0.65rem; font-weight: 950; color: rgba(255,255,255,0.4); text-transform: uppercase; }
         .tl-dm { font-size: 0.8rem; font-weight: 950; color: #fff; white-space: nowrap; }
 
-        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 11.66px, rgba(255,255,255,0.02) 11.66px, rgba(255,255,255,0.02) 12.66px); overflow: visible; }
+        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 24px, rgba(255,255,255,0.02) 24px, rgba(255,255,255,0.02) 25px); overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         .hour-label { position: absolute; left: 70px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
         
