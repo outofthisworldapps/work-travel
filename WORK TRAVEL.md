@@ -33,7 +33,7 @@
   - Arrival airport code.
   - Arrival time.
   - Arrival date.
-  - **Mobile Layout**: Stacks identification (airline/flight), dates, and times/ports into a grid area for clarity on narrow screens.
+  - **Mobile Layout**: Two-row compact grid (Row 1: Flight#/Dep info, Row 2: Seat#/Arr info) that fits perfectly within 375px screens.
 - **Date Selectors**: Same nice text + calendar icon format as the header.
 - **Layovers**: Displayed between segments with time duration.
 
@@ -76,7 +76,7 @@
 
 ## Styling Guidelines
 - **Text Inputs**: Dark background (rgba(0,0,0,0.4)), gray text (#94a3b8), not white.
-- **Buttons**: Transparent background, accent color text/border, not white.
+- **Buttons**: Nice themed background (linear-gradient or subtle indigo-glass), accent color text/border, avoiding plain white backgrounds.
 - **Placeholders**: Dark gray (#475569).
 - **Accent Color**: Indigo (#6366f1).
-- **Responsive**: No second scroll bars in timeline. Flight info stacks on mobile.
+- **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.

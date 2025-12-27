@@ -677,7 +677,7 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
             </button>
             <input className="f-inp g-cost" type="number" value={flight.cost || ''} onChange={e => onUpdate('cost', parseFloat(e.target.value) || 0)} placeholder="0" />
           </div>
-          <button className="f-del-group" onClick={onDelete}><Trash2 size={12} /></button>
+          <button className="f-del-group" onClick={onDelete} title="Delete Flight Group"><Trash2 size={12} /></button>
         </div>
       </div>
       <div className="f-segments-list">
@@ -2199,7 +2199,7 @@ function App() {
           background: rgba(0,0,0,0.3);
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 8px;
-          padding: 4px 12px;
+          padding: 4px 8px;
         }
         .segmented-date-input:focus-within {
           border-color: var(--accent);
@@ -2301,16 +2301,52 @@ function App() {
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
-        .f-seg-grid { display: grid; grid-template-columns: 100px 140px 70px 60px 30px; gap: 4px 12px; align-items: center; }
-        .f-grid-col { display: flex; flex-direction: column; gap: 4px; }
-        .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
-        .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.85rem !important; }
-        .s-date { font-size: 0.7rem; width: 100% !important; }
-        .s-time { width: 100% !important; font-size: 0.75rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; }
-        .s-port { width: 100% !important; font-weight: 900; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.8rem; }
-        .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.6rem; }
-        .s-seat { width: 45px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; }
-        .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; grid-row: 1 / span 2; align-self: center; }
+        .f-seg-grid { display: grid; grid-template-columns: 75px 115px 55px 40px 24px; gap: 4px 6px; align-items: center; }
+        .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+        .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
+        .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
+        .s-date { font-size: 0.65rem; width: 100% !important; }
+        .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: left !important; }
+        .s-port { width: 100% !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
+        .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
+        .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
+        .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; align-self: center; transition: color 0.2s; }
+        .f-seg-del:hover { color: var(--error); }
+        .f-del-group { background: transparent; border: none; color: #475569; cursor: pointer; padding: 4px; transition: color 0.2s; }
+        .f-del-group:hover { color: var(--error); }
+
+        .f-add-seg, .f-add-btn {
+          background: rgba(99, 102, 241, 0.1);
+          border: 1px solid rgba(99, 102, 241, 0.2);
+          color: #818cf8;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 0.7rem;
+          font-weight: 900;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s;
+          margin-top: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .f-add-seg:hover, .f-add-btn:hover {
+          background: rgba(99, 102, 241, 0.2);
+          border-color: rgba(99, 102, 241, 0.4);
+          transform: translateY(-1px);
+        }
+        .f-add-btn {
+          width: 100%;
+          justify-content: center;
+          padding: 12px;
+          margin-top: 1.5rem;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.1));
+        }
+
+        .g-air { width: 90px !important; }
+        .g-conf { width: 80px !important; }
 
         .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; }
         .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
@@ -2433,19 +2469,37 @@ function App() {
 
           
           /* Flight Row Mobile Fixes */
+          .flight-panel, .hotel-panel { padding: 0.6rem !important; }
+          .flight-group { padding: 0.4rem !important; }
+          .f-segment { padding: 0.4rem 0.2rem !important; }
+          
+          .segmented-date-input { padding: 3px 4px !important; gap: 3px !important; }
+          .si-wd { width: 26px !important; font-size: 0.65rem !important; }
+          .si-num { width: 15px !important; font-size: 0.7rem !important; }
+          .si-year { width: 18px !important; }
+          .si-parts { font-size: 0.7rem !important; }
+          .si-cal { margin-left: 2px !important; }
+          
           .f-seg-grid { 
-            grid-template-columns: 1fr auto;
-            grid-template-areas: 
-              "id del"
-              "dates dates"
-              "time port";
-            gap: 12px 8px;
+            grid-template-columns: 60px 85px 50px 50px 22px !important;
+            gap: 4px 4px !important;
           }
-          .f-id-col { grid-area: id; }
-          .f-date-col { grid-area: dates; display: flex !important; flex-direction: row; gap: 12px; }
-          .f-time-col { grid-area: time; display: flex; flex-direction: row; gap: 8px; }
-          .f-port-col { grid-area: port; display: flex; flex-direction: row; gap: 8px; }
-          .f-seg-del { grid-area: del; justify-self: end; align-self: start; }
+          .f-date-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
+          .f-time-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
+          .f-port-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
+          
+          .f-group-header { flex-wrap: wrap; gap: 0.4rem !important; }
+          .f-meta-primary { width: 100%; order: 1; display: flex; gap: 0.4rem !important; }
+          .f-cost-row { width: 100%; justify-content: flex-start; gap: 0.75rem; order: 2; align-items: center; }
+          .f-del-group { margin-left: auto; }
+          
+          .g-air { width: 100px !important; }
+          .g-conf { width: 90px !important; }
+          
+          .s-full-num { font-size: 0.75rem !important; }
+          .s-port { font-size: 0.7rem !important; }
+          .s-time { font-size: 0.65rem !important; }
+          .s-date { font-size: 0.6rem !important; }
           
           .f-route-display { grid-template-columns: 1fr auto 1fr; gap: 0.5rem; }
         }
