@@ -121,7 +121,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
   // Dedup markers logic: track positions used in this day to avoid overlapping labels on the left
   const renderedMarkerPositions = [];
   const isPositionTaken = (pos) => {
-    const threshold = 2.5; // 2.5% threshold (0.6 hours at 600px/24h)
+    const threshold = 5; // 5% threshold (7.5px at 150px/24h)
     const taken = renderedMarkerPositions.some(p => Math.abs(p - pos) < threshold);
     if (!taken) renderedMarkerPositions.push(pos);
     return taken;
@@ -293,17 +293,18 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   overflow: 'visible'
                 }}
               >
-                {/* Side Labels: Positioned at top/bottom of block on the right */}
+                {/* Side Labels: Symmetrically centered vertically to the block */}
                 <div style={{
-                  position: 'absolute', top: 0, bottom: 0, left: '100%', marginLeft: '8px',
-                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                  position: 'absolute', top: '50%', left: '100%', marginLeft: '8px',
+                  display: 'flex', flexDirection: 'column', gap: '2px',
                   fontSize: '0.65rem', fontWeight: 950,
-                  color: '#fff', whiteSpace: 'nowrap', zIndex: 50
+                  color: '#fff', whiteSpace: 'nowrap', zIndex: 50,
+                  transform: 'translateY(-50%)'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', transform: 'translateY(-50%)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {getEmoji(l.from)} {l.time.toLowerCase()}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', transform: 'translateY(50%)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {getEmoji(l.to)} {formatTime(end).toLowerCase()}
                   </div>
                 </div>
@@ -2323,12 +2324,12 @@ function App() {
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
-        .timeline-day-row { display: flex; min-height: 600px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .timeline-day-row { display: flex; min-height: 150px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-date-side { width: 60px; border-right: 1px solid rgba(255,255,255,0.05); padding: 0.5rem; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; }
         .tl-dw { font-size: 0.65rem; font-weight: 950; color: rgba(255,255,255,0.4); text-transform: uppercase; }
         .tl-dm { font-size: 0.8rem; font-weight: 950; color: #fff; white-space: nowrap; }
 
-        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 24px, rgba(255,255,255,0.02) 24px, rgba(255,255,255,0.02) 25px); overflow: visible; }
+        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 5.25px, rgba(255,255,255,0.02) 5.25px, rgba(255,255,255,0.02) 6.25px); overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         .hour-label { position: absolute; left: 70px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
         
@@ -2339,7 +2340,7 @@ function App() {
         .tl-marker-time.hotel { color: #4ade80; }
         .tl-marker-time.travel { display: none; } /* We are handling labels inside block now */
 
-        .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event.flight-event { width: 55%; z-index: 10; }
         .tl-event.travel-event { z-index: 20; }
         .tl-event.hotel-event { width: auto; left: 60px; right: 10px; opacity: 0.8; }
@@ -2367,7 +2368,7 @@ function App() {
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
-        .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 4px; overflow: hidden; position: relative; }
+        .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 24px; padding: 4px; overflow: visible; position: relative; justify-content: center; }
         .tl-f-rec { position: absolute; top: 2px; right: 4px; font-size: 0.55rem; color: rgba(255,255,255,0.6); font-family: 'JetBrains Mono', monospace; font-weight: 700; background: rgba(0,0,0,0.3); padding: 1px 3px; border-radius: 3px; }
         .tl-f-main-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; height: 100%; }
         .tl-f-ports-stack { display: flex; flex-direction: column; gap: 2px; }
