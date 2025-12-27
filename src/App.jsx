@@ -163,9 +163,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               >
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-event-label flight-label-compact">
-                    <div className="tl-f-port">{s.depPort}</div>
-                    <div className="tl-f-mid">✈️ {s.airlineCode} {s.flightNumber}</div>
-                    <div className="tl-f-port">{s.arrPort}</div>
+                    <div className="tl-f-ports-stack">
+                      <div className="tl-f-port">{s.depPort}</div>
+                      <div className="tl-f-port">{s.arrPort}</div>
+                    </div>
+                    <div className="tl-f-mid">✈️ {s.airlineCode}{s.flightNumber}</div>
                   </div>
                 )}
               </div>
@@ -2335,9 +2337,10 @@ function App() {
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
-        .flight-label-compact { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; width: 100%; height: 100%; padding: 2px 4px; line-height: 1; overflow: hidden; }
-        .tl-f-port { font-size: 0.6rem; font-weight: 950; color: rgba(255,255,255,0.9); }
-        .tl-f-mid { font-size: 0.55rem; font-weight: 700; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .flight-label-compact { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; width: 100%; height: 100%; padding: 4px 8px; gap: 8px; overflow: hidden; }
+        .tl-f-ports-stack { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
+        .tl-f-port { font-size: 0.7rem; font-weight: 950; color: rgba(255,255,255,0.9); line-height: 1; }
+        .tl-f-mid { font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 
         .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; }
         .tl-v-icon { font-size: 0.9rem; margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }
