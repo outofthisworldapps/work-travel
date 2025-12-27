@@ -80,3 +80,12 @@
 - **Placeholders**: Dark gray (#475569).
 - **Accent Color**: Indigo (#6366f1).
 - **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.
+## Time Zones
+- **Dual Time Zone Support**:
+  - Header includes inputs for Home City, Home Time Zone, Destination City, and Destination Time Zone.
+  - Automatically converts and displays both Home and Destination times on the timeline.
+  - **Relevance Logic**: Bold the time zone where the event occurs (Home for home travel, Destination for destination travel).
+  - **Visuals**: 
+    - Home times are colored Indigo/Indigo-light.
+    - Destination times are colored Orange (to differentiate clearly).
+    - Dual dates are shown in the timeline sidebar if the time zones cause a date shift.
