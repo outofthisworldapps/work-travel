@@ -665,8 +665,6 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete }) => {
         <div className="f-meta-primary">
           <input className="f-inp g-air" value={flight.airline || ''} onChange={e => onUpdate('airline', e.target.value)} placeholder="Airline" />
           <input className="f-inp g-conf" value={flight.confirmation || ''} onChange={e => onUpdate('confirmation', e.target.value)} placeholder="Confirmation" />
-        </div>
-        <div className="f-cost-row">
           <div className="f-cost-box">
             <button
               className={`currency-toggle-mini ${flight.isForeign ? 'active' : ''}`}
@@ -808,6 +806,7 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
   const [day, setDay] = useState(safeFormat(value, 'd'));
   const [year, setYear] = useState(safeFormat(value, 'yy'));
   const [wd, setWd] = useState(safeFormat(value, 'EEE'));
+  const [isMonFocused, setIsMonFocused] = useState(false);
 
   const dateInputRef = React.useRef(null);
   const monRef = React.useRef(null);
@@ -815,6 +814,8 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
   const yearRef = React.useRef(null);
   const wdRef = React.useRef(null);
   const isInternalChange = React.useRef(false);
+
+  const monthsAbbr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
   React.useEffect(() => {
     if (!value || isNaN(value.getTime())) {
@@ -831,16 +832,20 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
   }, [value]);
 
   const commitParts = (newMon, newDay, newYear) => {
-    if (newMon.length === 0 || newDay.length === 0 || newYear.length < 2) return;
+    if (newMon.length === 0 || newDay.length === 0 || (newYear && newYear.length < 2)) return;
     const m = parseInt(newMon);
     const d = parseInt(newDay);
     let y = parseInt(newYear);
 
     if (isNaN(m) || m < 1 || m > 12) return;
     if (isNaN(d) || d < 1 || d > 31) return;
-    if (isNaN(y)) return;
 
-    if (y < 100) y += 2000;
+    // If year is empty, use current year or value year
+    if (isNaN(y)) {
+      y = value ? value.getFullYear() : new Date().getFullYear();
+    } else if (y < 100) {
+      y += 2000;
+    }
 
     // Use local time precisely
     const newDate = new Date(y, m - 1, d, 12, 0, 0);
@@ -880,6 +885,8 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
     e.target.select();
   };
 
+  const displayMon = isMonFocused ? mon : monthsAbbr[parseInt(mon) - 1] || mon;
+
   return (
     <div className={`segmented-date-input ${className || ''}`}>
       <input
@@ -897,8 +904,17 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
       <div className="si-parts">
         <input
           ref={monRef}
-          className="si-num"
-          value={mon}
+          className={`si-num ${!isMonFocused ? 'si-mon-abbr' : ''}`}
+          value={displayMon}
+          onFocus={(e) => { setIsMonFocused(true); handleFocus(e); }}
+          onBlur={() => {
+            setIsMonFocused(false);
+            if (value && !isNaN(value.getTime())) {
+              const v = format(value, 'M');
+              setMon(v);
+              commitParts(v, day, year);
+            }
+          }}
           onChange={e => {
             const val = e.target.value.replace(/\D/g, '').substring(0, 2);
             setMon(val);
@@ -908,15 +924,6 @@ const SegmentedDateInput = ({ value, onChange, className }) => {
               commitParts(val, day, year);
             }
           }}
-          onBlur={() => {
-            if (value && !isNaN(value.getTime())) {
-              const v = format(value, 'M');
-              setMon(v);
-              commitParts(v, day, year);
-            }
-          }}
-          onFocus={handleFocus}
-          maxLength={2}
           placeholder="M"
         />
         <span className="si-sep">/</span>
@@ -2231,6 +2238,7 @@ function App() {
           font-weight: 600;
         }
         .si-year { width: 24px; }
+        .si-mon-abbr { width: 32px !important; color: var(--accent) !important; font-weight: 800 !important; cursor: pointer; text-align: left !important; }
         .si-sep { color: rgba(255,255,255,0.2); margin: 0 1px; font-weight: 300; }
         .si-cal { margin-left: 6px; color: #475569; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
         .si-cal:hover { color: var(--accent); }
@@ -2277,7 +2285,7 @@ function App() {
         .flight-group { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; transition: all 0.2s; }
         .f-group-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 0.75rem; }
         .f-grip-group { color: #475569; cursor: grab; }
-        .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; }
+        .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; align-items: center; }
         .g-air { width: 120px; font-weight: 800; }
         .g-conf { width: 100px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
         
@@ -2310,9 +2318,9 @@ function App() {
         .s-port { width: 100% !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
         .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
-        .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; align-self: center; transition: color 0.2s; }
+        .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; grid-column: 5; align-self: center; transition: color 0.2s; }
         .f-seg-del:hover { color: var(--error); }
-        .f-del-group { background: transparent; border: none; color: #475569; cursor: pointer; padding: 4px; transition: color 0.2s; }
+        .f-del-group { background: transparent; border: none; color: #475569; cursor: pointer; padding: 4px; transition: color 0.2s; margin-left: 4px; }
         .f-del-group:hover { color: var(--error); }
 
         .f-add-seg, .f-add-btn {
@@ -2478,6 +2486,7 @@ function App() {
           .si-num { width: 15px !important; font-size: 0.7rem !important; }
           .si-year { width: 18px !important; }
           .si-parts { font-size: 0.7rem !important; }
+          .si-mon-abbr { width: 28px !important; font-size: 0.65rem !important; }
           .si-cal { margin-left: 2px !important; }
           
           .f-seg-grid { 
@@ -2489,8 +2498,7 @@ function App() {
           .f-port-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
           
           .f-group-header { flex-wrap: wrap; gap: 0.4rem !important; }
-          .f-meta-primary { width: 100%; order: 1; display: flex; gap: 0.4rem !important; }
-          .f-cost-row { width: 100%; justify-content: flex-start; gap: 0.75rem; order: 2; align-items: center; }
+          .f-meta-primary { width: 100%; order: 1; display: flex; flex-wrap: wrap; gap: 0.4rem !important; align-items: center; }
           .f-del-group { margin-left: auto; }
           
           .g-air { width: 100px !important; }
