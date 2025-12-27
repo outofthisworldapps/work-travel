@@ -2395,6 +2395,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontMono: 'monospace' }}>Work Travel: version 2025-12-27 16:07PM</div>
             <div className="trip-header-container">
               <div className="trip-header-main">
                 <input
