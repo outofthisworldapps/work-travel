@@ -54,18 +54,19 @@
   - Hotel events displayed at check-in/out times with 🏨 icon and name.
 - **Travel Blocks (Uber/Taxi)**:
   - Positioned on the **right side** of the timeline to avoid overlap with flights.
-  - **Vertical Format**:
+  - However, for clarity: Home transport is on the **left**, Away transport is on the **right**.
+  - **Vertical Format** (Times rendered Inline):
     ```
     10:15a 🏡  (Start Time + From Icon)
-    🚘        (Mode Icon)
+
     11:00a ✈️  (Arrival Time + To Icon)
     ```
   - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport).
   - Mode: 🚘 (Uber/Car/Taxi).
 - **Auto-populate Travel Legs**:
   - Outbound to Airport: 45m drive, arriving 3h before.
-  - Outbound from Airport: 1h after arrival, 30m drive.
-  - Return to Airport: 30m drive, arriving 3h before.
+  - Outbound from Airport: 1h after arrival, 45m drive.
+  - Return to Airport: 45m drive, arriving 3h before.
   - Return from Airport: 1h after arrival, 45m drive.
 
 ## Data & Logic
@@ -80,16 +81,15 @@
 - **Placeholders**: Dark gray (#475569).
 - **Accent Color**: Indigo (#6366f1).
 - **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.
-## Time Zones
-- **Dual Time Zone Support**:
-  - Header includes stacked rows for Destination (✈️) and Home (🏡) cities and time zones.
-  - **Midnight Lines**: 
-    - Solid line at Home midnight (Indigo).
-    - Dashed line at Destination midnight (Orange).
-    - Day labels (e.g., `FRI APR 17`) are placed immediately below their respective midnight lines.
-  - **Sidebar Alignment**: All marker times are moved to the sidebar area, aligned into Home (Indigo) and Destination (Orange) columns.
-  - **Selective Dual Times**:
-    - Only flights crossing time zones display both Home and Destination times.
-    - All other events (hotels, local travel) show only the single relevant time zone's time.
-  - **Relevance Logic**: Bold the time zone where the event occurs.
+### Time Zones
+- **5-Column Layout**: The timeline is partitioned into 5 distinct vertical tracks:
+  1. **Home Date**: The date label for the home time zone.
+  2. **Home Time**: The specific hour/minute markers for home.
+  3. **Timeline Grid**: The central area for flights, hotels, and transportation.
+  4. **Away Time**: The specific hour/minute markers for the destination.
+  5. **Away Date**: The date label for the destination time zone.
+- **Flight Spanning**: Flights span the full width of the 'Timeline Grid' column.
+- **Transportation Alignment**: Home-based transportation is left-aligned in the grid; Away-based transportation is right-aligned.
+- **Midnight Cues**: Home midnight is a solid indigo line; Destination midnight is a dashed orange line.
+- **TZ Selector**: Ordered by offset from **Hawaii (-5)** to **New Zealand (+17)**.
 
