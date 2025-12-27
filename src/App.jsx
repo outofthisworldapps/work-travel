@@ -48,30 +48,30 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     return getMealCost(day.mieBase, meal, day.isForeignMie) * dayFactor;
   };
 
-  // Find flight segments for this day - match by yyyy-MM-dd
   const dayStr = format(day.date, 'yyyy-MM-dd');
   const dayFlights = [];
+  const parseSegDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      let d = null;
+      if (dateStr.includes('/')) {
+        d = parse(dateStr, 'M/d/yy', new Date());
+        if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+      } else {
+        d = parse(dateStr, 'EEE MMM d', new Date());
+        if (isNaN(d.getTime())) {
+          // Fallback to simple Date constructor for formats like "2025-12-26"
+          d = new Date(dateStr);
+        }
+      }
+      return (!d || isNaN(d.getTime())) ? null : format(d, 'yyyy-MM-dd');
+    } catch (e) { return null; }
+  };
+
   flights.forEach(f => {
     (f.segments || []).forEach(s => {
-      // Try to match segment dates with day - safely parse dates
-      let segDepDate = null;
-      let segArrDate = null;
-      try {
-        if (s.depDate) {
-          const parsed = parse(s.depDate, 'M/d/yy', new Date());
-          if (!isNaN(parsed.getTime())) {
-            segDepDate = format(parsed, 'yyyy-MM-dd');
-          }
-        }
-        if (s.arrDate) {
-          const parsed = parse(s.arrDate, 'M/d/yy', new Date());
-          if (!isNaN(parsed.getTime())) {
-            segArrDate = format(parsed, 'yyyy-MM-dd');
-          }
-        }
-      } catch (e) {
-        // Ignore parsing errors
-      }
+      const segDepDate = parseSegDate(s.depDate);
+      const segArrDate = parseSegDate(s.arrDate);
       if (segDepDate === dayStr || segArrDate === dayStr) {
         dayFlights.push({ ...s, parentFlight: f, segDepDate, segArrDate, dayStr });
       }
@@ -124,10 +124,10 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
         {/* Flight Boxes */}
         {dayFlights.map(s => {
           const start = s.segDepDate === dayStr ? parseTime(s.depTime) : 0;
-          const end = s.segArrDate === dayStr ? parseTime(s.arrTime) : 23.99;
+          const end = s.segArrDate === dayStr ? parseTime(s.arrTime) : 24;
 
           const startPos = (start !== null && !isNaN(start)) ? start : 0;
-          const endPos = (end !== null && !isNaN(end)) ? end : 23.99;
+          const endPos = (end !== null && !isNaN(end)) ? end : 24;
 
           return (
             <div
@@ -135,7 +135,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               className="tl-event flight-event"
               style={{
                 top: `${getPosition(startPos)}%`,
-                height: `${Math.max(getPosition(endPos) - getPosition(startPos), 5)}%`
+                height: `${Math.max(getPosition(endPos) - getPosition(startPos), 5)}%`,
+                zIndex: 2
               }}
             >
               <div className="tl-event-label">✈️ {s.airlineCode || ''}{s.flightNumber || ''} {s.depPort || ''}→{s.arrPort || ''}</div>
@@ -158,14 +159,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           if (!isCheckInDay && !isCheckOutDay && !isMidStay) return null;
 
-          let start = 14; // Default check-in 2pm
-          let end = 11; // Default check-out 11am
-
+          let start = 14;
+          let end = 11;
           if (isCheckInDay) start = parseTime(h.checkInTime) ?? 14;
           if (isCheckOutDay) end = parseTime(h.checkOutTime) ?? 11;
-          if (isMidStay) { start = 0; end = 23.99; }
-          if (isCheckInDay && !isCheckOutDay) end = 23.99;
+          if (isMidStay) { start = 0; end = 24; }
+          if (isCheckInDay && !isCheckOutDay) end = 24;
           if (isCheckOutDay && !isCheckInDay) start = 0;
+
+          const borderRadius = `${isCheckInDay ? '6px' : '0'} ${isCheckInDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'}`;
 
           return (
             <div
@@ -173,10 +175,16 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               className="tl-event hotel-event"
               style={{
                 top: `${getPosition(start)}%`,
-                height: `${Math.max(getPosition(end) - getPosition(start), 5)}%`
+                height: `${getPosition(end) - getPosition(start)}%`,
+                borderRadius,
+                borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : undefined,
+                borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : undefined,
+                zIndex: 1
               }}
             >
-              <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
+              {(isCheckInDay || (isMidStay && start === 0)) && (
+                <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
+              )}
             </div>
           );
         })}
@@ -1997,8 +2005,9 @@ function App() {
         .section-title { font-size: 0.75rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
         .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 600px; }
         
-        .timeline-day-row { display: flex; gap: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.02); position: relative; min-height: 120px; }
-        .timeline-day-row:last-child { border-bottom: none; }
+        .timeline-day-row { display: flex; gap: 0.5rem; position: relative; min-height: 120px; }
+        .timeline-date-side, .timeline-mie-side { border-bottom: 2px solid rgba(255,255,255,0.02); }
+        .timeline-day-row:last-child .timeline-date-side, .timeline-day-row:last-child .timeline-mie-side { border-bottom: none; }
         .timeline-date-side { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1rem; gap: 4px; }
         .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.75rem; text-transform: uppercase; }
         .tl-dm { font-size: 0.65rem; color: var(--subtext); font-weight: 800; }
