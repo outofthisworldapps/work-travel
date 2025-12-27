@@ -154,7 +154,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 onClick={() => onEditEvent({ type: 'flight', id: s.parentFlight.id, segmentId: s.id })}
                 style={{
                   top: `${getPosition(startPos)}%`,
-                  height: `${getPosition(endPos) - getPosition(startPos)}%`,
+                  height: isOvernight && isDeparturePart ? `calc(${getPosition(endPos) - getPosition(startPos)}% + 2px)` : `${getPosition(endPos) - getPosition(startPos)}%`,
                   zIndex: 2,
                   borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
                   borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
@@ -163,12 +163,19 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               >
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-event-label flight-label-compact">
-                    <div className="tl-f-ports-stack">
-                      <div className="tl-f-port">{s.depPort}</div>
-                      <div className="tl-f-port">{s.arrPort}</div>
+                    <div className="tl-f-rec">{s.parentFlight.confirmation || ''}</div>
+                    <div className="tl-f-main-row">
+                      <div className="tl-f-ports-stack">
+                        <div className="tl-f-port">{s.depPort}</div>
+                        <div className="tl-f-port">{s.arrPort}</div>
+                      </div>
+                      <div className="tl-f-info-stack">
+                        <div className="tl-f-mid">✈️ {s.airlineCode}{s.flightNumber}</div>
+                        {s.seat && <div className="tl-f-seat">Seat: {s.seat}</div>}
+                      </div>
                     </div>
-                    <div className="tl-f-mid">✈️ {s.airlineCode}{s.flightNumber}</div>
                   </div>
+                )}
                 )}
               </div>
             </React.Fragment>
@@ -265,18 +272,18 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   overflow: 'visible'
                 }}
               >
-                {/* Start Label (Top) */}
-                <div style={{ position: 'absolute', top: -14, right: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', fontWeight: 900, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                  {l.time.toLowerCase()} {getEmoji(l.from)}
+                {/* Side Labels */}
+                <div style={{ position: 'absolute', top: 0, left: '100%', marginLeft: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', fontSize: '0.65rem', fontWeight: 900, color: '#fff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', transform: 'translateY(-25%)' }}>
+                    {getEmoji(l.from)} {l.time.toLowerCase()}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', transform: 'translateY(25%)' }}>
+                    {getEmoji(l.to)} {formatTime(end).toLowerCase()}
+                  </div>
                 </div>
 
                 <div className="tl-event-label travel-vertical-label">
                   <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
-                </div>
-
-                {/* End Label (Bottom) */}
-                <div style={{ position: 'absolute', bottom: -14, right: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', fontWeight: 900, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                  {formatTime(end).toLowerCase()} {getEmoji(l.to)}
                 </div>
               </div>
             </React.Fragment>
@@ -2337,11 +2344,17 @@ function App() {
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
-        .flight-label-compact { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; width: 100%; height: 100%; padding: 4px 8px; gap: 8px; overflow: hidden; }
-        .tl-f-ports-stack { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
-        .tl-f-port { font-size: 0.7rem; font-weight: 950; color: rgba(255,255,255,0.9); line-height: 1; }
-        .tl-f-mid { font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 4px; overflow: hidden; position: relative; }
+        .tl-f-rec { position: absolute; top: 2px; right: 4px; font-size: 0.55rem; color: rgba(255,255,255,0.6); font-family: 'JetBrains Mono', monospace; font-weight: 700; background: rgba(0,0,0,0.3); padding: 1px 3px; border-radius: 3px; }
+        .tl-f-main-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; height: 100%; }
+        .tl-f-ports-stack { display: flex; flex-direction: column; gap: 2px; }
+        .tl-f-info-stack { display: flex; flex-direction: column; gap: 1px; }
+        .tl-f-port { font-size: 0.75rem; font-weight: 950; color: rgba(255,255,255,0.95); line-height: 1; }
+        .tl-f-mid { font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.9); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .tl-f-seat { font-size: 0.55rem; color: rgba(255,255,255,0.6); font-weight: 600; text-transform: uppercase; }
 
+        .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; }
+        .tl-v-icon { font-size: 0.9rem; margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }
         .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; }
         .tl-v-icon { font-size: 0.9rem; margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }
 
