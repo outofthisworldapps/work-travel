@@ -1819,6 +1819,7 @@ function App() {
                   </div>
                 )}
               </div>
+            </div>
           </section>
 
           <section className="totals-section glass">
