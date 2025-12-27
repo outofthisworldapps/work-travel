@@ -91,7 +91,7 @@ export const autoPopulateHotels = (flights, days, currentHotelSettings = {}) => 
 
         const spendsNight = isBefore(nightTime, stayEnd) && isAfter(nightTime, stayStart);
 
-        if (spendsNight) {
+        if (spendsNight && !isDepartureDay) {
             return {
                 ...day,
                 hotelRate: day.hotelRate ?? (currentHotelSettings.rate || 185),

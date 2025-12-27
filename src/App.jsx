@@ -183,7 +183,12 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               }}
             >
               {(isCheckInDay || (isMidStay && start === 0)) && (
-                <div className="tl-event-label">🏨 {h.name || 'Hotel'}</div>
+                <div className="tl-event-label hotel-label-wrap">
+                  <div className="tl-h-name">🏨 {h.name || 'Hotel'}</div>
+                  <div className="tl-h-dates">
+                    in: {h.checkInTime || '2p'} / out: {h.checkOutTime || '11a'}
+                  </div>
+                </div>
               )}
             </div>
           );
@@ -431,31 +436,48 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
 
   return (
     <div className="f-segment">
-      <div className="f-seg-main">
-        <input
-          className="f-inp s-full-num"
-          value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
-          onChange={e => {
-            const parts = e.target.value.split(' ');
-            onUpdate('airlineCode', parts[0] || '');
-            onUpdate('flightNumber', parts.slice(1).join(' ') || '');
-          }}
-          placeholder="FI 642"
-        />
-        <DateInput value={depDate} onChange={(d) => handleDateChange('depDate', d)} className="s-date" />
-        <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
-        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
-        <span className="seg-arrow">→</span>
-        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
-        <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
-        <DateInput value={arrDate} onChange={(d) => handleDateChange('arrDate', d)} className="s-date" />
+      <div className="f-seg-row">
+        <div className="f-seg-col f-num-col">
+          <input
+            className="f-inp s-full-num"
+            value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
+            onChange={e => {
+              const parts = e.target.value.split(' ');
+              onUpdate('airlineCode', parts[0] || '');
+              onUpdate('flightNumber', parts.slice(1).join(' ') || '');
+            }}
+            placeholder="FI 642"
+          />
+        </div>
+        <div className="f-seg-col f-route-col">
+          <div className="f-route-display">
+            <DateInput value={depDate} onChange={(d) => handleDateChange('depDate', d)} className="s-date" />
+            <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
+            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+            <span className="seg-arrow">→</span>
+            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+            <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+            <DateInput value={arrDate} onChange={(d) => handleDateChange('arrDate', d)} className="s-date" />
+          </div>
+        </div>
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={10} /></button>
       </div>
-      {layover && (
-        <div className="f-layover">
-          <RefreshCcw size={10} /> {layover} layover
+      <div className="f-seg-row f-sub-row">
+        <div className="f-seg-col f-seat-col">
+          <div className="seat-label">Seat:</div>
+          <input
+            className="f-inp s-seat"
+            value={segment.seat || ''}
+            onChange={e => onUpdate('seat', e.target.value)}
+            placeholder="—"
+          />
         </div>
-      )}
+        {layover && (
+          <div className="f-layover">
+            <RefreshCcw size={10} /> {layover} layover
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -607,24 +629,14 @@ const HotelRow = ({ hotel, onUpdate, onDelete }) => {
 
   return (
     <div className="hotel-row-item">
-      <div className="h-row-main">
+      <div className="h-row-line h-row-top">
         <input
           className="f-inp h-name"
           value={hotel.name || ''}
           onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
           placeholder="Hotel Name"
         />
-        <div className="h-dates-group">
-          <div className="h-date-line">
-            <DateInput value={hotel.checkIn} onChange={(d) => handleDateChange('checkIn', d)} className="f-date-sel" />
-            <input className="f-inp s-time h-time-col" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
-          </div>
-          <div className="h-date-line">
-            <DateInput value={hotel.checkOut} onChange={(d) => handleDateChange('checkOut', d)} className="f-date-sel" />
-            <input className="f-inp s-time h-time-col" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
-          </div>
-        </div>
-        <div className="f-cost-row">
+        <div className="h-cost-actions">
           <div className="f-cost-box">
             <button
               className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
@@ -643,6 +655,16 @@ const HotelRow = ({ hotel, onUpdate, onDelete }) => {
           </div>
           <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
         </div>
+      </div>
+      <div className="h-row-line h-row-date">
+        <div className="h-label">Arrival:</div>
+        <DateInput value={hotel.checkIn} onChange={(d) => handleDateChange('checkIn', d)} className="f-date-sel" />
+        <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+      </div>
+      <div className="h-row-line h-row-date">
+        <div className="h-label">Departure:</div>
+        <DateInput value={hotel.checkOut} onChange={(d) => handleDateChange('checkOut', d)} className="f-date-sel" />
+        <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
       </div>
     </div>
   );
@@ -938,6 +960,8 @@ function App() {
 
   ]);
 
+  const [conferenceCenter, setConferenceCenter] = useState('Conference Center');
+
   const [altCurrency, setAltCurrency] = useState('EUR');
   const [useAlt, setUseAlt] = useState(true);
   const [customRates, setCustomRates] = useState(MOCK_RATES);
@@ -959,21 +983,23 @@ function App() {
   const [flights, setFlights] = useState([
     {
       id: 'f-1',
+      pairId: 'p-1',
       airline: 'IcelandAir',
       confirmation: '2DUVM2',
       cost: 1200,
       segments: [
-        { id: 's-1', airlineCode: 'FI', flightNumber: '642', depDate: 'Mon Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Tue Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
-        { id: 's-2', airlineCode: 'FI', flightNumber: '204', depDate: 'Tue Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Tue Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
+        { id: 's-1', airlineCode: 'FI', flightNumber: '642', seat: '12A', depDate: 'Mon Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Tue Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
+        { id: 's-2', airlineCode: 'FI', flightNumber: '204', seat: '12A', depDate: 'Tue Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Tue Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
       ]
     },
     {
       id: 'f-2',
+      pairId: 'p-1',
       airline: 'IcelandAir',
       confirmation: '2DUVM2',
       cost: 0,
       segments: [
-        { id: 's-3', airlineCode: 'FI', flightNumber: '', depDate: 'Thu Apr 24', depTime: '', depPort: 'CPH', arrDate: 'Thu Apr 24', arrTime: '', arrPort: 'BWI' }
+        { id: 's-3', airlineCode: 'FI', flightNumber: 'FI 205', seat: '14C', depDate: 'Thu Apr 24', depTime: '2:00p', depPort: 'CPH', arrDate: 'Thu Apr 24', arrTime: '10:00p', arrPort: 'BWI' }
       ]
     }
   ]);
@@ -1419,6 +1445,13 @@ function App() {
     // Update Days
     setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
 
+    // Update Hotels
+    setHotels(prev => prev.map(h => ({
+      ...h,
+      checkIn: addDays(h.checkIn, diff),
+      checkOut: addDays(h.checkOut, diff)
+    })));
+
     // Update Flights
     setFlights(prev => prev.map(f => ({
       ...f,
@@ -1493,7 +1526,18 @@ function App() {
         airline: '',
         confirmation: '',
         cost: 0,
-        segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: '', depTime: '', depPort: '', arrDate: '', arrTime: '', arrPort: '' }]
+        segments: [{
+          id: generateId(),
+          airlineCode: '',
+          flightNumber: '',
+          seat: '',
+          depDate: days[0] ? format(days[0].date, 'M/d/yy') : '',
+          depTime: '',
+          depPort: '',
+          arrDate: days[0] ? format(days[0].date, 'M/d/yy') : '',
+          arrTime: '',
+          arrPort: ''
+        }]
       };
       const returnFlight = {
         id: generateId(),
@@ -1501,8 +1545,30 @@ function App() {
         airline: '',
         confirmation: '',
         cost: 0,
-        segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: '', depTime: '', depPort: '', arrDate: '', arrTime: '', arrPort: '' }]
+        segments: [{
+          id: generateId(),
+          airlineCode: '',
+          flightNumber: '',
+          seat: '',
+          depDate: days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '',
+          depTime: '',
+          depPort: '',
+          arrDate: days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '',
+          arrTime: '',
+          arrPort: ''
+        }]
       };
+
+      // Auto-update hotel dates when flights are added
+      setHotels(hPrev => {
+        if (hPrev.length === 0) return hPrev;
+        return hPrev.map((h, idx) => {
+          if (idx === 0) {
+            return { ...h, checkIn: days[0].date, checkOut: days[days.length - 1].date };
+          }
+          return h;
+        });
+      });
 
       const updated = [...prev];
       updated.push(newFlight);
@@ -1697,43 +1763,62 @@ function App() {
               />
               <div className="trip-meta-row">
                 <div className="trip-dates-wrap">
-                  <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
-                  <span className="date-sep">—</span>
-                  <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
-                  <span className="day-count">{days.length} Days</span>
+                  <div className="header-dates-row">
+                    <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
+                    <span className="date-sep">—</span>
+                    <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
+                    <span className="day-count">{days.length} Days</span>
+                  </div>
+                  <div className="conf-center-row">
+                    <span className="conf-icon"><MapPin size={12} /></span>
+                    <input
+                      className="conf-input"
+                      value={conferenceCenter}
+                      onChange={(e) => setConferenceCenter(e.target.value)}
+                      placeholder="Conference Center"
+                    />
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="conf-map-link"
+                      title="Open in Google Maps"
+                    >
+                      <Navigation size={12} />
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="currency-controls">
-              <div className="curr-toggle-group">
-                <button
-                  className={`btn-toggle ${!useAlt ? 'active' : ''}`}
-                  onClick={() => setUseAlt(false)}
-                >
-                  <DollarSign size={14} /> DOMESTIC
-                </button>
-                <button
-                  className={`btn-toggle ${useAlt ? 'active' : ''}`}
-                  onClick={() => setUseAlt(true)}
-                >
-                  <Navigation size={14} /> FOREIGN
-                </button>
-              </div>
-              {useAlt && (
-                <div className="alt-curr-inp">
-                  <select value={altCurrency} onChange={e => setAltCurrency(e.target.value)} className="curr-sel">
-                    {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <input
-                    type="number"
-                    className="rate-inp"
-                    value={customRates[altCurrency]}
-                    onChange={e => setCustomRates({ ...customRates, [altCurrency]: parseFloat(e.target.value) || 0 })}
-                  />
+              <div className="currency-controls">
+                <div className="curr-toggle-group">
+                  <button
+                    className={`btn-toggle ${!useAlt ? 'active' : ''}`}
+                    onClick={() => setUseAlt(false)}
+                  >
+                    <DollarSign size={14} /> DOMESTIC
+                  </button>
+                  <button
+                    className={`btn-toggle ${useAlt ? 'active' : ''}`}
+                    onClick={() => setUseAlt(true)}
+                  >
+                    <Navigation size={14} /> FOREIGN
+                  </button>
                 </div>
-              )}
-            </div>
+                {useAlt && (
+                  <div className="alt-curr-inp">
+                    <select value={altCurrency} onChange={e => setAltCurrency(e.target.value)} className="curr-sel">
+                      {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input
+                      type="number"
+                      className="rate-inp"
+                      value={customRates[altCurrency]}
+                      onChange={e => setCustomRates({ ...customRates, [altCurrency]: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                )}
+              </div>
           </section>
 
           <section className="totals-section glass">
@@ -1744,28 +1829,17 @@ function App() {
             <div className="totals-grid">
               <div className="stat-card">
                 <div className="stat-header">
-                  <CreditCard size={12} />
-                  <span className="stat-label">REGISTRATION</span>
-                  <button
-                    className={`currency-toggle-mini ${registrationCurrency !== 'USD' ? 'active' : ''}`}
-                    onClick={() => setRegistrationCurrency(prev => prev === 'USD' ? altCurrency : 'USD')}
-                  >
-                    {registrationCurrency !== 'USD' ? <Globe size={11} /> : <span className="unit-mini">$</span>}
-                  </button>
-                </div>
-                <input
-                  type="number"
-                  className="stat-inp"
-                  value={registrationFee}
-                  onChange={e => setRegistrationFee(parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="stat-card">
-                <div className="stat-header">
                   <Plane size={12} />
                   <span className="stat-label">FLIGHTS</span>
                 </div>
                 <span className="stat-value">{formatCurrency(totals.flights, 'USD')}</span>
+              </div>
+              <div className="stat-card">
+                <div className="stat-header">
+                  <Navigation size={12} />
+                  <span className="stat-label">TRAVEL</span>
+                </div>
+                <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
               </div>
               <div className="stat-card">
                 <div className="stat-header">
@@ -1783,10 +1857,25 @@ function App() {
               </div>
               <div className="stat-card">
                 <div className="stat-header">
-                  <Navigation size={12} />
-                  <span className="stat-label">TRAVEL</span>
+                  <CreditCard size={12} />
+                  <span className="stat-label">REGISTRATION</span>
+                  <button
+                    className={`currency-toggle-mini ${registrationCurrency !== 'USD' ? 'active' : ''}`}
+                    onClick={() => setRegistrationCurrency(prev => prev === 'USD' ? altCurrency : 'USD')}
+                  >
+                    {registrationCurrency !== 'USD' ? <Globe size={11} /> : <Hash size={11} />}
+                  </button>
                 </div>
-                <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
+                <div className="reg-fee-input-wrap">
+                  <span className="reg-sym">$</span>
+                  <input
+                    type="number"
+                    className="stat-inp reg-inp"
+                    value={registrationFee}
+                    onChange={e => setRegistrationFee(parseFloat(e.target.value) || 0)}
+                  />
+                  {registrationCurrency !== 'USD' && <span className="reg-unit">{registrationCurrency}</span>}
+                </div>
               </div>
             </div>
           </section>
@@ -1858,202 +1947,59 @@ function App() {
         }
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
-        
-        .travel-app { min-height: 100vh; background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%); padding: 2rem 1rem; }
+        .travel-app { min-height: 100vh; background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%); padding: 1.5rem 1rem; }
         .one-column-layout { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
         .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
 
-        /* Header */
-        .trip-header-section { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
-        .trip-header-main { flex: 1; }
-        .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
-        .trip-meta-row { display: flex; align-items: center; gap: 2rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
-        .trip-dates-wrap { display: flex; align-items: center; gap: 1rem; color: var(--subtext); font-weight: 700; font-size: 0.85rem; }
-        .date-sep { opacity: 0.3; font-weight: 300; margin: 0 4px; }
-        .day-count { background: var(--accent); color: white; padding: 2px 10px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
+        .trip-header-section { padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; }
+        .trip-name-display { background: transparent; border: none; font-size: 1.75rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+        .trip-meta-row { display: flex; flex-direction: column; gap: 0.75rem; }
+        .header-dates-row { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.9rem; color: var(--accent); }
+        .conf-center-row { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 4px 8px; border: 1px solid var(--border); width: fit-content; }
+        .conf-input { background: transparent; border: none; color: #94a3b8; font-size: 0.75rem; font-weight: 600; outline: none; width: 160px; }
+        .conf-map-link { color: var(--accent); display: flex; opacity: 0.7; }
 
-        /* Segmented Date Input */
-        .segmented-date-input {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(0,0,0,0.3);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 8px;
-          padding: 4px 12px;
-        }
-        .segmented-date-input:focus-within {
-          border-color: var(--accent);
-          background: rgba(0,0,0,0.4);
-        }
-        .si-wd {
-          width: 32px;
-          background: transparent;
-          border: none;
-          color: var(--accent);
-          font-weight: 800;
-          font-size: 0.8rem;
-          text-transform: uppercase;
-          outline: none;
-          cursor: text;
-          text-align: left;
-        }
-        .si-parts { display: flex; align-items: center; color: var(--subtext); font-size: 0.8rem; font-weight: 600; }
-        .si-num {
-          width: 20px;
-          background: transparent;
-          border: none;
-          color: #fff;
-          text-align: center;
-          outline: none;
-          font-family: inherit;
-          padding: 0;
-        }
-        .si-year { width: 24px; }
-        .si-sep { color: rgba(255,255,255,0.2); margin: 0 1px; font-weight: 300; }
-        .si-cal { margin-left: 6px; color: #475569; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
-        .si-cal:hover { color: var(--accent); }
-        .hidden-date-picker { display: none; }
-        
-        .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
-        .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
-        .btn-toggle { background: transparent; border: none; color: var(--subtext); font-size: 0.65rem; font-weight: 900; padding: 6px 12px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-        .btn-toggle.active { background: var(--accent); color: white; }
-        
-        .alt-curr-inp { display: flex; gap: 4px; }
-        .curr-sel { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-weight: 800; padding: 0 4px; outline: none; }
-        .rate-inp { width: 60px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-size: 0.75rem; font-weight: 950; text-align: center; padding: 4px; outline: none; }
-
-        /* Totals */
         .totals-section { padding: 1.5rem; }
-        .main-total-card { margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
-        .main-total-card .total-label { font-size: 0.8rem; font-weight: 900; color: var(--subtext); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.5rem; }
-        .main-total-card .total-value { font-size: 3rem; font-weight: 1000; color: #fff; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); letter-spacing: -0.02em; }
-        
-        .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; }
-        .stat-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; }
-        .stat-card:hover { border-color: rgba(99, 102, 241, 0.3); background: rgba(0,0,0,0.4); }
-        .stat-header { display: flex; align-items: center; gap: 6px; width: 100%; }
-        .stat-label { font-size: 0.65rem; font-weight: 900; color: var(--subtext); flex: 1; letter-spacing: 0.05em; }
-        .stat-value { font-size: 1rem; font-weight: 950; color: #fff; }
-        .stat-inp { background: transparent; border: none; color: #fff; font-size: 1rem; font-weight: 950; width: 100%; outline: none; padding: 0; }
-        .stat-card svg { color: var(--accent); }
+        .main-total-card { margin-bottom: 1.5rem; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .main-total-card .total-value { font-size: 2.5rem; font-weight: 1000; color: #fff; text-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+        .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; }
+        .stat-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 1rem; padding: 0.75rem; }
+        .stat-label { font-size: 0.6rem; font-weight: 950; color: var(--subtext); text-transform: uppercase; }
+        .stat-value { font-size: 1.1rem; font-weight: 950; color: #fff; }
 
-        /* Shared Form Styling - darker inputs */
-        .f-inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 6px; color: #94a3b8; outline: none; font-size: 0.75rem; transition: all 0.2s; }
-        .f-inp:focus { border-color: var(--accent); background: rgba(0,0,0,0.5); }
-        .f-inp::placeholder { color: #475569; }
-        .unit { color: var(--accent); font-weight: 900; font-size: 0.8rem; margin-right: 4px; }
+        .reg-fee-input-wrap { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+        .reg-sym { font-weight: 950; color: #64748b; }
+        .reg-inp { width: 60px; background: transparent; border: none; color: var(--accent); font-weight: 950; font-size: 1.1rem; outline: none; }
 
-        /* Flight Panel & Groups */
-        .flight-panel, .hotel-panel { background: var(--glass); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; }
-        .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-        .f-title { font-size: 0.7rem; font-weight: 900; color: var(--accent); letter-spacing: 0.08em; display: flex; align-items: center; gap: 6px; }
-        .f-list { display: flex; flex-direction: column; gap: 0.5rem; }
-        .f-add-btn { width: 100%; margin-top: 0.75rem; padding: 0.5rem; background: transparent; border: 1px dashed rgba(99, 102, 241, 0.3); color: #6366f1; border-radius: 0.5rem; font-weight: 700; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; }
-        .f-add-btn:hover { background: rgba(99, 102, 241, 0.1); border-color: var(--accent); }
+        .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.5rem; padding: 0.5rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
+        .f-seg-row { display: grid; grid-template-columns: 80px 1fr 30px; align-items: center; gap: 12px; }
+        .f-route-display { display: grid; grid-template-columns: 100px 55px 45px 15px 45px 55px 100px; align-items: center; gap: 4px; }
+        .f-num-col { font-weight: 950; font-size: 0.8rem; color: var(--accent); }
+        .f-sub-row { margin-top: 4px; padding-left: 12px; opacity: 0.7; display: flex !important; align-items: center; gap: 10px; }
+        .seat-label { font-weight: 950; font-size: 0.6rem; color: #475569; text-transform: uppercase; }
+        .s-seat { width: 45px !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; }
 
-        .flight-group { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; }
-        .f-group-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .f-grip-group { color: #475569; cursor: grab; }
-        .f-meta-primary { flex: 1; display: flex; gap: 0.5rem; }
-        .g-air { width: 100px; }
-        .g-conf { width: 80px; }
-        .f-cost-row { display: flex; align-items: center; gap: 0.25rem; }
-        .f-cost-box { display: flex; align-items: center; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); padding: 0 4px; }
-        .g-cost { background: transparent !important; border: none !important; width: 55px !important; color: var(--accent) !important; font-weight: 800 !important; text-align: right !important; font-size: 0.75rem !important; }
-        .f-del-group { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; }
-        .f-del-group:hover { color: #ef4444; }
+        .hotel-row-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; margin-bottom: 8px; }
+        .h-row-top { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
+        .h-row-date { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: #94a3b8; }
+        .h-label { width: 60px; font-size: 0.6rem; color: #4b5563; font-weight: 950; text-transform: uppercase; }
 
-        /* Flight Segment - Single Line */
-        .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.5rem; padding: 0.5rem; margin-bottom: 0.25rem; }
-        .f-seg-main { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-        .s-full-num { width: 55px; font-weight: 800; color: var(--accent) !important; text-align: center; }
-        .s-date { width: 140px; font-size: 0.7rem; }
-        .s-time { width: 50px; font-size: 0.7rem; }
-        .s-port { width: 45px; font-weight: 800; text-transform: uppercase; text-align: center; }
-        .seg-arrow { color: #475569; font-size: 0.7rem; }
-        .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; margin-left: auto; }
-        .f-seg-del:hover { color: #ef4444; }
-        .f-add-seg { background: transparent; border: none; color: #6366f1; font-size: 0.65rem; font-weight: 700; cursor: pointer; padding: 4px 8px; display: flex; align-items: center; gap: 4px; }
-        .f-layover { font-size: 0.6rem; color: #64748b; padding: 2px 0 0 8px; display: flex; align-items: center; gap: 4px; }
-        .f-layover-divider { padding: 0.25rem 0.5rem; font-size: 0.6rem; color: #64748b; display: flex; align-items: center; gap: 4px; }
+        .tl-event-label { display: flex; flex-direction: column; line-height: 1.2; }
+        .tl-h-dates { font-size: 0.55rem; opacity: 0.6; font-weight: 700; margin-top: 2px; }
 
-        /* Currency Toggle */
-        .currency-toggle-mini { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; display: flex; align-items: center; }
-        .currency-toggle-mini:hover, .currency-toggle-mini.active { color: var(--accent); }
-        .unit-mini { font-size: 0.7rem; font-weight: 900; color: var(--accent); }
+        .f-inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; font-size: 0.75rem; padding: 2px 6px; }
 
-        /* Hotels */
-        .hotel-row-item { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; }
-        .h-row-main { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-        .h-name { width: 120px; }
-        .h-dates-group { display: flex; gap: 0.5rem; flex: 1; }
-        .h-date-line { display: flex; align-items: center; gap: 4px; }
-        .h-time-col { width: 50px; }
-        .h-cost { width: 60px; font-weight: 800; color: var(--accent) !important; text-align: right; }
-
-        /* Date Input */
-        .date-input-wrap { display: flex; align-items: center; gap: 2px; }
-        .calendar-trigger { cursor: pointer; color: #64748b; padding: 2px; display: flex; align-items: center; }
-        .calendar-trigger:hover { color: var(--accent); }
-        .hidden-date-picker { visibility: hidden; width: 0; height: 0; position: absolute; }
-        .header-date-input { background: transparent !important; border: none !important; cursor: pointer; }
-
-        /* Timeline */
-        .timeline-section-panel { padding: 1.5rem 1rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }
-        .section-title { font-size: 0.75rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
-        .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 600px; }
-        
-        .timeline-day-row { display: flex; gap: 0.5rem; position: relative; min-height: 120px; }
-        .timeline-date-side, .timeline-mie-side { border-bottom: 2px solid rgba(255,255,255,0.02); }
-        .timeline-day-row:last-child .timeline-date-side, .timeline-day-row:last-child .timeline-mie-side { border-bottom: none; }
-        .timeline-date-side { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1rem; gap: 4px; }
-        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.75rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.65rem; color: var(--subtext); font-weight: 800; }
-        .tl-add-btn { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--accent); border-radius: 6px; padding: 4px; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
-        .tl-add-btn:hover { background: var(--accent); color: white; }
-
-        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); overflow: hidden; }
-        .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.03); }
-        .hour-label { position: absolute; left: 6px; font-size: 0.5rem; color: #475569; font-weight: 900; transform: translateY(-50%); text-transform: uppercase; }
-        
-        .tl-event { position: absolute; left: 4px; right: 4px; border-radius: 6px; padding: 4px 10px; font-size: 0.65rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); }
-        .tl-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-        .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
-        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
-
-        .timeline-mie-side { width: 85px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1rem; padding-right: 0.5rem; gap: 4px; }
-        .tl-mie-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.85rem; }
-        .tl-mie-75 { font-size: 0.55rem; font-weight: 900; color: #f97316; background: rgba(249, 115, 22, 0.2); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(249, 115, 22, 0.3); }
-        .tl-mie-stack { display: flex; flex-direction: column; gap: 2px; width: 100%; }
-        .tl-meal-chip { height: 22px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .tl-meal-chip.active { background: var(--accent); border-color: transparent; box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
-        .tl-m-label { font-size: 0.6rem; font-weight: 950; color: #64748b; }
-        .tl-m-price { font-size: 0.55rem; font-weight: 850; color: #475569; }
-        .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
-
-        /* Travel Legs */
-        .travel-leg-item { display: flex; align-items: center; background: rgba(0,0,0,0.15); border-radius: 0.5rem; padding: 0.4rem; margin-bottom: 0.25rem; gap: 0.4rem; }
-        .leg-content { display: flex; align-items: center; gap: 0.4rem; flex: 1; flex-wrap: wrap; }
-        .drag-handle { color: #475569; cursor: grab; }
-        .drag-handle.locked { cursor: default; color: #334155; }
-        .leg-input-text-compact { background: transparent; border: none; color: #94a3b8; font-weight: 600; font-size: 0.75rem; outline: none; width: 70px; }
-        .leg-type-select-compact { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: #94a3b8; font-size: 0.7rem; padding: 2px 4px; outline: none; }
-        .leg-money-compact { display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 4px; }
-        .leg-foreign-wrap { cursor: pointer; font-size: 0.7rem; }
-        .leg-amount-input-compact { width: 40px; background: transparent; border: none; color: var(--accent); font-weight: 800; text-align: right; outline: none; font-size: 0.75rem; }
-        .leg-curr-label { font-size: 0.65rem; color: #64748b; font-weight: 700; }
-        .leg-calc-val { font-size: 0.6rem; color: #64748b; }
-        .leg-layover-faint { font-size: 0.6rem; color: #475569; }
-        .link-btn-compact, .delete-leg-btn-compact { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; }
-        .link-btn-compact.active { color: var(--accent); }
-        .delete-leg-btn-compact:hover { color: #ef4444; }
-        .locked-icon { font-size: 0.7rem; }
+        @media (max-width: 650px) {
+          .totals-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .f-route-display { grid-template-columns: 1fr; gap: 2px !important; }
+          .f-seg-row { grid-template-columns: 1fr 30px; }
+          .trip-header-section { flex-direction: column; }
+          .currency-controls { align-items: flex-start !important; }
+          .main-total-card .total-value { font-size: 2rem; }
+        }
         `}</style>
       </div>
-    </DndContext>
+    </DndContext >
   );
 }
 
