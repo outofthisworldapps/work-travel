@@ -82,10 +82,14 @@
 - **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.
 ## Time Zones
 - **Dual Time Zone Support**:
-  - Header includes inputs for Home City, Home Time Zone, Destination City, and Destination Time Zone.
-  - Automatically converts and displays both Home and Destination times on the timeline.
-  - **Relevance Logic**: Bold the time zone where the event occurs (Home for home travel, Destination for destination travel).
-  - **Visuals**: 
-    - Home times are colored Indigo/Indigo-light.
-    - Destination times are colored Orange (to differentiate clearly).
-    - Dual dates are shown in the timeline sidebar if the time zones cause a date shift.
+  - Header includes stacked rows for Destination (✈️) and Home (🏡) cities and time zones.
+  - **Midnight Lines**: 
+    - Solid line at Home midnight (Indigo).
+    - Dashed line at Destination midnight (Orange).
+    - Day labels (e.g., `FRI APR 17`) are placed immediately below their respective midnight lines.
+  - **Sidebar Alignment**: All marker times are moved to the sidebar area, aligned into Home (Indigo) and Destination (Orange) columns.
+  - **Selective Dual Times**:
+    - Only flights crossing time zones display both Home and Destination times.
+    - All other events (hotels, local travel) show only the single relevant time zone's time.
+  - **Relevance Logic**: Bold the time zone where the event occurs.
+
