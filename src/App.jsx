@@ -245,14 +245,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           return (
             <React.Fragment key={l.id}>
-              <div className="tl-marker-time travel" style={{ top: `${getPosition(start)}%` }}>{l.time.toLowerCase()}</div>
-              <div className="tl-marker-time travel arr" style={{ top: `${getPosition(end)}%`, left: 'auto', right: '5px' }}>{formatTime(end).toLowerCase()}</div>
+              <div className="tl-marker-time travel" style={{ top: `${getPosition(start)}%` }}>{l.time.toLowerCase()} {getEmoji(l.from)}</div>
+              <div className="tl-marker-time travel arr" style={{ top: `${getPosition(end)}%` }}>{formatTime(end).toLowerCase()} {getEmoji(l.to)}</div>
               <div
                 className="tl-event travel-event clickable"
                 onClick={() => onEditEvent({ type: 'leg', id: l.id, dayId: day.id })}
                 style={{
                   top: `${getPosition(start)}%`,
                   height: `${getPosition(end) - getPosition(start)}%`,
+                  minHeight: '20px',
                   background: 'linear-gradient(to right, rgba(129, 140, 248, 0.3), rgba(129, 140, 248, 0.1))',
                   color: '#818cf8',
                   border: '1px solid rgba(129, 140, 248, 0.4)',
@@ -263,9 +264,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 }}
               >
                 <div className="tl-event-label travel-vertical-label">
-                  <div className="tl-v-row">{getEmoji(l.from)}</div>
                   <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
-                  <div className="tl-v-row">{getEmoji(l.to)}</div>
                 </div>
               </div>
             </React.Fragment>
@@ -2277,7 +2276,7 @@ function App() {
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
-        .timeline-day-row { display: flex; min-height: 85px; }
+        .timeline-day-row { display: flex; min-height: 110px; }
         .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding-top: 1rem; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 
 
@@ -2292,8 +2291,8 @@ function App() {
         .tl-marker-time { position: absolute; left: 5px; width: 45px; font-size: 0.65rem; font-weight: 950; color: var(--accent); transform: translateY(-50%); text-align: right; pointer-events: none; z-index: 50; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
         .tl-marker-time.arr { color: #f8fafc; opacity: 0.9; }
         .tl-marker-time.hotel { color: #4ade80; }
-        .tl-marker-time.travel { color: #818cf8; text-align: left; }
-        .tl-marker-time.travel.arr { left: auto; right: 5px; text-align: right; }
+        .tl-marker-time.travel { color: #818cf8; left: auto; right: 5px; text-align: right; width: auto; z-index: 60; }
+        .tl-marker-time.travel.arr { color: #818cf8; opacity: 0.8; }
 
         .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event.flight-event { width: 55%; z-index: 10; }
@@ -2325,10 +2324,8 @@ function App() {
         .flight-label-compact { display: flex; align-items: center; width: 100%; height: 100%; padding: 2px 0; }
         .tl-f-top { font-size: 0.6rem; font-weight: 950; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
-        .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; gap: 4px; }
-        .tl-v-row { display: flex; align-items: center; gap: 4px; }
-        .tl-v-time { font-weight: 600; color: #fff; font-size: 0.65rem; }
-        .tl-v-icon { font-size: 0.85rem; margin: 2px 0; }
+        .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; }
+        .tl-v-icon { font-size: 0.9rem; margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }
 
 
 
