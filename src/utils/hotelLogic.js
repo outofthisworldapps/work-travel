@@ -60,8 +60,20 @@ export const autoPopulateHotels = (flights, days, currentHotelSettings = {}) => 
 
     if (!arrival || !departure) return days;
 
-    const stayStart = arrival.dt;
+    const airportArrival = arrival.dt;
     const stayEnd = departure.dt;
+
+    // "If I'll arrive before 5AM at the hotel in my Uber, then I want a room for the night by default."
+    // Estimate hotel arrival as airportArrival + 1.5 hours (1h wait + 30m drive)
+    const hotelArrival = new Date(airportArrival.getTime() + 1.5 * 60 * 60 * 1000);
+    let stayStart = airportArrival;
+
+    if (hotelArrival.getHours() < 5) {
+        // Shift stayStart back by 1 day to include the previous night
+        stayStart = addDays(airportArrival, -1);
+        stayStart.setHours(20, 0, 0, 0); // Ensure it catches the previous day's spendsNight check
+    }
+
 
     return days.map(day => {
         const dayStart = new Date(day.date);

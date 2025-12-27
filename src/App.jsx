@@ -33,9 +33,66 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// --- Utility Functions ---
+
+const parseSegDate = (dateStr) => {
+  if (!dateStr) return null;
+  try {
+    let d = null;
+    if (dateStr.includes('/')) {
+      d = parse(dateStr, 'M/d/yy', new Date());
+      if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+    } else {
+      const formats = ['EEE MMM d yyyy', 'EEE MMM d', 'MMM d yyyy', 'MMM d'];
+      for (const f of formats) {
+        d = parse(dateStr, f, new Date(2026, 0, 1));
+        if (!isNaN(d.getTime())) break;
+      }
+      if (!d || isNaN(d.getTime())) d = new Date(dateStr);
+    }
+    return (!d || isNaN(d.getTime())) ? null : format(d, 'yyyy-MM-dd');
+  } catch (e) { return null; }
+};
+
+const parseTime = (timeStr) => {
+  if (!timeStr) return null;
+  try {
+    let t = timeStr.toLowerCase().replace(' ', '');
+    let meridiem = t.slice(-1);
+    if (meridiem !== 'a' && meridiem !== 'p') meridiem = 'p';
+    let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+    let parts = timePart.split(':');
+    let h = parseInt(parts[0]);
+    let m = parseInt(parts[1]) || 0;
+    if (isNaN(h)) return null;
+    if (meridiem === 'p' && h < 12) h += 12;
+    if (meridiem === 'a' && h === 12) h = 0;
+    return h + (m || 0) / 60;
+  } catch (e) { return null; }
+};
+
+const formatTime = (timeNum) => {
+  let h = Math.floor(timeNum);
+  let m = Math.round((timeNum - h) * 60);
+  h = (h + 24) % 24;
+  let meridiem = h < 12 ? 'a' : 'p';
+  let displayH = h % 12 || 12;
+  return `${displayH}:${m.toString().padStart(2, '0')}${meridiem}`;
+};
+
+const safeFormat = (date, fmt) => {
+  if (!date || isNaN(date.getTime())) return '';
+  return format(date, fmt);
+};
+
+const getPosition = (time) => {
+  if (time === null || isNaN(time)) return 0;
+  return (time / 24) * 100;
+};
+
 // --- Vertical Timeline Components ---
 
-const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels }) => {
+const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels, onEditEvent, showMIE }) => {
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   // Calculate M&IE components
@@ -49,25 +106,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
   };
 
   const dayStr = format(day.date, 'yyyy-MM-dd');
-  const dayFlights = [];
-  const parseSegDate = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-      let d = null;
-      if (dateStr.includes('/')) {
-        d = parse(dateStr, 'M/d/yy', new Date());
-        if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
-      } else {
-        d = parse(dateStr, 'EEE MMM d', new Date());
-        if (isNaN(d.getTime())) {
-          // Fallback to simple Date constructor for formats like "2025-12-26"
-          d = new Date(dateStr);
-        }
-      }
-      return (!d || isNaN(d.getTime())) ? null : format(d, 'yyyy-MM-dd');
-    } catch (e) { return null; }
-  };
 
+  const dayFlights = [];
   flights.forEach(f => {
     (f.segments || []).forEach(s => {
       const segDepDate = parseSegDate(s.depDate);
@@ -78,38 +118,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     });
   });
 
-  const parseTime = (timeStr) => {
-    if (!timeStr) return null;
-    try {
-      let t = timeStr.toLowerCase().replace(' ', '');
-      let meridiem = t.slice(-1);
-      if (meridiem !== 'a' && meridiem !== 'p') {
-        meridiem = 'p';
-      }
-      let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
-      let parts = timePart.split(':');
-      let h = parseInt(parts[0]);
-      let m = parseInt(parts[1]) || 0;
-      if (isNaN(h)) return null;
-      if (meridiem === 'p' && h < 12) h += 12;
-      if (meridiem === 'a' && h === 12) h = 0;
-      return h + (m || 0) / 60;
-    } catch (e) { return null; }
-  };
-
-  const getPosition = (time) => {
-    if (time === null || isNaN(time)) return 0;
-    return (time / 24) * 100;
-  };
-
   return (
-    <div className="timeline-day-row">
+    <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''}`}>
       <div className="timeline-date-side">
-        <div className="tl-dw">{safeFormat(day.date, 'EEE', '---')}</div>
-        <div className="tl-dm">{safeFormat(day.date, 'M/d/yy', '--/--/--')}</div>
-        <button className="tl-add-btn" onClick={() => onAddLeg(dayIndex)} title="Add travel leg to this day">
-          <Plus size={12} />
-        </button>
+        <div className="tl-dw">{format(day.date, 'EEE')}</div>
+        <div className="tl-dm">{format(day.date, 'MMM d')}</div>
       </div>
 
       <div className="timeline-hours-container">
@@ -134,25 +147,29 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           const endPos = (end !== null && !isNaN(end)) ? end : 24;
 
           return (
-            <div
-              key={s.id + (isArrivalPart && !isDeparturePart ? '-arr' : '')}
-              className="tl-event flight-event"
-              style={{
-                top: `${getPosition(startPos)}%`,
-                height: `${Math.max(getPosition(endPos) - getPosition(startPos), 3)}%`,
-                zIndex: 2,
-                borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
-                borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
-                borderTop: (isOvernight && isArrivalPart) ? 'none' : undefined,
-              }}
-            >
-              {(!isOvernight || isDeparturePart) && (
-                <div className="tl-event-label flight-label-compact">
-                  <div className="tl-f-top">{s.depTime.toLowerCase()} {s.depPort}</div>
-                  <div className="tl-f-bottom">{s.arrTime.toLowerCase()} {s.arrPort}</div>
-                </div>
-              )}
-            </div>
+            <React.Fragment key={s.id + (isArrivalPart && !isDeparturePart ? '-arr' : '')}>
+              <div className="tl-marker-time" style={{ top: `${getPosition(startPos)}%`, zIndex: 3 }}>{s.depTime.toLowerCase()}</div>
+              <div className="tl-marker-time arr" style={{ top: `${getPosition(endPos)}%`, zIndex: 3 }}>{s.arrTime.toLowerCase()}</div>
+              <div
+                className="tl-event flight-event clickable"
+                onClick={() => onEditEvent({ type: 'flight', id: s.parentFlight.id, segmentId: s.id })}
+                style={{
+                  top: `${getPosition(startPos)}%`,
+                  height: `${Math.max(getPosition(endPos) - getPosition(startPos), 3)}%`,
+                  zIndex: 2,
+                  borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
+                  borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
+                  borderTop: (isOvernight && isArrivalPart) ? 'none' : undefined,
+                }}
+              >
+                {(!isOvernight || isDeparturePart) && (
+                  <div className="tl-event-label flight-label-compact">
+                    <div className="tl-f-top">{s.depTime.toLowerCase()} {s.airlineCode}{s.flightNumber} {s.depPort}</div>
+                    <div className="tl-f-bottom">{s.arrTime.toLowerCase()} {s.arrPort}</div>
+                  </div>
+                )}
+              </div>
+            </React.Fragment>
           );
         })}
 
@@ -182,26 +199,34 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           const borderRadius = `${isCheckInDay ? '6px' : '0'} ${isCheckInDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'} ${isCheckOutDay ? '6px' : '0'}`;
 
           return (
-            <div
-              key={h.id}
-              className="tl-event hotel-event"
-              style={{
-                top: `${getPosition(start)}%`,
-                height: `${getPosition(end) - getPosition(start)}%`,
-                borderRadius,
-                borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : undefined,
-                borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : undefined,
-                left: 0,
-                right: 0,
-                zIndex: 1
-              }}
-            >
-              {(isCheckInDay || (isMidStay && start === 0)) && (
-                <div className="tl-event-label hotel-label-wrap">
-                  <div className="tl-h-name">🏨 {h.name || 'Hotel'}</div>
-                </div>
+            <React.Fragment key={h.id}>
+              {isCheckInDay && (
+                <div className="tl-marker-time hotel" style={{ top: `${getPosition(start)}%` }}>{h.checkInTime?.toLowerCase() || '2:00p'}</div>
               )}
-            </div>
+              {isCheckOutDay && (
+                <div className="tl-marker-time hotel arr" style={{ top: `${getPosition(end)}%` }}>{h.checkOutTime?.toLowerCase() || '11:00a'}</div>
+              )}
+              <div
+                className="tl-event hotel-event clickable"
+                onClick={() => onEditEvent({ type: 'hotel', id: h.id })}
+                style={{
+                  top: `${getPosition(start)}%`,
+                  height: `${getPosition(end) - getPosition(start)}%`,
+                  borderRadius,
+                  borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : undefined,
+                  borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : undefined,
+                  left: '60px',
+                  right: 0,
+                  zIndex: 1
+                }}
+              >
+                {(isCheckInDay || (isMidStay && start === 0)) && (
+                  <div className="tl-event-label hotel-label-wrap">
+                    <div className="tl-h-name">🏨 {h.name || 'Hotel'}</div>
+                  </div>
+                )}
+              </div>
+            </React.Fragment>
           );
         })}
 
@@ -212,43 +237,50 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           if (start === null || isNaN(start)) return null;
 
           return (
-            <div
-              key={l.id}
-              className="tl-event travel-event"
-              style={{
-                top: `${getPosition(start)}%`,
-                height: '20px',
-                background: 'rgba(99, 102, 241, 0.15)',
-                color: '#818cf8',
-                border: '1px solid rgba(99, 102, 241, 0.3)'
-              }}
-            >
-              <div className="tl-event-label">
-                {l.type === 'uber' ? '🚕' : (l.type === 'drive' ? '🚗' : '📍')} {l.from}→{l.to} {l.amount > 0 ? `(${formatCurrency(l.amount, l.currency || 'USD')})` : ''}
+            <React.Fragment key={l.id}>
+              <div className="tl-marker-time travel" style={{ top: `${getPosition(start)}%` }}>{l.time.toLowerCase()}</div>
+              <div
+                className="tl-event travel-event clickable"
+                onClick={() => onEditEvent({ type: 'leg', id: l.id, dayId: day.id })}
+                style={{
+                  top: `${getPosition(start)}%`,
+                  height: '24px',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  color: '#818cf8',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  left: '60px',
+                  zIndex: 4
+                }}
+              >
+                <div className="tl-event-label">
+                  {l.type === 'uber' ? '🚕' : (l.type === 'drive' ? '🚗' : '📍')} {l.from}→{l.to}
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
 
-      <div className="timeline-mie-side">
-        <div className="tl-mie-header">
-          <div className="tl-mie-total">{formatCurrency(mieTotal, 'USD')}</div>
-          {isFirstOrLast && <span className="tl-mie-75">75%</span>}
+      {showMIE && (
+        <div className="timeline-mie-side">
+          <div className="tl-mie-header">
+            <div className="tl-mie-total">{formatCurrency(mieTotal, 'USD')}</div>
+            {isFirstOrLast && <span className="tl-mie-75">75%</span>}
+          </div>
+          <div className="tl-mie-stack">
+            {['B', 'L', 'D', 'I'].map(m => (
+              <div
+                key={m}
+                className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
+                onClick={() => onUpdateMeals(day.id, m)}
+              >
+                <span className="tl-m-label">{m}</span>
+                <span className="tl-m-price">${getMealPrice(m).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="tl-mie-stack">
-          {['B', 'L', 'D', 'I'].map(m => (
-            <div
-              key={m}
-              className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
-              onClick={() => onUpdateMeals(day.id, m)}
-            >
-              <span className="tl-m-label">{m}</span>
-              <span className="tl-m-price">${getMealPrice(m).toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -710,10 +742,7 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 
 // --- Components ---
-const safeFormat = (date, fmt, fallback = '') => {
-  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return fallback;
-  try { return format(date, fmt); } catch (e) { return fallback; }
-};
+
 
 const SegmentedDateInput = ({ value, onChange, className }) => {
   const [mon, setMon] = useState(safeFormat(value, 'M'));
@@ -905,73 +934,94 @@ const DateInput = SegmentedDateInput;
 function App() {
   const [days, setDays] = useState([
     {
-      id: "day-1",
-      date: new Date(2025, 3, 21),
-      legs: [
-        { id: "leg-1", from: 'Home', to: 'BWI', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
-        { id: "leg-2", from: 'BWI', to: 'CPH', type: 'flight', amount: 1200, currency: 'USD', mirrorId: 'm2', layover: 'KEF' },
-        { id: "leg-3", from: 'CPH', to: 'Hotel', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
-      ],
+      id: "day-0",
+      date: new Date(2026, 3, 12),
+      legs: [],
       mieBase: 105,
       meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
+      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
       maxLodging: 200,
       registrationFee: 0,
-      location: 'Copenhagen',
-      isForeignMie: true,
-      isForeignHotel: true,
-      hotelName: '',
+      location: 'Washington DC',
+      isForeignMie: false,
+      isForeignHotel: false,
+      hotelName: 'Stayberry Inn',
+      overageCapPercent: 25
+    },
+    {
+      id: "day-1",
+      date: new Date(2026, 3, 13),
+      legs: [],
+      mieBase: 105,
+      meals: { B: true, L: true, D: true, I: true },
+      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+      maxLodging: 200,
+      registrationFee: 750,
+      location: 'Washington DC',
+      isForeignMie: false,
+      isForeignHotel: false,
+      hotelName: 'Stayberry Inn',
       overageCapPercent: 25
     },
     {
       id: "day-2",
-      date: new Date(2025, 3, 22),
+      date: new Date(2026, 3, 14),
       legs: [],
       mieBase: 105,
-      meals: { B: true, L: false, D: true, I: true },
+      meals: { B: true, L: true, D: true, I: true },
       hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
       maxLodging: 200,
-      registrationFee: 750,
-      location: 'Copenhagen',
-      isForeignMie: true,
-      isForeignHotel: true,
-      hotelName: '',
+      registrationFee: 0,
+      location: 'Washington DC',
+      isForeignMie: false,
+      isForeignHotel: false,
+      hotelName: 'Stayberry Inn',
       overageCapPercent: 25
     },
     {
       id: "day-3",
-      date: new Date(2025, 3, 23),
+      date: new Date(2026, 3, 15),
       legs: [],
       mieBase: 105,
-      meals: { B: true, L: false, D: true, I: true },
+      meals: { B: true, L: true, D: true, I: true },
       hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
       maxLodging: 200,
       registrationFee: 0,
-      location: 'Copenhagen',
-      isForeignMie: true,
-      isForeignHotel: true,
-      hotelName: '',
+      location: 'Washington DC',
+      isForeignMie: false,
+      isForeignHotel: false,
+      hotelName: 'Stayberry Inn',
       overageCapPercent: 25
     },
     {
       id: "day-4",
-      date: new Date(2025, 3, 24),
-      legs: [
-        { id: "leg-4", from: 'Hotel', to: 'CPH', type: 'uber', amount: 40, currency: 'EUR', mirrorId: 'm3' },
-        { id: "leg-5", from: 'CPH', to: 'BWI', type: 'flight', amount: 0, currency: 'USD', mirrorId: 'm2' },
-        { id: "leg-6", from: 'BWI', to: 'Home', type: 'uber', amount: 95, currency: 'USD', mirrorId: 'm1' },
-      ],
+      date: new Date(2026, 3, 16),
+      legs: [],
+      mieBase: 105,
+      meals: { B: true, L: true, D: true, I: true },
+      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+      maxLodging: 200,
+      registrationFee: 0,
+      location: 'Washington DC',
+      isForeignMie: false,
+      isForeignHotel: false,
+      hotelName: 'Stayberry Inn',
+      overageCapPercent: 25
+    },
+    {
+      id: "day-5",
+      date: new Date(2026, 3, 17),
+      legs: [],
       mieBase: 105,
       meals: { B: true, L: true, D: true, I: true },
       hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
       maxLodging: 200,
-      location: 'Baltimore',
+      location: 'Washington DC',
       isForeignMie: false,
       isForeignHotel: false,
       hotelName: '',
       overageCapPercent: 25
     },
-
   ]);
 
   const [conferenceCenter, setConferenceCenter] = useState('Conference Center');
@@ -987,22 +1037,21 @@ function App() {
     {
       id: 'f-1',
       pairId: 'p-1',
-      airline: 'IcelandAir',
-      confirmation: '2DUVM2',
-      cost: 1200,
+      airline: 'United',
+      confirmation: 'CONF123',
+      cost: 450,
       segments: [
-        { id: 's-1', airlineCode: 'FI', flightNumber: '642', seat: '12A', depDate: 'Mon Apr 21', depTime: '8:30p', depPort: 'BWI', arrDate: 'Tue Apr 22', arrTime: '6:25a', arrPort: 'KEF' },
-        { id: 's-2', airlineCode: 'FI', flightNumber: '204', seat: '12A', depDate: 'Tue Apr 22', depTime: '7:40a', depPort: 'KEF', arrDate: 'Tue Apr 22', arrTime: '12:55p', arrPort: 'CPH' }
+        { id: 's-1', airlineCode: 'UA', flightNumber: '123', seat: '12A', depDate: 'Sun Apr 12 2026', depTime: '2:00p', depPort: 'SFO', arrDate: 'Sun Apr 12 2026', arrTime: '10:00p', arrPort: 'IAD' }
       ]
     },
     {
       id: 'f-2',
       pairId: 'p-1',
-      airline: 'IcelandAir',
-      confirmation: '2DUVM2',
+      airline: 'United',
+      confirmation: 'CONF123',
       cost: 0,
       segments: [
-        { id: 's-3', airlineCode: 'FI', flightNumber: 'FI 205', seat: '14C', depDate: 'Thu Apr 24', depTime: '2:00p', depPort: 'CPH', arrDate: 'Thu Apr 24', arrTime: '10:00p', arrPort: 'BWI' }
+        { id: 's-3', airlineCode: 'UA', flightNumber: '456', seat: '14C', depDate: 'Fri Apr 17 2026', depTime: '6:00p', depPort: 'IAD', arrDate: 'Sat Apr 18 2026', arrTime: '1:00a', arrPort: 'SFO' }
       ]
     }
   ]);
@@ -1090,6 +1139,9 @@ function App() {
       };
     });
   }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels]);
+
+  const [showMIE, setShowMIE] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   const loadData = useCallback((data) => {
     try {
@@ -1471,8 +1523,7 @@ function App() {
               d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
               if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
             }
-            if (!d || isNaN(d.getTime())) d = new Date(dateStr);
-            if (isNaN(d.getTime())) return dateStr;
+            if (!d || isNaN(d.getTime())) return dateStr;
 
             const shifted = addDays(d, diff);
             return safeFormat(shifted, 'M/d/yy');
@@ -1636,74 +1687,101 @@ function App() {
 
   // Auto-populate Travel Legs based on Flights
   React.useEffect(() => {
-    setDays(prevDays => {
-      let changed = false;
-      const nextDays = prevDays.map((day, dIdx) => {
-        if (!day.date || isNaN(day.date.getTime())) return day;
-        const dayStr = format(day.date, 'M/d/yy');
-        const newLegs = [...day.legs];
+    let globalChanged = false;
+    const nextDays = days.map((day, dIdx) => {
+      const dayStr = format(day.date, 'yyyy-MM-dd');
+      let newLegs = [...day.legs];
+      let dayChanged = false;
 
-        flights.forEach(flight => {
-          (flight.segments || []).forEach(seg => {
-            // Uber to airport (2 hours before dep)
-            if (seg.depDate === dayStr) {
-              const hasUberTo = newLegs.some(l => l.type === 'uber' && l.to === seg.depPort);
-              if (!hasUberTo) {
-                const origin = dIdx === 0 ? 'Home' : 'Hotel';
-                // Calculate time: 2 hours before flight
-                const flTime = parseTime(seg.depTime);
-                let uberTime = '8:00a';
-                if (flTime !== null) {
-                  const uT = (flTime - 2 + 24) % 24;
-                  const h = Math.floor(uT);
-                  const m = Math.round((uT - h) * 60);
-                  const period = h >= 12 ? 'p' : 'a';
-                  const dispH = h % 12 || 12;
-                  uberTime = `${dispH}:${m.toString().padStart(2, '0')}${period}`;
-                }
+      flights.forEach(flight => {
+        (flight.segments || []).forEach((seg, sIdx) => {
+          const segDepDate = parseSegDate(seg.depDate);
+          const segArrDate = parseSegDate(seg.arrDate);
 
-                newLegs.push({
-                  id: generateId(),
-                  from: origin,
-                  to: seg.depPort,
-                  type: 'uber',
-                  time: uberTime,
-                  amount: 25,
-                  currency: 'USD',
-                  isForeign: false
-                });
-                changed = true;
-              }
+          // Determine if this is an outbound trip (to destination) or return trip (to home)
+          // Rough heuristic: first segment of first flight is usually outbound home->airport
+          // last segment of last flight is usually return airport->home
+          const isOutbound = dIdx < days.length / 2;
+
+          if (segDepDate === dayStr) {
+            const hasUberTo = newLegs.some(l => l.type === 'uber' && l.to === seg.depPort);
+            if (!hasUberTo) {
+              const flTime = parseTime(seg.depTime);
+              // Outbound: 45 min drive (0.75h) arriving 3h before -> start 3.75h before
+              // Return: 30 min drive (0.5h) arriving 3h before -> start 3.5h before
+              const leadTime = isOutbound ? 3.75 : 3.5;
+              const uberTimeNum = flTime ? (flTime - leadTime + 24) % 24 : 11;
+
+              newLegs.push({
+                id: generateId(),
+                from: dIdx === 0 ? 'Home' : 'Hotel',
+                to: seg.depPort,
+                type: 'uber',
+                time: formatTime(uberTimeNum),
+                amount: 45,
+                currency: 'USD'
+              });
+              dayChanged = true;
             }
-            // Uber from airport to hotel/home (on arrival)
-            if (seg.arrDate === dayStr) {
-              const hasUberFrom = newLegs.some(l => l.type === 'uber' && l.from === seg.arrPort);
-              if (!hasUberFrom) {
-                const dest = dIdx === prevDays.length - 1 ? 'Home' : 'Hotel';
-                newLegs.push({
-                  id: generateId(),
-                  from: seg.arrPort,
-                  to: dest,
-                  type: 'uber',
-                  time: seg.arrTime || '12:00p',
-                  amount: 25,
-                  currency: 'USD',
-                  isForeign: false
-                });
-                changed = true;
-              }
+          }
+
+          if (segArrDate === dayStr) {
+            const hasUberFrom = newLegs.some(l => l.type === 'uber' && l.from === seg.arrPort);
+            if (!hasUberFrom) {
+              const flArrTime = parseTime(seg.arrTime);
+              // Start 1h after arrival
+              const uberStart = flArrTime ? (flArrTime + 1) : 12;
+
+              newLegs.push({
+                id: generateId(),
+                from: seg.arrPort,
+                to: dIdx === days.length - 1 ? 'Home' : 'Hotel',
+                type: 'uber',
+                time: formatTime(uberStart),
+                amount: 45,
+                currency: 'USD'
+              });
+              dayChanged = true;
             }
-          });
+          }
         });
-
-        if (changed) return { ...day, legs: newLegs };
-        return day;
       });
 
-      if (changed) return nextDays;
-      return prevDays;
+      if (dayChanged) {
+        globalChanged = true;
+        return { ...day, legs: newLegs };
+      }
+      return day;
     });
-  }, [flights]);
+
+    if (globalChanged) {
+      setDays(nextDays);
+    }
+  }, [flights, days.length]);
+
+  // Ensure trip covers all flight segments
+  React.useEffect(() => {
+    if (days.length === 0) return;
+    let maxDateStr = format(days[days.length - 1].date, 'yyyy-MM-dd');
+    let needsUpdate = false;
+    let newEnd = days[days.length - 1].date;
+
+    flights.forEach(f => {
+      (f.segments || []).forEach(s => {
+        const arrDateStr = parseSegDate(s.arrDate);
+        if (arrDateStr && arrDateStr > maxDateStr) {
+          needsUpdate = true;
+          maxDateStr = arrDateStr;
+          newEnd = new Date(arrDateStr);
+        }
+      });
+    });
+
+    if (needsUpdate) {
+      handleEndDateChange(newEnd);
+    }
+  }, [flights, days.length]);
+
 
   // Auto-populate Hotels based on Flights
   React.useEffect(() => {
@@ -1712,21 +1790,25 @@ function App() {
     let hotelName = 'Stayberry Inn';
 
     const segments = flights.flatMap(f => f.segments || []);
-    if (segments.length > 0) {
-      const sorted = segments.map(s => {
-        // Use trip start date as ref for year-less date strings
-        const refD = (days && days[0] && days[0].date) ? days[0].date : new Date();
-        const d = parse(s.depDate, s.depDate.includes('/') ? 'M/d/yy' : 'EEE MMM d', refD);
-        const a = parse(s.arrDate, s.arrDate.includes('/') ? 'M/d/yy' : 'EEE MMM d', refD);
-        return { dep: d, arr: a, ...s };
-      }).sort((a, b) => a.arr - b.arr);
+    if (segments.length === 0) return;
 
-      const firstArr = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
-      const lastDep = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
+    const sorted = segments.map(s => {
+      const dep = parseSegDate(s.depDate);
+      const arr = parseSegDate(s.arrDate);
+      return { dep, arr, ...s };
+    }).sort((a, b) => a.arr.localeCompare(b.arr));
 
-      if (firstArr) arrivalDate = firstArr.arr;
-      if (lastDep) departureDate = lastDep.dep;
+    const firstArrSeg = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
+    const lastDepSeg = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
+
+    if (firstArrSeg && lastDepSeg) {
+      const arrDateObj = new Date(firstArrSeg.arr);
+      const depDateObj = new Date(lastDepSeg.dep);
+
+      arrivalDate = arrDateObj;
+      departureDate = depDateObj;
     }
+
 
     if (arrivalDate && departureDate) {
       setHotels(prev => {
@@ -1797,41 +1879,131 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="trip-header-main">
-              <input
-                className="trip-name-display"
-                value={tripName}
-                onChange={e => setTripName(e.target.value)}
-              />
-              <div className="trip-meta-row">
-                <div className="trip-dates-wrap">
-                  <div className="header-dates-row">
-                    <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
-                    <span className="date-sep">—</span>
-                    <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
-                    <span className="day-count">{days.length} Days</span>
-                  </div>
-                  <div className="conf-center-row">
-                    <span className="conf-icon"><MapPin size={12} /></span>
-                    <input
-                      className="conf-input"
-                      value={conferenceCenter}
-                      onChange={(e) => setConferenceCenter(e.target.value)}
-                      placeholder="Conference Center"
-                    />
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="conf-map-link"
-                      title="Open in Google Maps"
-                    >
-                      <Navigation size={12} />
-                    </a>
+            <div className="trip-header-container">
+              <div className="trip-header-main">
+                <input
+                  className="trip-name-display"
+                  value={tripName}
+                  onChange={e => setTripName(e.target.value)}
+                />
+                <div className="trip-meta-row">
+                  <div className="trip-dates-vertical-wrap">
+                    <div className="header-dates-row">
+                      <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
+                      <span className="date-sep">—</span>
+                      <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
+                    </div>
+                    <div className="header-sub-row">
+                      <span className="day-count">{days.length} Days</span>
+                      <div className="conf-center-row">
+                        <span className="conf-icon"><MapPin size={12} /></span>
+                        <input
+                          className="conf-input"
+                          value={conferenceCenter}
+                          onChange={(e) => setConferenceCenter(e.target.value)}
+                          placeholder="Conference Center"
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="conf-map-link"
+                          title="Open in Google Maps"
+                        >
+                          <Navigation size={12} />
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
+
+            </div>
+          </section>
+
+          <section className="timeline-section-panel glass">
+            <div className="timeline-header-row">
+              <div className="section-title"><Calendar size={16} /> TIMELINE</div>
+              <button className={`mie-toggle-btn ${showMIE ? 'active' : ''}`} onClick={() => setShowMIE(!showMIE)}>
+                {showMIE ? <Utensils size={14} /> : <CreditCard size={14} />} M&IE
+              </button>
+            </div>
+            <div className="vertical-timeline">
+              {days.map((day, idx) => (
+                <TimelineDay
+                  key={day.id}
+                  day={day}
+                  dayIndex={idx}
+                  totalDays={days.length}
+                  flights={flights}
+                  hotels={hotels}
+                  currentRates={currentRates}
+                  showMIE={showMIE}
+                  onEditEvent={(ev) => setEditingEvent(ev)}
+                />
+              ))}
+            </div>
+            {editingEvent && (
+              <div className="edit-overlay glass" onClick={() => setEditingEvent(null)}>
+                <div className="edit-modal" onClick={e => e.stopPropagation()}>
+                  <div className="edit-modal-header">
+                    <h3>EDIT {editingEvent.type.toUpperCase()}</h3>
+                    <button className="close-btn" onClick={() => setEditingEvent(null)}><X size={16} /></button>
+                  </div>
+                  <div className="edit-modal-content">
+                    {editingEvent.type === 'flight' && (
+                      <div className="simple-edit-form">
+                        <p>Go to the <b>Flights</b> section below to edit this flight ({editingEvent.id})</p>
+                        <button className="btn-primary" onClick={() => {
+                          document.querySelector('.flights-section-panel').scrollIntoView({ behavior: 'smooth' });
+                          setEditingEvent(null);
+                        }}>GO TO FLIGHTS</button>
+                      </div>
+                    )}
+                    {editingEvent.type === 'hotel' && (
+                      <div className="simple-edit-form">
+                        <p>Go to the <b>Hotels</b> section below to edit this hotel ({editingEvent.id})</p>
+                        <button className="btn-primary" onClick={() => {
+                          document.querySelector('.hotels-section-panel').scrollIntoView({ behavior: 'smooth' });
+                          setEditingEvent(null);
+                        }}>GO TO HOTELS</button>
+                      </div>
+                    )}
+                    {editingEvent.type === 'leg' && (
+                      <div className="simple-edit-form">
+                        <p>Travel legs can be edited in the daily plan sections (not implemented as separate section yet, please use main panel if available)</p>
+                        {/* For now just a placeholder */}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="flights-section-panel">
+            <FlightPanel
+              flights={flights}
+              totalCost={flightTotal}
+              onUpdate={updateFlight}
+              onDelete={deleteFlight}
+              onAdd={addFlightLeg}
+              dragEndHandler={handleFlightDragEnd}
+            />
+          </section>
+
+          <section className="hotels-section-panel">
+            <HotelPanel
+              hotels={hotels}
+              onUpdate={(id, f, v) => setHotels(prev => prev.map(h => h.id === id ? { ...h, [f]: v } : h))}
+              onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
+              onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
+            />
+          </section>
+
+          <section className="totals-section glass">
+            <div className="totals-header-row">
               <div className="currency-controls">
                 <div className="curr-toggle-group">
                   <button
@@ -1862,9 +2034,6 @@ function App() {
                 )}
               </div>
             </div>
-          </section>
-
-          <section className="totals-section glass">
             <div className="main-total-card">
               <span className="total-label">Grand Total</span>
               <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
@@ -1922,48 +2091,6 @@ function App() {
               </div>
             </div>
           </section>
-
-          <section className="flights-section-panel">
-            <FlightPanel
-              flights={flights}
-              totalCost={flightTotal}
-              onUpdate={updateFlight}
-              onDelete={deleteFlight}
-              onAdd={addFlightLeg}
-              dragEndHandler={handleFlightDragEnd}
-            />
-          </section>
-
-          <section className="hotels-section-panel">
-            <HotelPanel
-              hotels={hotels}
-              onUpdate={(id, f, v) => setHotels(prev => prev.map(h => h.id === id ? { ...h, [f]: v } : h))}
-              onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
-              onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
-            />
-          </section>
-
-          <section className="timeline-section-panel glass">
-            <div className="section-title"><Calendar size={16} /> TIMELINE</div>
-            <div className="vertical-timeline">
-              {days.map((day, idx) => (
-                <TimelineDay
-                  key={day.id}
-                  day={day}
-                  dayIndex={idx}
-                  totalDays={days.length}
-                  flights={flights}
-                  hotels={hotels}
-                  currentRates={currentRates}
-                  onUpdateMeals={(dayId, meal) => {
-                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-                    setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
-                  }}
-                  onAddLeg={(dIdx) => addLeg(dIdx)}
-                />
-              ))}
-            </div>
-          </section>
         </main>
 
         <DragOverlay>
@@ -1996,20 +2123,17 @@ function App() {
         .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
 
         /* Header */
-        .trip-header-section { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
-        .trip-header-main { flex: 1; }
+        .trip-header-section { padding: 1.5rem 2rem; }
+        .trip-header-main { width: 100%; }
+
         .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
         .trip-meta-row { display: flex; align-items: center; gap: 2rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
-        .trip-dates-wrap { display: flex; align-items: center; gap: 1.5rem; }
-        .header-dates-row { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.9rem; color: var(--accent); }
-        .date-sep { opacity: 0.3; font-weight: 300; margin: 0 4px; }
-        .day-count { background: var(--accent); color: white; padding: 2px 10px; border-radius: 99px; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 950; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); }
+        .trip-dates-vertical-wrap { display: flex; flex-direction: column; gap: 0.75rem; }
+        .header-dates-row { display: flex; align-items: center; gap: 0.5rem; }
+        .header-sub-row { display: flex; align-items: center; gap: 1rem; }
+        .timeline-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .totals-header-row { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
 
-        .conf-center-row { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 4px 8px; border: 1px solid var(--border); width: fit-content; margin-top: 8px; }
-        .conf-icon { color: #64748b; display: flex; }
-        .conf-input { background: transparent; border: none; color: #94a3b8; font-size: 0.75rem; font-weight: 600; outline: none; width: 140px; }
-        .conf-map-link { color: var(--accent); display: flex; opacity: 0.7; transition: opacity 0.2s; }
-        .conf-map-link:hover { opacity: 1; }
 
         /* Segmented Date Input */
         .segmented-date-input {
@@ -2132,24 +2256,37 @@ function App() {
         .s-seat { width: 45px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; }
         .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; grid-row: 1 / span 2; align-self: center; }
 
-        /* Timeline */
-        .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }
-        .section-title { font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 0.15em; display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; text-transform: uppercase; }
-        .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 100%; }
+        .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; }
+        .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+        .trip-header-main { flex: 1; }
+        .header-actions { display: flex; flex-direction: column; gap: 1rem; align-items: flex-end; }
         
-        .timeline-day-row { display: flex; gap: 1rem; position: relative; min-height: 140px; margin: 0; }
-        .timeline-date-side { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1.5rem; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.75rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.6rem; color: var(--subtext); font-weight: 800; }
+        .mie-toggle-btn { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 16px; color: #94a3b8; font-weight: 900; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+        .mie-toggle-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+        .mie-toggle-btn:hover { background: rgba(255,255,255,0.05); }
+        .mie-toggle-btn.active:hover { background: var(--accent); opacity: 0.9; }
+
+        .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
+        .vertical-timeline { overflow: visible; }
+        .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding-top: 1.5rem; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
+        .tl-dm { font-size: 0.75rem; color: var(--subtext); font-weight: 800; font-family: 'JetBrains Mono', monospace; }
         
-        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); overflow: hidden; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-left: 60px; overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
-        .hour-label { position: absolute; left: 10px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
+        .hour-label { position: absolute; left: 70px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
         
-        .tl-event { position: absolute; left: 6px; right: 6px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
-        .tl-event:hover { transform: scale(1.01); z-index: 20; }
+        .tl-marker-time { position: absolute; left: 5px; width: 45px; font-size: 0.65rem; font-weight: 950; color: var(--accent); transform: translateY(-50%); text-align: right; pointer-events: none; z-index: 50; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .tl-marker-time.arr { color: #f8fafc; opacity: 0.9; }
+        .tl-marker-time.hotel { color: #4ade80; }
+        .tl-marker-time.travel { color: #818cf8; }
+
+        .tl-event { position: absolute; left: 60px; right: 6px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event.clickable { cursor: pointer; }
+        .tl-event.clickable:hover { transform: scale(1.005); filter: brightness(1.1); z-index: 30 !important; }
         .flight-event { background: linear-gradient(135deg, var(--accent), #4f46e5); color: #fff; }
-        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); border-left: none; border-right: none; }
+        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); }
 
         .hotel-label-wrap { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
         .tl-h-name { font-weight: 950; font-size: 0.75rem; }
@@ -2180,21 +2317,59 @@ function App() {
         .h-time { width: 60px !important; }
 
         /* Missing styles for Travel Legs */
-        .leg-input-text-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 6px; color: #fff; outline: none; font-size: 0.75rem; width: 100px; }
-        .leg-input-text-compact:focus { border-color: var(--accent); }
-        .leg-type-select-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 4px; color: #fff; outline: none; font-size: 0.75rem; }
         .leg-amount-input-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 4px; color: var(--accent); outline: none; font-size: 0.75rem; width: 50px; font-weight: 900; text-align: right; }
         .currency-toggle-mini { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; display: flex; align-items: center; }
         .currency-toggle-mini.active { color: var(--accent); }
 
+        /* Edit Modal */
+        .edit-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .edit-modal { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; width: 90%; max-width: 500px; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .edit-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .edit-modal-header h3 { font-size: 0.9rem; font-weight: 950; letter-spacing: 0.1em; color: var(--accent); margin: 0; }
+        .close-btn { background: transparent; border: none; color: #64748b; cursor: pointer; }
+        .edit-modal-content { color: #f8fafc; font-size: 0.9rem; line-height: 1.6; }
+        .simple-edit-form { display: flex; flex-direction: column; gap: 1.5rem; }
+        .simple-edit-form b { color: var(--accent); }
+
         /* Responsive */
         @media (max-width: 700px) {
-          .trip-header-section { flex-direction: column; padding: 1.5rem; gap: 1.5rem; }
-          .currency-controls { align-items: flex-start; width: 100%; }
+          .trip-header-container { flex-direction: column; }
+          .header-actions { width: 100%; align-items: stretch; }
+          .mie-toggle-btn { justify-content: center; }
+          .trip-header-section { padding: 1.5rem; }
+          .trip-header-main { margin-bottom: 0; }
+          .trip-header-container { align-items: flex-start; gap: 1rem; }
+
+          .header-sub-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+          .day-count { margin-left: 0; width: fit-content; }
+          .currency-controls { align-items: center; width: 100%; border-top: 1px solid var(--border); padding-top: 1.5rem; }
           .totals-grid { grid-template-columns: repeat(2, 1fr); }
-          .f-seg-grid { grid-template-columns: 1fr 30px; }
-          .main-total-card .total-value { font-size: 2.5rem; }
-          .timeline-section-panel { padding: 1rem; }
+          .main-total-card .total-value { font-size: 2.2rem; }
+          .timeline-section-panel { padding: 0.75rem; overflow: visible; }
+          .timeline-date-side { width: 55px; }
+          .tl-dw { font-size: 0.7rem; }
+          .tl-dm { font-size: 0.6rem; }
+          .timeline-hours-container { padding-left: 45px; }
+          .tl-marker-time { width: 35px; font-size: 0.55rem; left: 2px; }
+          .tl-event { left: 45px; }
+
+          
+          /* Flight Row Mobile Fixes */
+          .f-seg-grid { 
+            grid-template-columns: 1fr auto;
+            grid-template-areas: 
+              "id del"
+              "dates dates"
+              "time port";
+            gap: 12px 8px;
+          }
+          .f-id-col { grid-area: id; }
+          .f-date-col { grid-area: dates; display: flex !important; flex-direction: row; gap: 12px; }
+          .f-time-col { grid-area: time; display: flex; flex-direction: row; gap: 8px; }
+          .f-port-col { grid-area: port; display: flex; flex-direction: row; gap: 8px; }
+          .f-seg-del { grid-area: del; justify-self: end; align-self: start; }
+          
+          .f-route-display { grid-template-columns: 1fr auto 1fr; gap: 0.5rem; }
         }
         `}</style>
       </div>
