@@ -245,32 +245,40 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           return (
             <React.Fragment key={l.id}>
-              <div className="tl-marker-time travel" style={{ top: `${getPosition(start)}%` }}>{l.time.toLowerCase()} {getEmoji(l.from)}</div>
-              <div className="tl-marker-time travel arr" style={{ top: `${getPosition(end)}%` }}>{formatTime(end).toLowerCase()} {getEmoji(l.to)}</div>
               <div
                 className="tl-event travel-event clickable"
                 onClick={() => onEditEvent({ type: 'leg', id: l.id, dayId: day.id })}
                 style={{
                   top: `${getPosition(start)}%`,
                   height: `${getPosition(end) - getPosition(start)}%`,
-                  minHeight: '20px',
                   background: 'linear-gradient(to right, rgba(129, 140, 248, 0.3), rgba(129, 140, 248, 0.1))',
                   color: '#818cf8',
                   border: '1px solid rgba(129, 140, 248, 0.4)',
                   left: '65%',
                   right: '10px',
                   zIndex: 4,
-                  padding: '2px'
+                  padding: '2px',
+                  overflow: 'visible'
                 }}
               >
+                {/* Start Label (Top) */}
+                <div style={{ position: 'absolute', top: -14, right: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', fontWeight: 900, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                  {l.time.toLowerCase()} {getEmoji(l.from)}
+                </div>
+
                 <div className="tl-event-label travel-vertical-label">
                   <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
+                </div>
+
+                {/* End Label (Bottom) */}
+                <div style={{ position: 'absolute', bottom: -14, right: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', fontWeight: 900, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                  {formatTime(end).toLowerCase()} {getEmoji(l.to)}
                 </div>
               </div>
             </React.Fragment>
           );
         })}
-      </div>
+      </div >
 
       {showMIE && (
         <div className="timeline-mie-side">
@@ -292,7 +300,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           </div>
         </div>
       )}
-    </div>
+    </div >
   );
 };
 
@@ -2291,8 +2299,9 @@ function App() {
         .tl-marker-time { position: absolute; left: 5px; width: 45px; font-size: 0.65rem; font-weight: 950; color: var(--accent); transform: translateY(-50%); text-align: right; pointer-events: none; z-index: 50; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
         .tl-marker-time.arr { color: #f8fafc; opacity: 0.9; }
         .tl-marker-time.hotel { color: #4ade80; }
-        .tl-marker-time.travel { color: #818cf8; left: auto; right: 5px; text-align: right; width: auto; z-index: 60; }
-        .tl-marker-time.travel.arr { color: #818cf8; opacity: 0.8; }
+        .tl-marker-time.arr { color: #f8fafc; opacity: 0.9; }
+        .tl-marker-time.hotel { color: #4ade80; }
+        .tl-marker-time.travel { display: none; } /* We are handling labels inside block now */
 
         .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event.flight-event { width: 55%; z-index: 10; }
