@@ -147,7 +147,10 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               }}
             >
               {(!isOvernight || isDeparturePart) && (
-                <div className="tl-event-label">✈️ {s.airlineCode || ''}{s.flightNumber || ''} ({s.depTime.toLowerCase()}) {s.depPort || ''}→{s.arrPort || ''} ({s.arrTime.toLowerCase()})</div>
+                <div className="tl-event-label flight-label-compact">
+                  <div className="tl-f-top">{s.depTime.toLowerCase()} {s.depPort}</div>
+                  <div className="tl-f-bottom">{s.arrTime.toLowerCase()} {s.arrPort}</div>
+                </div>
               )}
             </div>
           );
@@ -1981,7 +1984,7 @@ function App() {
           --bg: #020617;
           --glass: rgba(15, 23, 42, 0.6);
           --border: rgba(255, 255, 255, 0.08);
-          --accent: #6366f1;
+          --accent: #a5b4fc;
           --text: #f8fafc;
           --subtext: #94a3b8;
         }
@@ -2132,12 +2135,12 @@ function App() {
         /* Timeline */
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }
         .section-title { font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 0.15em; display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; text-transform: uppercase; }
-        .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 650px; }
+        .vertical-timeline { display: flex; flex-direction: column; gap: 0; position: relative; min-width: 100%; }
         
         .timeline-day-row { display: flex; gap: 1rem; position: relative; min-height: 140px; margin: 0; }
-        .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1.5rem; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
-        .tl-dm { font-size: 0.7rem; color: var(--subtext); font-weight: 800; }
+        .timeline-date-side { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1.5rem; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.75rem; text-transform: uppercase; }
+        .tl-dm { font-size: 0.6rem; color: var(--subtext); font-weight: 800; }
         
         .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); overflow: hidden; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
@@ -2145,21 +2148,44 @@ function App() {
         
         .tl-event { position: absolute; left: 6px; right: 6px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event:hover { transform: scale(1.01); z-index: 20; }
-        .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+        .flight-event { background: linear-gradient(135deg, var(--accent), #4f46e5); color: #fff; }
         .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); border-left: none; border-right: none; }
 
         .hotel-label-wrap { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
         .tl-h-name { font-weight: 950; font-size: 0.75rem; }
 
-        .timeline-mie-side { width: 100px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1.5rem; padding-right: 0.5rem; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.95rem; margin-bottom: 4px; }
+        .timeline-mie-side { width: 65px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1.5rem; padding-right: 0.5rem; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.85rem; margin-bottom: 4px; }
         
         .tl-mie-stack { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-        .tl-meal-chip { display: flex; justify-content: space-between; align-items: center; padding: 3px 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .tl-meal-chip { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; cursor: pointer; transition: all 0.2s; }
         .tl-meal-chip.active { background: var(--accent); border-color: transparent; }
-        .tl-m-label { font-size: 0.6rem; font-weight: 950; color: #64748b; }
-        .tl-m-price { font-size: 0.55rem; font-weight: 850; color: #475569; font-family: 'JetBrains Mono', monospace; }
+        .tl-m-label { font-size: 0.65rem; font-weight: 950; color: #64748b; }
+        .tl-m-price { font-size: 0.5rem; font-weight: 850; color: #475569; font-family: 'JetBrains Mono', monospace; display: none; }
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
+        .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
+
+        .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; justify-content: space-between; padding: 2px 0; }
+        .tl-f-top { font-size: 0.65rem; font-weight: 950; }
+        .tl-f-bottom { font-size: 0.65rem; font-weight: 950; text-align: right; }
+
+        /* Hotel Row Fixes */
+        .hotel-row-item { background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.03); }
+        .h-row-line { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+        .h-row-top { justify-content: space-between; }
+        .h-name { flex: 1; max-width: 200px; font-weight: 800; }
+        .h-cost-actions { display: flex; align-items: center; gap: 0.5rem; }
+        .h-row-date { font-size: 0.75rem; color: var(--subtext); }
+        .h-label { width: 65px; font-weight: 900; color: #475569; text-transform: uppercase; font-size: 0.6rem; }
+        .h-time { width: 60px !important; }
+
+        /* Missing styles for Travel Legs */
+        .leg-input-text-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 6px; color: #fff; outline: none; font-size: 0.75rem; width: 100px; }
+        .leg-input-text-compact:focus { border-color: var(--accent); }
+        .leg-type-select-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 4px; color: #fff; outline: none; font-size: 0.75rem; }
+        .leg-amount-input-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 4px; color: var(--accent); outline: none; font-size: 0.75rem; width: 50px; font-weight: 900; text-align: right; }
+        .currency-toggle-mini { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; display: flex; align-items: center; }
+        .currency-toggle-mini.active { color: var(--accent); }
 
         /* Responsive */
         @media (max-width: 700px) {
@@ -2169,7 +2195,6 @@ function App() {
           .f-seg-grid { grid-template-columns: 1fr 30px; }
           .main-total-card .total-value { font-size: 2.5rem; }
           .timeline-section-panel { padding: 1rem; }
-          .vertical-timeline { min-width: 100%; }
         }
         `}</style>
       </div>
