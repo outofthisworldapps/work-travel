@@ -155,7 +155,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 onClick={() => onEditEvent({ type: 'flight', id: s.parentFlight.id, segmentId: s.id })}
                 style={{
                   top: `${getPosition(startPos)}%`,
-                  height: `${Math.max(getPosition(endPos) - getPosition(startPos), 3)}%`,
+                  height: `${Math.max(getPosition(endPos) - getPosition(startPos), 15)}%`,
                   zIndex: 2,
                   borderRadius: isOvernight ? (isDeparturePart ? '8px 8px 0 0' : '0 0 8px 8px') : '8px',
                   borderBottom: (isOvernight && isDeparturePart) ? 'none' : undefined,
@@ -164,8 +164,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               >
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-event-label flight-label-compact">
-                    <div className="tl-f-top">{s.depTime.toLowerCase()} {s.airlineCode}{s.flightNumber} {s.depPort}</div>
-                    <div className="tl-f-bottom">{s.arrTime.toLowerCase()} {s.arrPort}</div>
+                    <div className="tl-f-top">{s.airlineCode}{s.flightNumber} {s.depPort}→{s.arrPort}</div>
                   </div>
                 )}
               </div>
@@ -236,24 +235,39 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           const start = parseTime(l.time);
           if (start === null || isNaN(start)) return null;
 
+          const duration = (l.from === 'Home' || l.to === 'Home') ? 0.75 : 0.5;
+          const end = start + duration;
+
+          const getEmoji = (loc) => {
+            if (loc === 'Home') return '🏡';
+            if (loc === 'Hotel') return '🏨';
+            return '✈️';
+          };
+
           return (
             <React.Fragment key={l.id}>
               <div className="tl-marker-time travel" style={{ top: `${getPosition(start)}%` }}>{l.time.toLowerCase()}</div>
+              <div className="tl-marker-time travel arr" style={{ top: `${getPosition(end)}%`, right: '15px' }}>{formatTime(end).toLowerCase()}</div>
               <div
                 className="tl-event travel-event clickable"
                 onClick={() => onEditEvent({ type: 'leg', id: l.id, dayId: day.id })}
                 style={{
                   top: `${getPosition(start)}%`,
-                  height: '24px',
-                  background: 'rgba(99, 102, 241, 0.15)',
+                  height: `${Math.max(getPosition(end) - getPosition(start), 20)}%`,
+                  minHeight: '45px',
+                  background: 'rgba(129, 140, 248, 0.2)',
                   color: '#818cf8',
-                  border: '1px solid rgba(99, 102, 241, 0.3)',
-                  left: '60px',
-                  zIndex: 4
+                  border: '1px solid rgba(129, 140, 248, 0.4)',
+                  left: '65%',
+                  right: '10px',
+                  zIndex: 4,
+                  padding: '4px'
                 }}
               >
-                <div className="tl-event-label">
-                  {l.type === 'uber' ? '🚕' : (l.type === 'drive' ? '🚗' : '📍')} {l.from}→{l.to}
+                <div className="tl-event-label travel-vertical-label">
+                  <div className="tl-v-row"><span className="tl-v-time">{l.time.toLowerCase()}</span> {getEmoji(l.from)}</div>
+                  <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
+                  <div className="tl-v-row"><span className="tl-v-time">{formatTime(end).toLowerCase()}</span> {getEmoji(l.to)}</div>
                 </div>
               </div>
             </React.Fragment>
@@ -1772,7 +1786,7 @@ function App() {
         if (arrDateStr && arrDateStr > maxDateStr) {
           needsUpdate = true;
           maxDateStr = arrDateStr;
-          newEnd = new Date(arrDateStr);
+          newEnd = parse(arrDateStr, 'yyyy-MM-dd', new Date());
         }
       });
     });
@@ -1802,11 +1816,8 @@ function App() {
     const lastDepSeg = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
 
     if (firstArrSeg && lastDepSeg) {
-      const arrDateObj = new Date(firstArrSeg.arr);
-      const depDateObj = new Date(lastDepSeg.dep);
-
-      arrivalDate = arrDateObj;
-      departureDate = depDateObj;
+      arrivalDate = parse(firstArrSeg.arr, 'yyyy-MM-dd', new Date());
+      departureDate = parse(lastDepSeg.dep, 'yyyy-MM-dd', new Date());
     }
 
 
@@ -2267,8 +2278,11 @@ function App() {
         .mie-toggle-btn.active:hover { background: var(--accent); opacity: 0.9; }
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
-        .vertical-timeline { overflow: visible; }
-        .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding-top: 1.5rem; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
+        .timeline-day-row { display: flex; min-height: 85px; }
+        .timeline-date-side { width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding-top: 1rem; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+
 
         .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
         .tl-dm { font-size: 0.75rem; color: var(--subtext); font-weight: 800; font-family: 'JetBrains Mono', monospace; }
@@ -2280,9 +2294,13 @@ function App() {
         .tl-marker-time { position: absolute; left: 5px; width: 45px; font-size: 0.65rem; font-weight: 950; color: var(--accent); transform: translateY(-50%); text-align: right; pointer-events: none; z-index: 50; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
         .tl-marker-time.arr { color: #f8fafc; opacity: 0.9; }
         .tl-marker-time.hotel { color: #4ade80; }
-        .tl-marker-time.travel { color: #818cf8; }
+        .tl-marker-time.travel { color: #818cf8; left: auto; right: 5px; text-align: left; }
 
-        .tl-event { position: absolute; left: 60px; right: 6px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event.flight-event { width: 55%; z-index: 10; }
+        .tl-event.travel-event { z-index: 20; }
+        .tl-event.hotel-event { width: auto; left: 60px; right: 10px; opacity: 0.8; }
+
         .tl-event.clickable { cursor: pointer; }
         .tl-event.clickable:hover { transform: scale(1.005); filter: brightness(1.1); z-index: 30 !important; }
         .flight-event { background: linear-gradient(135deg, var(--accent), #4f46e5); color: #fff; }
@@ -2302,9 +2320,15 @@ function App() {
         .tl-meal-chip.active .tl-m-label, .tl-meal-chip.active .tl-m-price { color: #fff; }
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
-        .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; justify-content: space-between; padding: 2px 0; }
-        .tl-f-top { font-size: 0.65rem; font-weight: 950; }
-        .tl-f-bottom { font-size: 0.65rem; font-weight: 950; text-align: right; }
+        .flight-label-compact { display: flex; align-items: center; width: 100%; height: 100%; padding: 2px 0; }
+        .tl-f-top { font-size: 0.6rem; font-weight: 950; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+
+        .travel-vertical-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.6rem; line-height: 1.1; gap: 4px; }
+        .tl-v-row { display: flex; align-items: center; gap: 4px; }
+        .tl-v-time { font-weight: 600; color: #fff; font-size: 0.65rem; }
+        .tl-v-icon { font-size: 0.85rem; margin: 2px 0; }
+
+
 
         /* Hotel Row Fixes */
         .hotel-row-item { background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.03); }

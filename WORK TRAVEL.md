@@ -43,20 +43,30 @@
 - **Currency Toggle**: Individual toggle for domestic/foreign rate context.
 - **Default Stay Logic**: STAY includes arrival night to departure day.
   - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before.
+  - **Fix**: Check-in date should match the arrival day at the destination (unless the Early Arrival Rule applies).
 
 ## Vertical Timeline
-- **Seamless Flow**: No gaps between days in the timeline. No internal scrollbars; the section expands to fit all days.
+- **Compact Layout**: Timeline days have a reduced height (approx 85-100px) to show more days in the viewport. No internal scrollbars.
 - **Day Display**: Shows EEE (Wed) and M/d/yy for each day.
 - **M&IE Toggle**: Functional toggle button located at the top right of the Timeline section header.
 - **Flight & Hotel Events**: 
-  - Flight events displayed at correct time positions with departure and arrival details visible inside the block.
+  - Flight events displayed at correct time positions with compact label (Airline/Flight + Route).
   - Hotel events displayed at check-in/out times with 🏨 icon and name.
-- **Auto-populate Travel Legs (Uber/Taxi)**:
-  - **Outbound to Airport**: Start 3h 45m before flight (45m drive to airport arriving 3h before).
-  - **Outbound from Airport**: Start 1h after flight arrival (allow for customs/bags, 30m drive to hotel).
-  - **Return to Airport**: Start 3h 30m before flight (35m drive to airport arriving 3h before).
-  - **Return from Airport**: Start 1h after flight arrival (45m drive home).
-- **Editable Legs**: Clicking timeline legs allows editing name, type, and cost (with currency toggle).
+- **Travel Blocks (Uber/Taxi)**:
+  - Positioned on the **right side** of the timeline to avoid overlap with flights.
+  - **Vertical Format**:
+    ```
+    10:15a 🏡  (Start Time + From Icon)
+    🚘        (Mode Icon)
+    11:00a ✈️  (Arrival Time + To Icon)
+    ```
+  - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport).
+  - Mode: 🚘 (Uber/Car/Taxi).
+- **Auto-populate Travel Legs**:
+  - Outbound to Airport: 45m drive, arriving 3h before.
+  - Outbound from Airport: 1h after arrival, 30m drive.
+  - Return to Airport: 30m drive, arriving 3h before.
+  - Return from Airport: 1h after arrival, 45m drive.
 
 ## Data & Logic
 - **Precision**: Show cents for every total (always 2 decimal places).
@@ -69,5 +79,4 @@
 - **Buttons**: Transparent background, accent color text/border, not white.
 - **Placeholders**: Dark gray (#475569).
 - **Accent Color**: Indigo (#6366f1).
-- **Compact Layout**: Single-line entries where possible.
 - **Responsive**: No second scroll bars in timeline. Flight info stacks on mobile.
