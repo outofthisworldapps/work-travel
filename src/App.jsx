@@ -137,16 +137,20 @@ const getDualTime = (timeNum, date, homeTZ, destTZ, relevance) => {
 };
 
 
-const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, className, style }) => {
+const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, isFlight, className, style }) => {
   const dt = getDualTime(timeNum, date, homeTZ, destTZ, relevance);
   if (!dt) return null;
 
+  const showBoth = isDifferentTZ && isFlight;
+
   return (
-    <div className={`tl-marker-dual ${className}`} style={style}>
-      <div className={`time-item home ${dt.relevance === 'home' ? 'bold' : 'faint'}`}>
-        {dt.homeTime}
-      </div>
-      {isDifferentTZ && (
+    <div className={`tl-marker-dual ${className} ${showBoth ? 'show-both' : ''}`} style={style}>
+      {(showBoth || dt.relevance === 'home') && (
+        <div className={`time-item home ${dt.relevance === 'home' ? 'bold' : 'faint'}`}>
+          {dt.homeTime}
+        </div>
+      )}
+      {isDifferentTZ && (showBoth || dt.relevance === 'dest') && (
         <div className={`time-item dest ${dt.relevance === 'dest' ? 'bold' : 'faint'}`}>
           {dt.destTime}
         </div>
@@ -156,7 +160,47 @@ const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentT
 };
 
 
+
+const getMidnights = (date, homeTZ, destTZ) => {
+  const midnights = [];
+  const homeStart = new Date(date);
+  homeStart.setHours(0, 0, 0, 0);
+
+  // Home midnight always at 0
+  midnights.push({
+    time: 0,
+    tz: 'home',
+    label: format(homeStart, 'EEE MMM d').toUpperCase()
+  });
+
+  if (homeTZ !== destTZ) {
+    for (let h = 0; h < 24; h++) {
+      const d1 = new Date(homeStart.getTime() + h * 3600000);
+      const d2 = new Date(homeStart.getTime() + (h + 1) * 3600000);
+      const s1 = d1.toLocaleDateString('en-US', { timeZone: destTZ });
+      const s2 = d2.toLocaleDateString('en-US', { timeZone: destTZ });
+      if (s1 !== s2) {
+        for (let m = 0; m < 60; m++) {
+          const m1 = new Date(d1.getTime() + m * 60000);
+          const m2 = new Date(d1.getTime() + (m + 1) * 60000);
+          if (m1.toLocaleDateString('en-US', { timeZone: destTZ }) !== m2.toLocaleDateString('en-US', { timeZone: destTZ })) {
+            midnights.push({
+              time: h + (m + 1) / 60,
+              tz: 'dest',
+              label: new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
+            });
+            break;
+          }
+        }
+      }
+    }
+  }
+  return midnights;
+};
+
+
 // --- Vertical Timeline Components ---
+
 
 
 const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdateMeals, onAddLeg, hotels, onEditEvent, showMIE, homeTimeZone, destTimeZone }) => {
@@ -207,23 +251,32 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     return 'dest';
   };
 
+  const midnights = getMidnights(day.date, homeTimeZone, destTimeZone);
+
   return (
     <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''} ${isDifferentTZ ? 'dual-tz' : ''}`}>
       <div className="timeline-date-side">
-        <div className="date-stack home">
-          <div className="tl-dw">{format(day.date, 'EEE')}</div>
-          <div className="tl-dm">{format(day.date, 'MMM d')}</div>
-        </div>
-        {isDifferentTZ && (
-          <div className="date-stack dest">
-            <div className="tl-dw">{format(day.date, 'EEE')}</div>
-            <div className="tl-dm">{format(day.date, 'MMM d')}</div>
+        {midnights.map((m, i) => (
+          <div
+            key={i}
+            className={`midnight-label-stack ${m.tz}`}
+            style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}
+          >
+            <div className={`date-stack ${m.tz}`}>
+              <div className="tl-dw">{m.label}</div>
+            </div>
           </div>
-        )}
+        ))}
       </div>
 
-
       <div className="timeline-hours-container">
+        {midnights.map((m, i) => (
+          <div
+            key={`line-${i}`}
+            className={`midnight-line ${m.tz}`}
+            style={{ top: `${getPosition(m.time)}%` }}
+          />
+        ))}
         {hours.map(h => (
           <div key={h} className="hour-line" style={{ top: `${(h / 24) * 100}%` }}>
             {/* Removed hour labels as requested */}
@@ -253,6 +306,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   destTZ={destTimeZone}
                   relevance={getEventRelevance('flight-dep', s)}
                   isDifferentTZ={isDifferentTZ}
+                  isFlight={true}
                   className=""
                   style={{ top: `${getPosition(startPos)}%`, zIndex: 12 }}
                 />
@@ -265,10 +319,12 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   destTZ={destTimeZone}
                   relevance={getEventRelevance('flight-arr', s)}
                   isDifferentTZ={isDifferentTZ}
+                  isFlight={true}
                   className="arr"
                   style={{ top: `${getPosition(endPos)}%`, zIndex: 12 }}
                 />
               )}
+
 
               <div
                 className="tl-event flight-event clickable"
@@ -338,6 +394,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   destTZ={destTimeZone}
                   relevance={getEventRelevance('hotel', h)}
                   isDifferentTZ={isDifferentTZ}
+                  isFlight={false}
                   className="hotel"
                   style={{ top: `${getPosition(start)}%` }}
                 />
@@ -350,10 +407,12 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   destTZ={destTimeZone}
                   relevance={getEventRelevance('hotel', h)}
                   isDifferentTZ={isDifferentTZ}
+                  isFlight={false}
                   className="hotel arr"
                   style={{ top: `${getPosition(end)}%` }}
                 />
               )}
+
 
               <div
                 className="tl-event hotel-event clickable"
@@ -429,6 +488,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                       destTZ={destTimeZone}
                       relevance={getEventRelevance('leg', l)}
                       isDifferentTZ={isDifferentTZ}
+                      isFlight={false}
                       className="inline-leg"
                     />
                   </div>
@@ -441,9 +501,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                       destTZ={destTimeZone}
                       relevance={getEventRelevance('leg', l)}
                       isDifferentTZ={isDifferentTZ}
+                      isFlight={false}
                       className="inline-leg"
                     />
                   </div>
+
                 </div>
 
 
@@ -2565,27 +2627,37 @@ function App() {
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
         .timeline-day-row { display: flex; min-height: 150px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
-        .timeline-date-side { width: 80px; padding: 0.5rem; flex-shrink: 0; display: grid; grid-template-columns: 1fr; gap: 8px; }
-        .dual-tz .timeline-date-side { width: 160px; grid-template-columns: 1fr 1fr; }
-        .date-stack { display: flex; flex-direction: column; gap: 2px; border-right: 2px solid rgba(255,255,255,0.1); padding-right: 8px; }
-        .date-stack.home { color: var(--accent); border-color: rgba(99, 102, 241, 0.3); }
-        .date-stack.dest { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+        .timeline-date-side { width: 80px; flex-shrink: 0; position: relative; border-right: 1px solid rgba(255,255,255,0.1); }
+        .dual-tz .timeline-date-side { width: 160px; }
+        
+        .midnight-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid currentColor; z-index: 5; opacity: 0.5; }
+        .midnight-line.home { color: var(--accent); }
+        .midnight-line.dest { color: #f59e0b; border-top-style: dashed; }
+        
+        .midnight-label-stack { width: 100%; pointer-events: none; }
+        .midnight-label-stack.home { color: var(--accent); }
+        .midnight-label-stack.dest { color: #f59e0b; }
+        
+        .date-stack { display: flex; align-items: center; justify-content: center; padding: 4px 0; white-space: nowrap; height: 30px; }
+        .dual-tz .date-stack { width: 80px; }
+        .midnight-label-stack.dest .date-stack { position: absolute; left: 80px; }
+
+
 
         
-        .tl-dw { font-size: 0.65rem; font-weight: 950; color: inherit; text-transform: uppercase; opacity: 0.6; }
-        .tl-dm { font-size: 0.8rem; font-weight: 950; color: inherit; white-space: nowrap; }
+        .tl-dw { font-size: 0.6rem; font-weight: 950; color: inherit; text-transform: uppercase; }
 
-        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 5.25px, rgba(255,255,255,0.02) 5.25px, rgba(255,255,255,0.02) 6.25px); overflow: visible; }
+        .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 5.25px, rgba(255,255,255,0.02) 5.25px, rgba(255,255,255,0.02) 6.25px); overflow: visible; border-left: 1px solid rgba(255,255,255,0.1); }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         
-        .tl-marker-dual { position: absolute; left: 5px; transform: translateY(-50%); pointer-events: none; z-index: 50; display: flex; flex-direction: column; align-items: flex-end; width: 50px; gap: 2px; line-height: 1; }
-        .dual-tz .tl-marker-dual { width: 110px; flex-direction: row; gap: 8px; justify-content: flex-end; align-items: center; }
-        .time-item { font-size: 0.65rem; font-weight: 950; text-align: right; }
-        .dual-tz .time-item { width: 50px; }
+        .tl-marker-dual { position: absolute; left: -80px; transform: translateY(-50%); pointer-events: none; z-index: 50; display: flex; width: 80px; gap: 0; line-height: 1; }
+        .dual-tz .tl-marker-dual { left: -160px; width: 160px; }
+        .time-item { font-size: 0.65rem; font-weight: 950; text-align: center; width: 80px; flex-shrink: 0; }
         .time-item.home { color: var(--accent); }
         .time-item.dest { color: #f59e0b; }
         .time-item.bold { font-weight: 950; opacity: 1; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
         .time-item.faint { font-weight: 500; opacity: 0.4; font-size: 0.55rem; }
+
         
         .tl-marker-dual.arr { opacity: 0.9; }
         .tl-marker-dual.hotel .time-item.dest { color: #4ade80; }
@@ -2593,12 +2665,11 @@ function App() {
         .inline-leg { position: static; width: auto; transform: none; display: flex; flex-direction: row; gap: 6px; align-items: center; }
         .inline-leg .time-item { width: auto; font-size: 0.65rem; }
 
-        .tl-event { position: absolute; left: 60px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
-        .dual-tz .tl-event { left: 120px; }
-        .tl-event.flight-event { width: 45%; z-index: 10; }
+        .tl-event { position: absolute; left: 10px; right: 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .tl-event.flight-event { width: 55%; z-index: 10; }
         .tl-event.travel-event { z-index: 20; }
-        .tl-event.hotel-event { width: auto; left: 60px; right: 10px; opacity: 0.8; }
-        .dual-tz .tl-event.hotel-event { left: 120px; }
+        .tl-event.hotel-event { width: auto; left: 10px; right: 10px; opacity: 0.8; }
+
 
 
 
