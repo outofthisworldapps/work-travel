@@ -135,11 +135,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               className="tl-event flight-event"
               style={{
                 top: `${getPosition(startPos)}%`,
-                height: `${Math.max(getPosition(endPos) - getPosition(startPos), 5)}%`,
+                height: `${Math.max(getPosition(endPos) - getPosition(startPos), 3)}%`,
                 zIndex: 2
               }}
             >
-              <div className="tl-event-label">✈️ {s.airlineCode || ''}{s.flightNumber || ''} {s.depPort || ''}→{s.arrPort || ''}</div>
+              <div className="tl-event-label">✈️ {s.airlineCode || ''}{s.flightNumber || ''} ({s.depTime.toLowerCase()}) {s.depPort || ''}→{s.arrPort || ''} ({s.arrTime.toLowerCase()})</div>
             </div>
           );
         })}
@@ -179,15 +179,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 borderRadius,
                 borderTop: (isMidStay || (isCheckOutDay && !isCheckInDay)) ? 'none' : undefined,
                 borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : undefined,
+                left: 0,
+                right: 0,
                 zIndex: 1
               }}
             >
               {(isCheckInDay || (isMidStay && start === 0)) && (
                 <div className="tl-event-label hotel-label-wrap">
                   <div className="tl-h-name">🏨 {h.name || 'Hotel'}</div>
-                  <div className="tl-h-dates">
-                    in: {h.checkInTime || '2p'} / out: {h.checkOutTime || '11a'}
-                  </div>
                 </div>
               )}
             </div>
@@ -229,10 +228,10 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           {['B', 'L', 'D', 'I'].map(m => (
             <div
               key={m}
-              className={`tl-meal-chip ${day.meals[m] !== false ? 'active' : ''}`}
+              className={`tl-meal-row ${day.meals[m] !== false ? 'active' : ''}`}
               onClick={() => onUpdateMeals(day.id, m)}
             >
-              <span className="tl-m-label">{m}</span>
+              <span className="tl-m-label">{m === 'B' ? 'Breakfast' : m === 'L' ? 'Lunch' : m === 'D' ? 'Dinner' : 'Incidentals'}</span>
               <span className="tl-m-price">${getMealPrice(m).toFixed(2)}</span>
             </div>
           ))}
@@ -968,18 +967,7 @@ function App() {
   const [tripName, setTripName] = useState('Global Tech Summit');
   const [registrationFee, setRegistrationFee] = useState(750);
   const [registrationCurrency, setRegistrationCurrency] = useState('USD');
-  const [hotels, setHotels] = useState([
-    {
-      id: 'h-1',
-      name: 'Stayberry Inn',
-      checkIn: new Date(2025, 3, 21),
-      checkInTime: '2:00p',
-      checkOut: new Date(2025, 3, 24),
-      checkOutTime: '11:00a',
-      cost: 630,
-      currency: 'USD'
-    }
-  ]);
+  const [hotels, setHotels] = useState([]);
   const [flights, setFlights] = useState([
     {
       id: 'f-1',
@@ -1704,6 +1692,44 @@ function App() {
 
   // Auto-populate Hotels based on Flights
   React.useEffect(() => {
+    let arrivalDate = null;
+    let departureDate = null;
+    let hotelName = 'Stayberry Inn';
+
+    const segments = flights.flatMap(f => f.segments || []);
+    if (segments.length > 0) {
+      const sorted = segments.map(s => {
+        // Simple parse to find bounds
+        const d = parse(s.depDate, s.depDate.includes('/') ? 'M/d/yy' : 'EEE MMM d', new Date());
+        const a = parse(s.arrDate, s.arrDate.includes('/') ? 'M/d/yy' : 'EEE MMM d', new Date());
+        return { dep: d, arr: a, ...s };
+      }).sort((a, b) => a.arr - b.arr);
+
+      const firstArr = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
+      const lastDep = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
+
+      if (firstArr) arrivalDate = firstArr.arr;
+      if (lastDep) departureDate = lastDep.dep;
+    }
+
+    if (arrivalDate && departureDate) {
+      setHotels(prev => {
+        if (prev.length === 0) {
+          return [{
+            id: 'h-auto',
+            name: hotelName,
+            checkIn: arrivalDate,
+            checkInTime: '2:00p',
+            checkOut: departureDate,
+            checkOutTime: '11:00a',
+            cost: 185 * differenceInDays(departureDate, arrivalDate),
+            currency: 'USD'
+          }];
+        }
+        return prev;
+      });
+    }
+
     setDays(prevDays => {
       const updatedDays = autoPopulateHotels(flights, prevDays, {
         rate: prevDays.find(d => d.hotelRate > 0)?.hotelRate || 185,
@@ -2108,21 +2134,26 @@ function App() {
         .tl-dw { font-weight: 950; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
         .tl-dm { font-size: 0.7rem; color: var(--subtext); font-weight: 800; }
         
-        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); border-radius: 1rem; overflow: hidden; margin: 0.5rem 0; }
+        .timeline-hours-container { flex: 1; position: relative; background: rgba(0,0,0,0.1); overflow: hidden; margin: 0; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
         .hour-label { position: absolute; left: 10px; font-size: 0.55rem; color: #475569; font-weight: 950; transform: translateY(-50%); text-transform: uppercase; }
         
         .tl-event { position: absolute; left: 6px; right: 6px; border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; font-weight: 950; overflow: hidden; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event:hover { transform: scale(1.01); z-index: 20; }
         .flight-event { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
-        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .hotel-event { background: linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2)); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); border-left: none; border-right: none; }
 
         .hotel-label-wrap { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
         .tl-h-name { font-weight: 950; font-size: 0.75rem; }
-        .tl-h-dates { font-size: 0.55rem; opacity: 0.8; font-weight: 800; }
 
-        .timeline-mie-side { width: 95px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1.5rem; padding-right: 0.5rem; gap: 6px; border-bottom: 2px solid rgba(255,255,255,0.02); }
-        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.95rem; }
+        .timeline-mie-side { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; padding-top: 1.5rem; padding-right: 0.5rem; gap: 8px; border-bottom: 2px solid rgba(255,255,255,0.02); }
+        .tl-mie-total { font-weight: 950; color: var(--accent); font-size: 0.95rem; margin-bottom: 4px; }
+        
+        .tl-meal-row { display: flex; justify-content: space-between; width: 100%; font-size: 0.65rem; color: #64748b; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+        .tl-meal-row:hover { background: rgba(255,255,255,0.03); }
+        .tl-meal-row.active .tl-m-label { color: #818cf8; font-weight: 800; }
+        .tl-meal-row.active .tl-m-price { color: #f8fafc; font-weight: 700; }
+        .tl-m-price { font-family: 'JetBrains Mono', monospace; }
 
         /* Responsive */
         @media (max-width: 700px) {
