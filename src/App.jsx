@@ -5,7 +5,8 @@ import {
   Hotel, Utensils, CreditCard, ChevronRight,
   Download, RefreshCcw, DollarSign, MapPin,
   Bus, Info, Calendar, Home, GripVertical, X,
-  Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase
+  Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase,
+  Undo2, Redo2, FolderOpen, Save
 } from 'lucide-react';
 import { format, addDays, addMonths, differenceInDays, differenceInCalendarDays, parse, startOfMonth, isSameDay, isAfter, isBefore, setYear, setMonth, setDate } from 'date-fns';
 import {
@@ -1837,6 +1838,61 @@ function App() {
   const [showMIE, setShowMIE] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
 
+  // Load state from localStorage on mount
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('work-travel-state');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.days) {
+          setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
+        }
+        if (data.tripName) setTripName(data.tripName);
+        if (data.tripWebsite) setTripWebsite(data.tripWebsite);
+        if (data.homeCity) setHomeCity(data.homeCity);
+        if (data.homeTimeZone) setHomeTimeZone(data.homeTimeZone);
+        if (data.destCity) setDestCity(data.destCity);
+        if (data.destTimeZone) setDestTimeZone(data.destTimeZone);
+        if (data.registrationFee !== undefined) setRegistrationFee(data.registrationFee);
+        if (data.registrationCurrency) setRegistrationCurrency(data.registrationCurrency);
+        if (data.altCurrency) setAltCurrency(data.altCurrency);
+        if (data.customRates) setCustomRates(data.customRates);
+        if (data.useAlt !== undefined) setUseAlt(data.useAlt);
+        if (data.flights) setFlights(data.flights);
+        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+        if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
+      }
+    } catch (err) {
+      console.error('Error loading from localStorage:', err);
+    }
+  }, []);
+
+  // Auto-save to localStorage whenever state changes
+  React.useEffect(() => {
+    try {
+      const stateData = {
+        days,
+        tripName,
+        tripWebsite,
+        homeCity,
+        homeTimeZone,
+        destCity,
+        destTimeZone,
+        registrationFee,
+        registrationCurrency,
+        altCurrency,
+        customRates,
+        useAlt,
+        flights,
+        hotels,
+        conferenceCenter
+      };
+      localStorage.setItem('work-travel-state', JSON.stringify(stateData));
+    } catch (err) {
+      console.error('Error saving to localStorage:', err);
+    }
+  }, [days, tripName, tripWebsite, homeCity, homeTimeZone, destCity, destTimeZone, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, conferenceCenter]);
+
   const loadData = useCallback((data) => {
     try {
       if (data.days) {
@@ -1864,11 +1920,16 @@ function App() {
   React.useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
         if (e.shiftKey) {
           redo();
         } else {
           undo();
         }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
@@ -2622,7 +2683,97 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:58 PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:12 EST</div>
+
+            <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <button
+                className="action-btn"
+                onClick={undo}
+                disabled={history.past.length === 0}
+                title="Undo (Cmd/Ctrl+Z)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  background: history.past.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  borderRadius: '6px',
+                  color: history.past.length === 0 ? '#64748b' : '#a5b4fc',
+                  cursor: history.past.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s',
+                  opacity: history.past.length === 0 ? 0.5 : 1
+                }}
+              >
+                <Undo2 size={14} /> Undo
+              </button>
+              <button
+                className="action-btn"
+                onClick={redo}
+                disabled={history.future.length === 0}
+                title="Redo (Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  background: history.future.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  borderRadius: '6px',
+                  color: history.future.length === 0 ? '#64748b' : '#a5b4fc',
+                  cursor: history.future.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s',
+                  opacity: history.future.length === 0 ? 0.5 : 1
+                }}
+              >
+                <Redo2 size={14} /> Redo
+              </button>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  borderRadius: '6px',
+                  color: '#a5b4fc',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+                title="Load from file"
+              >
+                <FolderOpen size={14} /> Load
+                <input type="file" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
+              </label>
+              <button
+                className="action-btn"
+                onClick={saveToFile}
+                title="Save to file (Cmd/Ctrl+S)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  borderRadius: '6px',
+                  color: '#a5b4fc',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Save size={14} /> Save
+              </button>
+            </div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">

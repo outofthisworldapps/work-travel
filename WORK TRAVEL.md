@@ -2,6 +2,12 @@
 
 ## Header & Trip Meta
 - **Trip Name**: Large, bold editable text at the top.
+- **Action Buttons**: Undo, Redo, Load, and Save buttons at the top:
+  - **Undo**: Reverts the last change (Cmd/Ctrl+Z). Disabled when no history.
+  - **Redo**: Restores the last undone change (Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y). Disabled when no future states.
+  - **Load**: Opens file picker to load a saved trip JSON file.
+  - **Save**: Downloads current trip state as a JSON file (Cmd/Ctrl+S).
+- **Auto-Save & Recovery**: App automatically saves state to browser's localStorage on every change. If the app crashes or browser closes, it automatically restores the last state on reload.
 - **Trip Dates**: 
   - **Vertically Scrolling Date Range Picker** (Google Flights style):
     - Single 🗓️ calendar icon on the left opens the calendar.
