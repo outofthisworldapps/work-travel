@@ -1018,7 +1018,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               onUpdate('airlineCode', parts[0] || '');
               onUpdate('flightNumber', parts.slice(1).join(' ') || '');
             }}
-            placeholder="FI 642"
+            placeholder=""
           />
           <div className="f-sub-label">
             <span className="seat-label">SEAT:</span>
@@ -1026,30 +1026,34 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               className="f-inp s-seat"
               value={segment.seat || ''}
               onChange={e => onUpdate('seat', e.target.value)}
-              placeholder="—"
+              placeholder=""
             />
           </div>
         </div>
 
         <div className="f-grid-col f-date-col">
-          <select
-            className="f-inp f-date-select"
-            value={segment.depDate || ''}
-            onChange={e => handleDepDateChange(e.target.value)}
-          >
-            <option value="">Select date</option>
-            {tripDates && tripDates.map((date, idx) => {
-              const dateStr = format(date, 'yyyy-MM-dd');
-              const displayStr = safeFormat(date, 'EEE MMM d');
-              return (
-                <option key={idx} value={dateStr}>{displayStr}</option>
-              );
-            })}
-          </select>
+          <div className="f-date-wrapper">
+            <select
+              className="f-inp f-date-select monospace-font"
+              value={segment.depDate || ''}
+              onChange={e => handleDepDateChange(e.target.value)}
+              style={{ fontFamily: 'monospace' }}
+            >
+              <option value="">Select date</option>
+              {tripDates && tripDates.map((date, idx) => {
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const displayStr = safeFormat(date, 'EEE MMM d');
+                return (
+                  <option key={idx} value={dateStr}>{displayStr}</option>
+                );
+              })}
+            </select>
+            {/* Visual overlay if select styling is hard, but simple CSS class should do - keeping it native per user request for "regular like the rest of the text" */}
+          </div>
           <div className="f-arr-date-display">
             {arrDate && !isNaN(arrDate.getTime()) ? (
               <span className="arr-date-text">
-                → {format(arrDate, 'EEE MMM d')}
+                {format(arrDate, 'EEE MMM d')}
               </span>
             ) : (
               <span className="arr-date-placeholder">Arrival</span>
@@ -1058,18 +1062,29 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
         </div>
 
         <div className="f-grid-col f-time-col">
-          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
-          <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="" />
+          <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => {
+            onUpdate('arrTime', e.target.value);
+            // Trigger auto-date calculation if needed
+            const depMins = parseTimeToMinutes(segment.depTime);
+            const arrMins = parseTimeToMinutes(e.target.value);
+            if (segment.depDate && depMins !== null && arrMins !== null) {
+              const d = parseFrag(segment.depDate);
+              const daysToAdd = arrMins < depMins ? 1 : 0;
+              const newArrDate = addDays(d, daysToAdd);
+              onUpdate('arrDate', format(newArrDate, 'yyyy-MM-dd'));
+            }
+          }} placeholder="" />
         </div>
 
         <div className="f-grid-col f-port-col">
           <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
-            <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="T4" />
+            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="" />
+            <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="" />
           </div>
           <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
-            <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="T1" />
+            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="" />
+            <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="" />
           </div>
         </div>
 
@@ -1273,6 +1288,16 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
           placeholder="Hotel Name"
         />
+        <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="conf-map-link"
+            title="Open Hotel in Google Maps"
+            style={{ marginLeft: '4px', opacity: 0.6 }}
+        >
+            <MapPin size={12} />
+        </a>
         <div className="h-cost-actions">
           <div className="f-cost-box">
             <button
@@ -1293,21 +1318,38 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
         </div>
       </div>
-      <div className="h-row-line h-row-dates-range">
-        <TripDateRangePicker
-          startDate={hotel.checkIn}
-          endDate={hotel.checkOut}
-          onStartChange={handleStartChange}
-          onEndChange={handleEndChange}
-          tripDates={tripDates}
-        />
-        <div className="h-times-row">
-          <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
-          <span className="time-sep">–</span>
-          <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+      </div>
+      <div className="h-row-line h-row-dates-range" style={{ flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+            <select
+                className="f-inp f-date-select monospace-font"
+                value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
+                onChange={e => handleStartChange(new Date(e.target.value))}
+                style={{ fontFamily: 'monospace', width: '100%' }}
+            >
+                <option value="">Check-in Date</option>
+                {tripDates && tripDates.map((date, idx) => (
+                    <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+                ))}
+            </select>
+            <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+            <select
+                className="f-inp f-date-select monospace-font"
+                value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
+                onChange={e => handleEndChange(new Date(e.target.value))}
+                style={{ fontFamily: 'monospace', width: '100%' }}
+            >
+                <option value="">Check-out Date</option>
+                 {tripDates && tripDates.map((date, idx) => (
+                    <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+                ))}
+            </select>
+            <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
@@ -3186,14 +3228,15 @@ function App() {
                       onEndChange={handleEndDateChange}
                     />
                   </div>
-                  <div className="conf-center-block">
-                    <div className="conf-center-row">
+                  <div className="conf-center-block" style={{ width: '100%' }}>
+                    <div className="conf-center-row" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
                       <span className="conf-icon"><MapPin size={12} /></span>
                       <input
                         className="conf-input"
                         value={conferenceCenter}
                         onChange={(e) => setConferenceCenter(e.target.value)}
                         placeholder="Conference Center"
+                        style={{ flex: 1, minWidth: 0 }}
                       />
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
