@@ -2608,12 +2608,14 @@ function App() {
       const dep = parseSegDate(s.depDate);
       const arr = parseSegDate(s.arrDate);
       return { dep, arr, ...s };
-    }).sort((a, b) => a.arr.localeCompare(b.arr));
+    })
+      .filter(s => s.dep && s.arr) // Filter out segments with null dates
+      .sort((a, b) => a.arr.localeCompare(b.arr));
 
     const firstArrSeg = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
     const lastDepSeg = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
 
-    if (firstArrSeg && lastDepSeg) {
+    if (firstArrSeg && lastDepSeg && firstArrSeg.arr && lastDepSeg.dep) {
       arrivalDate = parse(firstArrSeg.arr, 'yyyy-MM-dd', new Date());
       departureDate = parse(lastDepSeg.dep, 'yyyy-MM-dd', new Date());
     }
@@ -2689,7 +2691,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:22 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:25 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
