@@ -125,8 +125,11 @@ const parseSegDate = (dateStr) => {
   try {
     let d = null;
     if (dateStr.includes('/')) {
-      d = parse(dateStr, 'M/d/yy', new Date());
-      if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+      const parts = dateStr.split('/');
+      // Handle M/d/yy or M/d/yyyy
+      let y = parseInt(parts[2]);
+      if (y < 100) y += 2000;
+      d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
     } else {
       const formats = ['EEE MMM d yyyy', 'EEE MMM d', 'MMM d yyyy', 'MMM d'];
       for (const f of formats) {
@@ -942,18 +945,22 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
   const parseFrag = (dateStr) => {
     if (!dateStr) return null;
     try {
-      let d = null;
-      if (dateStr.includes('/')) {
-        d = parse(dateStr, 'M/d/yy', new Date());
-        if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
-      } else {
-        d = new Date(dateStr);
-        if (!isNaN(d.getTime()) && (d.getFullYear() < 2024 || d.getFullYear() > 2099)) {
-          d.setFullYear(new Date().getFullYear());
-        }
+      if (dateStr.includes('-')) {
+        const d = parse(dateStr, 'yyyy-MM-dd', new Date());
+        return isNaN(d.getTime()) ? null : d;
       }
-      return (!d || isNaN(d.getTime())) ? new Date() : d;
-    } catch (e) { return new Date(); }
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        let y = parseInt(parts[2]);
+        if (y < 100) y += 2000;
+        return new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime()) && (d.getFullYear() < 2024 || d.getFullYear() > 2099)) {
+        d.setFullYear(new Date().getFullYear());
+      }
+      return (!d || isNaN(d.getTime())) ? null : d;
+    } catch (e) { return null; }
   };
 
   const parseTimeToMinutes = (timeStr) => {
@@ -1032,7 +1039,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           >
             <option value="">Select date</option>
             {tripDates && tripDates.map((date, idx) => {
-              const dateStr = safeFormat(date, 'M/d/yy');
+              const dateStr = format(date, 'yyyy-MM-dd');
               const displayStr = safeFormat(date, 'EEE MMM d');
               return (
                 <option key={idx} value={dateStr}>{displayStr}</option>
@@ -1087,9 +1094,13 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
     try {
       const parseDateTime = (dateStr, timeStr) => {
         let d;
-        if (dateStr.includes('/')) {
-          d = parse(dateStr, 'M/d/yy', new Date());
-          if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+        if (dateStr.includes('-')) {
+          d = new Date(dateStr);
+        } else if (dateStr.includes('/')) {
+          const parts = dateStr.split('/');
+          let y = parseInt(parts[2]);
+          if (y < 100) y += 2000;
+          d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 0, 0, 0);
         } else {
           d = new Date(dateStr);
         }
@@ -1118,10 +1129,10 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
     } catch (e) { return null; }
   };
 
-  const addSegment = () => {
-    const newSegments = [...(flight.segments || [])];
-    const last = newSegments[newSegments.length - 1];
-    newSegments.push({
+  const addLeg = (type) => { // type is 'outbound' or 'returnSegments'
+    const newLegs = [...(flight[type] || [])];
+    const last = newLegs[newLegs.length - 1];
+    newLegs.push({
       id: generateId(),
       airlineCode: last?.airlineCode || '',
       flightNumber: '',
@@ -1132,20 +1143,20 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
       arrTime: '',
       arrPort: ''
     });
-    onUpdate('segments', newSegments);
+    onUpdate(type, newLegs);
   };
 
-  const updateSegment = (segId, field, val) => {
-    const newSegments = flight.segments.map(s => s.id === segId ? { ...s, [field]: val } : s);
-    onUpdate('segments', newSegments);
+  const updateLeg = (type, segId, field, val) => {
+    const newLegs = flight[type].map(s => s.id === segId ? { ...s, [field]: val } : s);
+    onUpdate(type, newLegs);
   };
 
-  const deleteSegment = (segId) => {
-    if (flight.segments.length <= 1) {
+  const deleteLeg = (type, segId) => {
+    if ((flight.outbound.length + flight.returnSegments.length) <= 1) {
       onDelete();
       return;
     }
-    onUpdate('segments', flight.segments.filter(s => s.id !== segId));
+    onUpdate(type, flight[type].filter(s => s.id !== segId));
   };
 
   return (
@@ -1168,24 +1179,51 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
           <button className="f-del-group" onClick={onDelete} title="Delete Flight Group"><Trash2 size={12} /></button>
         </div>
       </div>
-      <div className="f-segments-list">
-        {(flight.segments || []).map((seg, idx) => (
-          <React.Fragment key={seg.id}>
-            {idx > 0 && calculateLayover(flight.segments[idx - 1], seg) && (
-              <div className="f-layover-divider">
-                <RefreshCcw size={10} /> <span>{calculateLayover(flight.segments[idx - 1], seg)} layover</span>
-              </div>
-            )}
-            <FlightSegmentRow
-              segment={seg}
-              onUpdate={(f, v) => updateSegment(seg.id, f, v)}
-              onDelete={() => deleteSegment(seg.id)}
-              isLast={idx === flight.segments.length - 1}
-              tripDates={tripDates}
-            />
-          </React.Fragment>
-        ))}
-        <button className="f-add-seg" onClick={addSegment}><Plus size={10} /> Add Leg</button>
+
+      <div className="f-trip-section">
+        <div className="f-trip-header">OUTBOUND</div>
+        <div className="f-segments-list">
+          {(flight.outbound || []).map((seg, idx) => (
+            <React.Fragment key={seg.id}>
+              {idx > 0 && calculateLayover(flight.outbound[idx - 1], seg) && (
+                <div className="f-layover-divider">
+                  <RefreshCcw size={10} /> <span>{calculateLayover(flight.outbound[idx - 1], seg)} layover</span>
+                </div>
+              )}
+              <FlightSegmentRow
+                segment={seg}
+                onUpdate={(f, v) => updateLeg('outbound', seg.id, f, v)}
+                onDelete={() => deleteLeg('outbound', seg.id)}
+                isLast={idx === flight.outbound.length - 1}
+                tripDates={tripDates}
+              />
+            </React.Fragment>
+          ))}
+          <button className="f-add-seg" onClick={() => addLeg('outbound')}><Plus size={10} /> Add Leg</button>
+        </div>
+      </div>
+
+      <div className="f-trip-section" style={{ marginTop: '1rem' }}>
+        <div className="f-trip-header">RETURN</div>
+        <div className="f-segments-list">
+          {(flight.returnSegments || []).map((seg, idx) => (
+            <React.Fragment key={seg.id}>
+              {idx > 0 && calculateLayover(flight.returnSegments[idx - 1], seg) && (
+                <div className="f-layover-divider">
+                  <RefreshCcw size={10} /> <span>{calculateLayover(flight.returnSegments[idx - 1], seg)} layover</span>
+                </div>
+              )}
+              <FlightSegmentRow
+                segment={seg}
+                onUpdate={(f, v) => updateLeg('returnSegments', seg.id, f, v)}
+                onDelete={() => deleteLeg('returnSegments', seg.id)}
+                isLast={idx === flight.returnSegments.length - 1}
+                tripDates={tripDates}
+              />
+            </React.Fragment>
+          ))}
+          <button className="f-add-seg" onClick={() => addLeg('returnSegments')}><Plus size={10} /> Add Leg</button>
+        </div>
       </div>
     </div>
   );
@@ -1960,114 +1998,136 @@ const DateInput = SegmentedDateInput;
 // --- Main App ---
 
 function App() {
-  const [days, setDays] = useState([
-    {
-      id: "day-0",
-      date: new Date(2026, 3, 12),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-      maxLodging: 200,
-      registrationFee: 0,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: 'Stayberry Inn',
-      overageCapPercent: 25
-    },
-    {
-      id: "day-1",
-      date: new Date(2026, 3, 13),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-      maxLodging: 200,
-      registrationFee: 750,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: 'Stayberry Inn',
-      overageCapPercent: 25
-    },
-    {
-      id: "day-2",
-      date: new Date(2026, 3, 14),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-      maxLodging: 200,
-      registrationFee: 0,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: 'Stayberry Inn',
-      overageCapPercent: 25
-    },
-    {
-      id: "day-3",
-      date: new Date(2026, 3, 15),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-      maxLodging: 200,
-      registrationFee: 0,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: 'Stayberry Inn',
-      overageCapPercent: 25
-    },
-    {
-      id: "day-4",
-      date: new Date(2026, 3, 16),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
-      maxLodging: 200,
-      registrationFee: 0,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: 'Stayberry Inn',
-      overageCapPercent: 25
-    },
-    {
-      id: "day-5",
-      date: new Date(2026, 3, 17),
-      legs: [],
-      mieBase: 105,
-      meals: { B: true, L: true, D: true, I: true },
-      hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
-      maxLodging: 200,
-      location: 'Washington DC',
-      isForeignMie: false,
-      isForeignHotel: false,
-      hotelName: '',
-      overageCapPercent: 25
-    },
-  ]);
 
-  const [conferenceCenter, setConferenceCenter] = useState('Conference Center');
+  // --- Initial State from LocalStorage ---
+  const getInitialState = () => {
+    const saved = localStorage.getItem('work-travel-state');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) { return {}; }
+    }
+    return {};
+  };
+  const initialState = getInitialState();
 
-  const [altCurrency, setAltCurrency] = useState('EUR');
-  const [useAlt, setUseAlt] = useState(true);
-  const [customRates, setCustomRates] = useState(MOCK_RATES);
-  const [tripName, setTripName] = useState('Global Tech Summit');
-  const [tripWebsite, setTripWebsite] = useState('');
-  const [homeCity, setHomeCity] = useState('Washington, DC');
-  const [homeTimeZone, setHomeTimeZone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [destCity, setDestCity] = useState('London');
-  const [destTimeZone, setDestTimeZone] = useState('Europe/London');
-  const [registrationFee, setRegistrationFee] = useState(750);
+  const [tripName, setTripName] = useState(initialState.tripName || 'Global Tech Summit');
+  const [tripWebsite, setTripWebsite] = useState(initialState.tripWebsite || '');
+  const [homeCity, setHomeCity] = useState(initialState.homeCity || 'Washington, DC');
+  const [homeTimeZone, setHomeTimeZone] = useState(initialState.homeTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [destCity, setDestCity] = useState(initialState.destCity || 'London');
+  const [destTimeZone, setDestTimeZone] = useState(initialState.destTimeZone || 'Europe/London');
+  const [registrationFee, setRegistrationFee] = useState(initialState.registrationFee || 0);
+  const [registrationCurrency, setRegistrationCurrency] = useState(initialState.registrationCurrency || 'USD');
+  const [altCurrency, setAltCurrency] = useState(initialState.altCurrency || 'EUR');
+  const [customRates, setCustomRates] = useState(initialState.customRates || MOCK_RATES);
+  const [useAlt, setUseAlt] = useState(initialState.useAlt !== undefined ? initialState.useAlt : true);
+  const [conferenceCenter, setConferenceCenter] = useState(initialState.conferenceCenter || 'Conference Center');
 
-  const [registrationCurrency, setRegistrationCurrency] = useState('USD');
-  const [hotels, setHotels] = useState([]);
-  const [flights, setFlights] = useState([]);
+  const [days, setDays] = useState(() => {
+    if (initialState.days) {
+      return initialState.days.map(d => ({ ...d, date: new Date(d.date) }));
+    }
+    return [
+      {
+        id: "day-0",
+        date: new Date(2026, 3, 12),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+        maxLodging: 200,
+        registrationFee: 0,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: 'Stayberry Inn',
+        overageCapPercent: 25
+      },
+      {
+        id: "day-1",
+        date: new Date(2026, 3, 13),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+        maxLodging: 200,
+        registrationFee: 750,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: 'Stayberry Inn',
+        overageCapPercent: 25
+      },
+      {
+        id: "day-2",
+        date: new Date(2026, 3, 14),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+        maxLodging: 200,
+        registrationFee: 0,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: 'Stayberry Inn',
+        overageCapPercent: 25
+      },
+      {
+        id: "day-3",
+        date: new Date(2026, 3, 15),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+        maxLodging: 200,
+        registrationFee: 0,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: 'Stayberry Inn',
+        overageCapPercent: 25
+      },
+      {
+        id: "day-4",
+        date: new Date(2026, 3, 16),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
+        maxLodging: 200,
+        registrationFee: 0,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: 'Stayberry Inn',
+        overageCapPercent: 25
+      },
+      {
+        id: "day-5",
+        date: new Date(2026, 3, 17),
+        legs: [],
+        mieBase: 105,
+        meals: { B: true, L: true, D: true, I: true },
+        hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
+        maxLodging: 200,
+        location: 'Washington DC',
+        isForeignMie: false,
+        isForeignHotel: false,
+        hotelName: '',
+        overageCapPercent: 25
+      },
+    ];
+  });
+
+  const [flights, setFlights] = useState(initialState.flights || []);
+  const [hotels, setHotels] = useState(() => {
+    if (initialState.hotels) {
+      return initialState.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) }));
+    }
+    return [];
+  });
 
   const flightTotal = useMemo(() => {
     return flights.reduce((sum, f) => sum + (f.cost || 0), 0);
@@ -2087,12 +2147,12 @@ function App() {
     future: []
   });
 
-  const saveToHistory = useCallback((currentDays, currentTripName, currentRegistrationFee, currentRegistrationCurrency, currentAltCurrency, currentCustomRates, currentUseAlt, currentFlights, currentFlightTotal, currentHotels, currentHomeCity, currentHomeTZ, currentDestCity, currentDestTZ) => {
+  const saveToHistory = useCallback((currentDays, currentTripName, currentRegistrationFee, currentRegistrationCurrency, currentAltCurrency, currentCustomRates, currentUseAlt, currentFlights, currentFlightTotal, currentHotels, currentHomeCity, currentHomeTZ, currentDestCity, currentDestTZ, currentWebsite, currentConf) => {
     setHistory(prev => ({
       past: [...prev.past.slice(-50), {
         days: currentDays,
         tripName: currentTripName,
-        tripWebsite: tripWebsite,
+        tripWebsite: currentWebsite || tripWebsite,
         registrationFee: currentRegistrationFee,
         registrationCurrency: currentRegistrationCurrency,
         altCurrency: currentAltCurrency,
@@ -2104,11 +2164,12 @@ function App() {
         homeCity: currentHomeCity,
         homeTimeZone: currentHomeTZ,
         destCity: currentDestCity,
-        destTimeZone: currentDestTZ
+        destTimeZone: currentDestTZ,
+        conferenceCenter: currentConf || conferenceCenter
       }],
       future: []
     }));
-  }, []);
+  }, [tripWebsite, conferenceCenter]);
 
 
   const undo = useCallback(() => {
@@ -2129,10 +2190,11 @@ function App() {
       // Removed setFlightTotal as it's a derived state (useMemo)
 
       if (previous.tripWebsite !== undefined) setTripWebsite(previous.tripWebsite);
+      if (previous.conferenceCenter !== undefined) setConferenceCenter(previous.conferenceCenter);
 
       return {
         past: newPast,
-        future: [{ days, tripName, tripWebsite, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone }, ...prev.future]
+        future: [{ days, tripName, tripWebsite, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, conferenceCenter }, ...prev.future]
       };
     });
   }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone]);
@@ -2157,10 +2219,12 @@ function App() {
       setHomeTimeZone(next.homeTimeZone);
       setDestCity(next.destCity);
       setDestTimeZone(next.destTimeZone);
+      if (next.tripWebsite !== undefined) setTripWebsite(next.tripWebsite);
+      if (next.conferenceCenter !== undefined) setConferenceCenter(next.conferenceCenter);
       // Removed setFlightTotal as it's a derived state (useMemo)
 
       return {
-        past: [...prev.past, { days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone }],
+        past: [...prev.past, { days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter }],
         future: newFuture
       };
     });
@@ -2169,34 +2233,7 @@ function App() {
   const [showMIE, setShowMIE] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
 
-  // Load state from localStorage on mount
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('work-travel-state');
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.days) {
-          setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
-        }
-        if (data.tripName) setTripName(data.tripName);
-        if (data.tripWebsite) setTripWebsite(data.tripWebsite);
-        if (data.homeCity) setHomeCity(data.homeCity);
-        if (data.homeTimeZone) setHomeTimeZone(data.homeTimeZone);
-        if (data.destCity) setDestCity(data.destCity);
-        if (data.destTimeZone) setDestTimeZone(data.destTimeZone);
-        if (data.registrationFee !== undefined) setRegistrationFee(data.registrationFee);
-        if (data.registrationCurrency) setRegistrationCurrency(data.registrationCurrency);
-        if (data.altCurrency) setAltCurrency(data.altCurrency);
-        if (data.customRates) setCustomRates(data.customRates);
-        if (data.useAlt !== undefined) setUseAlt(data.useAlt);
-        if (data.flights) setFlights(data.flights);
-        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
-        if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
-      }
-    } catch (err) {
-      console.error('Error loading from localStorage:', err);
-    }
-  }, []);
+  // Removed mount-time load effect as initialization is now synchronous in useState
 
   // Auto-save to localStorage whenever state changes
   React.useEffect(() => {
@@ -2227,9 +2264,10 @@ function App() {
   const loadData = useCallback((data) => {
     try {
       if (data.days) {
-        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone);
+        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
         setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
         if (data.tripName) setTripName(data.tripName);
+        if (data.tripWebsite) setTripWebsite(data.tripWebsite);
         if (data.homeCity) setHomeCity(data.homeCity);
         if (data.homeTimeZone) setHomeTimeZone(data.homeTimeZone);
         if (data.destCity) setDestCity(data.destCity);
@@ -2241,11 +2279,12 @@ function App() {
         if (data.useAlt !== undefined) setUseAlt(data.useAlt);
         if (data.flights) setFlights(data.flights);
         if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+        if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
       }
     } catch (err) {
       alert('Error loading data');
     }
-  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone]);
+  }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter]);
 
   // Handle Keyboard Shortcuts & Drag and Drop
   React.useEffect(() => {
@@ -2261,6 +2300,10 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
         e.preventDefault();
         redo();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        document.getElementById('file-input-trigger')?.click();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
@@ -2301,7 +2344,11 @@ function App() {
   }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
   const saveToFile = () => {
-    const data = JSON.stringify({ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, homeCity, homeTimeZone, destCity, destTimeZone }, null, 2);
+    const data = JSON.stringify({
+      days, tripName, tripWebsite, registrationFee, registrationCurrency,
+      altCurrency, customRates, useAlt, flights, hotels, homeCity,
+      homeTimeZone, destCity, destTimeZone, conferenceCenter
+    }, null, 2);
 
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2489,7 +2536,7 @@ function App() {
 
   const updateLeg = useCallback((dayId, legId, field, value) => {
     setDays((prev) => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
       const newDays = JSON.parse(JSON.stringify(prev));
       const day = newDays.find(d => d.id === dayId);
       const leg = day?.legs.find(l => l.id === legId);
@@ -2586,7 +2633,30 @@ function App() {
     const diff = differenceInCalendarDays(newStart, oldStart);
     if (diff === 0 || isNaN(diff)) return;
 
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+
+    const updateSegDate = (dateStr) => {
+      if (!dateStr) return '';
+      try {
+        let d = null;
+        if (dateStr.includes('-')) {
+          d = parse(dateStr, 'yyyy-MM-dd', new Date());
+        } else if (dateStr.includes('/')) {
+          const parts = dateStr.split('/');
+          let y = parseInt(parts[2]);
+          if (y < 100) y += 2000;
+          d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
+        } else {
+          const year = oldStart.getFullYear();
+          d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
+          if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
+        }
+        if (!d || isNaN(d.getTime())) return dateStr;
+
+        const shifted = addDays(d, diff);
+        return format(shifted, 'yyyy-MM-dd');
+      } catch (e) { return dateStr; }
+    };
 
     // Update Days
     setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
@@ -2601,31 +2671,16 @@ function App() {
     // Update Flights
     setFlights(prev => prev.map(f => ({
       ...f,
-      segments: (f.segments || []).map(s => {
-        const updateSegDate = (dateStr) => {
-          if (!dateStr) return '';
-          try {
-            let d = null;
-            if (dateStr.includes('/')) {
-              d = parse(dateStr, 'M/d/yy', new Date());
-              if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
-            } else {
-              const year = oldStart.getFullYear();
-              d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
-              if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
-            }
-            if (!d || isNaN(d.getTime())) return dateStr;
-
-            const shifted = addDays(d, diff);
-            return safeFormat(shifted, 'M/d/yy');
-          } catch (e) { return dateStr; }
-        };
-        return {
-          ...s,
-          depDate: updateSegDate(s.depDate),
-          arrDate: updateSegDate(s.arrDate)
-        };
-      })
+      outbound: (f.outbound || []).map(s => ({
+        ...s,
+        depDate: updateSegDate(s.depDate),
+        arrDate: updateSegDate(s.arrDate)
+      })),
+      returnSegments: (f.returnSegments || []).map(s => ({
+        ...s,
+        depDate: updateSegDate(s.depDate),
+        arrDate: updateSegDate(s.arrDate)
+      }))
     })));
 
     // Shift hotels
@@ -2637,7 +2692,7 @@ function App() {
   };
 
   const handleEndDateChange = (newEnd) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     const newCount = differenceInCalendarDays(newEnd, days[0].date) + 1;
     if (newCount <= 0) return;
 
@@ -2663,17 +2718,17 @@ function App() {
 
   const addFlightLeg = () => {
     setFlights(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
 
-      const outboundDate = days[0] ? format(days[0].date, 'M/d/yy') : '';
-      const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '';
+      const outboundDate = days[0] ? format(days[0].date, 'yyyy-MM-dd') : '';
+      const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'yyyy-MM-dd') : '';
 
       const newFlight = {
         id: generateId(),
         airline: '',
         confirmation: '',
         cost: 0,
-        segments: [
+        outbound: [
           {
             id: generateId(),
             airlineCode: '',
@@ -2685,7 +2740,9 @@ function App() {
             arrDate: outboundDate,
             arrTime: '2:00p',
             arrPort: ''
-          },
+          }
+        ],
+        returnSegments: [
           {
             id: generateId(),
             airlineCode: '',
@@ -2720,7 +2777,7 @@ function App() {
 
   const deleteFlight = (id) => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
       return prev.filter(f => f.id !== id);
     });
   };
@@ -2729,56 +2786,32 @@ function App() {
     setFlights(prev => {
       saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
 
-      let updatedSegments = null;
-      if (field === 'segments') {
-        // Intra-flight mirroring (Outbound -> Return)
-        // If it's a 2-segment flight (common booking), mirror ports
-        if (value.length === 2) {
-          const s1 = value[0];
-          const s2 = value[1];
-          // Mirror outbound depPort to return arrPort if return arrPort is blank
-          if (s1.depPort && !s2.arrPort) s2.arrPort = s1.depPort;
-          // Mirror outbound arrPort to return depPort if return depPort is blank
-          if (s1.arrPort && !s2.depPort) s2.depPort = s1.arrPort;
-          // Mirror return arrPort to outbound depPort if outbound depPort is blank
-          if (s2.arrPort && !s1.depPort) s1.depPort = s2.arrPort;
-          // Mirror return depPort to outbound arrPort if outbound arrPort is blank
-          if (s2.depPort && !s1.arrPort) s1.arrPort = s2.depPort;
-        }
-        updatedSegments = value;
-      }
+      const updated = prev.map(f => {
+        if (f.id !== id) return f;
+        let newF = { ...f, [field]: value };
 
-      const updated = prev.map(f => f.id === id ? { ...f, [field]: value, segments: updatedSegments || f.segments } : f);
+        // Smarter mirroring for airports
+        if (field === 'outbound' || field === 'returnSegments') {
+          const out = newF.outbound || [];
+          const ret = newF.returnSegments || [];
+          if (out.length > 0 && ret.length > 0) {
+            const sOut = out[0];
+            const sRet = ret[ret.length - 1]; // Mirror outbound dep to last return arr
 
-      const current = updated.find(f => f.id === id);
-      if (current.pairId) {
-        return updated.map(f => {
-          if (f.pairId === current.pairId && f.id !== id) {
-            if (field === 'airline' || field === 'confirmation' || field === 'cost') {
-              return { ...f, [field]: value };
-            }
-            if (field === 'segments') {
-              // Be careful not to destroy dates during cross-flight mirroring
-              const partners = value.map((s, idx) => {
-                const counterpart = value[value.length - 1 - idx];
-                const existing = f.segments[idx] || {};
-                return {
-                  ...s,
-                  id: existing.id || generateId(),
-                  depDate: existing.depDate || '',
-                  depTime: existing.depTime || '',
-                  depPort: counterpart.arrPort || existing.depPort || '',
-                  arrDate: existing.arrDate || '',
-                  arrTime: existing.arrTime || '',
-                  arrPort: counterpart.depPort || existing.arrPort || ''
-                };
-              });
-              return { ...f, segments: partners };
-            }
+            const mirror = (src, tgt) => {
+              if (!src) return tgt;
+              if (!tgt || src.startsWith(tgt) || tgt.startsWith(src)) return src;
+              return tgt;
+            };
+
+            // outbound depPort -> return arrPort
+            sRet.arrPort = mirror(sOut.depPort, sRet.arrPort);
+            // outbound arrPort -> return depPort
+            ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
           }
-          return f;
-        });
-      }
+        }
+        return newF;
+      });
       return updated;
     });
   };
@@ -2805,29 +2838,28 @@ function App() {
       let dayChanged = false;
 
       flights.forEach((f, fIdx) => {
-        (f.segments || []).forEach((seg, sIdx) => {
+        const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
+        allSegments.forEach((seg, sIdx) => {
           const segDepDate = parseSegDate(seg.depDate);
           const segArrDate = parseSegDate(seg.arrDate);
 
-          const isOutbound = fIdx === 0; // First flight booking is outbound
-          const isReturn = fIdx === flights.length - 1 && flights.length > 1; // Last flight booking is return
+          const isOutbound = f.outbound && f.outbound.includes(seg);
+          const isReturn = f.returnSegments && f.returnSegments.includes(seg);
 
           // Use getPortTZ as a fallback, but trust fIdx for start/end of trip
           const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
           let isDepHome = depPortTZ === homeTimeZone;
           if (isOutbound && sIdx === 0) isDepHome = true;
-          if (isReturn && sIdx === f.segments.length - 1) isDepHome = false; // Ending at home, but starting from away
+          if (isReturn && sIdx === allSegments.length - 1) isDepHome = false; // Ending at home, but starting from away
 
           const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
           let isArrHome = arrPortTZ === homeTimeZone;
-          if (isOutbound && sIdx === f.segments.length - 1) isArrHome = false;
-          if (isReturn && sIdx === f.segments.length - 1) isArrHome = true;
+          if (isOutbound && sIdx === (f.outbound.length - 1)) isArrHome = false;
+          if (isReturn && seg === f.returnSegments[f.returnSegments.length - 1]) isArrHome = true;
 
           // Departure to airport
           if (segDepDate === dayStr) {
             const flTime = parseTime(seg.depTime);
-            // Rule: 1h home ride, 30m hotel ride.
-            // Rule: Arrive 3h before.
             let rideDur = isDepHome ? 1 : 0.5;
             let waitAtAirport = 3;
             const rideStartTimeNum = flTime ? (flTime - waitAtAirport - rideDur + 24) % 24 : 11;
@@ -2860,8 +2892,6 @@ function App() {
           // Arrival from airport
           if (segArrDate === dayStr) {
             const flArrTime = parseTime(seg.arrTime);
-            // Rule: 1h home ride, 30m hotel ride.
-            // Rule: Leave 1h after arrival.
             let rideDur = isArrHome ? 1 : 0.5;
             let waitAtAirport = 1;
             const rideStartTimeNum = flArrTime ? (flArrTime + waitAtAirport) % 24 : 12;
@@ -2894,7 +2924,7 @@ function App() {
       });
 
       // Special check: if NO flight exists on this day anymore, remove auto-legs
-      const dayHasFlight = flights.some(f => (f.segments || []).some(s => parseSegDate(s.depDate) === dayStr || parseSegDate(s.arrDate) === dayStr));
+      const dayHasFlight = flights.some(f => [...(f.outbound || []), ...(f.returnSegments || [])].some(s => parseSegDate(s.depDate) === dayStr || parseSegDate(s.arrDate) === dayStr));
       if (!dayHasFlight) {
         const legsKeep = newLegs.filter(l => !l.auto);
         if (legsKeep.length !== newLegs.length) {
@@ -2946,7 +2976,7 @@ function App() {
     let departureDate = null;
     let hotelName = 'Stayberry Inn';
 
-    const segments = flights.flatMap(f => f.segments || []);
+    const segments = flights.flatMap(f => [...(f.outbound || []), ...(f.returnSegments || [])]);
     if (segments.length === 0) return;
 
     const sorted = segments.map(s => {
@@ -3021,6 +3051,7 @@ function App() {
     }, 0);
 
     return {
+      grand: registration + fl + travel + mieTotal + hotelTotal,
       registration,
       flights: fl,
       travel,
@@ -3036,7 +3067,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 06:50 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 07:44 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3103,7 +3134,7 @@ function App() {
                 title="Load from file"
               >
                 <FolderOpen size={14} /> Load
-                <input type="file" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
+                <input type="file" id="file-input-trigger" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
               </label>
               <button
                 className="action-btn"
@@ -3938,8 +3969,10 @@ function App() {
           background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.1));
         }
 
+        .f-trip-header { font-size: 0.65rem; font-weight: 900; color: #475569; letter-spacing: 0.1em; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 2px; }
+        .f-trip-section { background: rgba(0,0,0,0.1); border-radius: 0.5rem; padding: 0.75rem; }
+        
         .g-air { width: 90px !important; }
-        .g-conf { width: 80px !important; }
 
         .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; }
         .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
