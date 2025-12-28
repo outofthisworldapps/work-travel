@@ -1289,14 +1289,14 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           placeholder="Hotel Name"
         />
         <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name || '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="conf-map-link"
-            title="Open Hotel in Google Maps"
-            style={{ marginLeft: '4px', opacity: 0.6 }}
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name || '')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="conf-map-link"
+          title="Open Hotel in Google Maps"
+          style={{ marginLeft: '4px', opacity: 0.6 }}
         >
-            <MapPin size={12} />
+          <MapPin size={12} />
         </a>
         <div className="h-cost-actions">
           <div className="f-cost-box">
@@ -1318,35 +1318,35 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
         </div>
       </div>
-      </div>
+
       <div className="h-row-line h-row-dates-range" style={{ flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-            <select
-                className="f-inp f-date-select monospace-font"
-                value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
-                onChange={e => handleStartChange(new Date(e.target.value))}
-                style={{ fontFamily: 'monospace', width: '100%' }}
-            >
-                <option value="">Check-in Date</option>
-                {tripDates && tripDates.map((date, idx) => (
-                    <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
-                ))}
-            </select>
-            <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+          <select
+            className="f-inp f-date-select monospace-font"
+            value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
+            onChange={e => handleStartChange(new Date(e.target.value))}
+            style={{ fontFamily: 'monospace', width: '100%' }}
+          >
+            <option value="">Check-in Date</option>
+            {tripDates && tripDates.map((date, idx) => (
+              <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+            ))}
+          </select>
+          <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-            <select
-                className="f-inp f-date-select monospace-font"
-                value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
-                onChange={e => handleEndChange(new Date(e.target.value))}
-                style={{ fontFamily: 'monospace', width: '100%' }}
-            >
-                <option value="">Check-out Date</option>
-                 {tripDates && tripDates.map((date, idx) => (
-                    <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
-                ))}
-            </select>
-            <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+          <select
+            className="f-inp f-date-select monospace-font"
+            value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
+            onChange={e => handleEndChange(new Date(e.target.value))}
+            style={{ fontFamily: 'monospace', width: '100%' }}
+          >
+            <option value="">Check-out Date</option>
+            {tripDates && tripDates.map((date, idx) => (
+              <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+            ))}
+          </select>
+          <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
         </div>
       </div>
     </div >
