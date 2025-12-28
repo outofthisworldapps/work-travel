@@ -339,9 +339,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
       const depDateStr = parseSegDate(s.depDate);
       const arrDateStr = parseSegDate(s.arrDate);
 
+      // Skip this segment if dates are invalid
+      if (!depDateStr || !arrDateStr) return;
+
       // Calculate which day it sits on in Home Time
       const d1 = new Date(depDateStr + 'T00:00:00');
       const d2 = new Date(arrDateStr + 'T00:00:00');
+
+      // Skip if dates are still invalid
+      if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
 
       // Adjusted dep/arr dates based on shift
       const homeDepDate = format(new Date(d1.getTime() + (depH < 0 ? -1 : (depH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
@@ -2683,7 +2689,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:12 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:22 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
