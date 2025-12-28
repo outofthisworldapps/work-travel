@@ -362,9 +362,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     });
   });
 
-  const getEmoji = (loc) => {
+  const getEmoji = (loc, isAway = false) => {
     if (loc === 'Home') return '🏡';
     if (loc === 'Hotel') return '🏨';
+    if (loc === 'Briefcase' || loc === 'Work' || loc === 'Office' || loc === 'Meeting' || loc === 'Conference') return '💼';
+    if (isAway && loc !== 'Home') return '💼'; // Treat all away-side travel points (except Home) as work/briefcase
     return '✈️';
   };
 
@@ -509,7 +511,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                     </div>
 
                     <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
-                      <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✈️ {s.airlineCode}{s.flightNumber}</div>
+                      <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                        {getEventRelevance('flight-arr', s) === 'dest' ? '💼' : '✈️'} {s.airlineCode}{s.flightNumber}
+                      </div>
                       {s.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {s.seat}</div>}
                     </div>
 
@@ -662,7 +666,12 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 >
                   <div className={`tl-travel-meta ${relevance === 'home' ? 'home-side' : 'away-side'}`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {getEmoji(l.from)}
+                      <div className="mode-icon-meta" style={{ minWidth: '14px', textAlign: 'center' }}>
+                        {l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}
+                      </div>
+                      <div className="loc-icon-meta" style={{ opacity: 0.8 }}>
+                        {getEmoji(l.from, relevance === 'dest')}
+                      </div>
                       <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
                         <DualTimeMarker
                           timeNum={normStart}
@@ -674,14 +683,15 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                           side={relevance === 'home' ? 'left' : 'right'}
                           className="inline"
                           inline={true}
-                          style={{ fontSize: '0.6rem', fontWeight: 950 }}
+                          style={{ fontSize: '0.6rem', fontWeight: 950, color: relevance === 'dest' ? '#f59e0b' : undefined }}
                         />
-
-
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {getEmoji(l.to)}
+                      <div className="mode-icon-meta" style={{ minWidth: '14px', visibility: 'hidden' }}>🚘</div>
+                      <div className="loc-icon-meta" style={{ opacity: 0.8 }}>
+                        {getEmoji(l.to, relevance === 'dest')}
+                      </div>
                       <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
                         <DualTimeMarker
                           timeNum={normEnd}
@@ -693,17 +703,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                           side={relevance === 'home' ? 'left' : 'right'}
                           className="inline"
                           inline={true}
-                          style={{ fontSize: '0.6rem', fontWeight: 950 }}
+                          style={{ fontSize: '0.6rem', fontWeight: 950, color: relevance === 'dest' ? '#f59e0b' : undefined }}
                         />
-
-
                       </div>
                     </div>
                   </div>
 
 
                   <div className="tl-event-label travel-vertical-label">
-                    <div className="tl-v-icon">{l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}</div>
                   </div>
                 </div>
 
@@ -2197,39 +2204,51 @@ function App() {
       let newLegs = [...day.legs];
       let dayChanged = false;
 
-      flights.forEach(flight => {
-        (flight.segments || []).forEach((seg, sIdx) => {
+      flights.forEach((f, fIdx) => {
+        (f.segments || []).forEach((seg, sIdx) => {
           const segDepDate = parseSegDate(seg.depDate);
           const segArrDate = parseSegDate(seg.arrDate);
 
+          const isOutbound = fIdx === 0; // First flight booking is outbound
+          const isReturn = fIdx === flights.length - 1 && flights.length > 1; // Last flight booking is return
+
+          // Use getPortTZ as a fallback, but trust fIdx for start/end of trip
           const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
-          const isDepHome = depPortTZ === homeTimeZone;
+          let isDepHome = depPortTZ === homeTimeZone;
+          if (isOutbound && sIdx === 0) isDepHome = true;
+          if (isReturn && sIdx === f.segments.length - 1) isDepHome = false; // Ending at home, but starting from away
 
           const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
-          const isArrHome = arrPortTZ === homeTimeZone;
+          let isArrHome = arrPortTZ === homeTimeZone;
+          if (isOutbound && sIdx === f.segments.length - 1) isArrHome = false;
+          if (isReturn && sIdx === f.segments.length - 1) isArrHome = true;
 
+          // Departure to airport
           if (segDepDate === dayStr) {
             const flTime = parseTime(seg.depTime);
-            const isStartOfTrip = (dIdx === 0);
-            let rideDur = isStartOfTrip ? 1 : 0.5;
-            let waitTime = 3;
-            const uberTimeNum = flTime ? (flTime - waitTime - rideDur + 24) % 24 : 11;
-            const newTime = formatTime(uberTimeNum);
+            // Rule: 1h home ride, 30m hotel ride.
+            // Rule: Arrive 3h before.
+            let rideDur = isDepHome ? 1 : 0.5;
+            let waitAtAirport = 3;
+            const rideStartTimeNum = flTime ? (flTime - waitAtAirport - rideDur + 24) % 24 : 11;
+            const newTime = formatTime(rideStartTimeNum);
+            const durationMins = rideDur * 60;
 
             const existingIdx = newLegs.findIndex(l => l.auto && l.to === seg.depPort);
             if (existingIdx >= 0) {
-              if (newLegs[existingIdx].time !== newTime || newLegs[existingIdx].duration !== rideDur * 60) {
-                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime, duration: rideDur * 60, from: isStartOfTrip ? 'Home' : 'Hotel' };
+              const ex = newLegs[existingIdx];
+              if (ex.time !== newTime || ex.duration !== durationMins || ex.from !== (isDepHome ? 'Home' : 'Hotel')) {
+                newLegs[existingIdx] = { ...ex, time: newTime, duration: durationMins, from: isDepHome ? 'Home' : 'Hotel' };
                 dayChanged = true;
               }
             } else {
               newLegs.push({
                 id: generateId(),
-                from: isStartOfTrip ? 'Home' : 'Hotel',
+                from: isDepHome ? 'Home' : 'Hotel',
                 to: seg.depPort,
                 type: 'uber',
                 time: newTime,
-                duration: rideDur * 60,
+                duration: durationMins,
                 amount: 45,
                 currency: 'USD',
                 auto: true
@@ -2238,28 +2257,32 @@ function App() {
             }
           }
 
+          // Arrival from airport
           if (segArrDate === dayStr) {
             const flArrTime = parseTime(seg.arrTime);
-            const isEndOfTrip = (dIdx === days.length - 1);
-            let rideDur = isEndOfTrip ? 1 : 0.5;
-            let waitTime = 1;
-            const uberStart = flArrTime ? (flArrTime + waitTime) : 12;
-            const newTime = formatTime(uberStart);
+            // Rule: 1h home ride, 30m hotel ride.
+            // Rule: Leave 1h after arrival.
+            let rideDur = isArrHome ? 1 : 0.5;
+            let waitAtAirport = 1;
+            const rideStartTimeNum = flArrTime ? (flArrTime + waitAtAirport) % 24 : 12;
+            const newTime = formatTime(rideStartTimeNum);
+            const durationMins = rideDur * 60;
 
             const existingIdx = newLegs.findIndex(l => l.auto && l.from === seg.arrPort);
             if (existingIdx >= 0) {
-              if (newLegs[existingIdx].time !== newTime || newLegs[existingIdx].duration !== rideDur * 60) {
-                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime, duration: rideDur * 60, to: isEndOfTrip ? 'Home' : 'Hotel' };
+              const ex = newLegs[existingIdx];
+              if (ex.time !== newTime || ex.duration !== durationMins || ex.to !== (isArrHome ? 'Home' : 'Hotel')) {
+                newLegs[existingIdx] = { ...ex, time: newTime, duration: durationMins, to: isArrHome ? 'Home' : 'Hotel' };
                 dayChanged = true;
               }
             } else {
               newLegs.push({
                 id: generateId(),
                 from: seg.arrPort,
-                to: isEndOfTrip ? 'Home' : 'Hotel',
+                to: isArrHome ? 'Home' : 'Hotel',
                 type: 'uber',
                 time: newTime,
-                duration: rideDur * 60,
+                duration: durationMins,
                 amount: 45,
                 currency: 'USD',
                 auto: true
@@ -2411,7 +2434,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 16:15PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:05 PM</div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">
@@ -2465,7 +2488,7 @@ function App() {
                 <div className="location-grid-vertical">
                   <div className="location-block">
                     <div className="location-input-row">
-                      <span className="loc-icon"><Plane size={16} /></span>
+                      <span className="loc-icon"><Briefcase size={16} /></span>
                       <input
                         className="location-input"
                         value={destCity}
@@ -2948,9 +2971,9 @@ function App() {
         
         .tl-event { position: absolute; border-radius: 6px; padding: 4px 8px; font-size: 0.62rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event.flight-event { width: auto; left: 0; right: 0; z-index: 10; padding: 2px 8px; background: rgba(99, 102, 241, 0.4); justify-content: center; backdrop-filter: blur(4px); }
-        .tl-event.travel-event { width: 28%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 12px !important; }
-        .tl-event.travel-event.home-side { left: 4px; right: auto; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 3px solid #fff; }
-        .tl-event.travel-event.away-side { right: 4px; left: auto; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 3px solid #fff; }
+        .tl-event.travel-event { width: 45%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 6px; padding: 0 !important; }
+        .tl-event.travel-event.home-side { left: 4px !important; right: auto !important; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 2px solid #fff !important; border-radius: 0 3px 3px 0 !important; }
+        .tl-event.travel-event.away-side { right: 4px !important; left: auto !important; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 2px solid #fff !important; border-radius: 3px 0 0 3px !important; }
         .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 1.0; z-index: 2; background: linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85)); border: 1px solid rgba(16, 185, 129, 0.6); justify-content: center; }
 
 
@@ -3055,12 +3078,18 @@ function App() {
           .totals-grid { grid-template-columns: repeat(2, 1fr); }
           .main-total-card .total-value { font-size: 2.2rem; }
           .timeline-section-panel { padding: 0.75rem; overflow: visible; }
-          .timeline-date-side { width: 55px; }
-          .tl-dw { font-size: 0.7rem; }
-          .tl-dm { font-size: 0.6rem; }
-          .timeline-hours-container { padding-left: 45px; }
-          .tl-marker-time { width: 35px; font-size: 0.55rem; left: 2px; }
-          .tl-event { left: 45px; }
+          .timeline-date-side { width: 50px; }
+          .tl-dw { font-size: 0.75rem; }
+          .tl-dm { font-size: 0.65rem; }
+          .timeline-hours-container { padding-left: 0; margin: 0 4px; }
+          .tl-marker-time { width: 28px; font-size: 0.5rem; left: 0; }
+          .tl-event.flight-event { left: 0; right: 0; width: auto; }
+          .timeline-day-row { padding-left: 0; padding-right: 0; }
+          .day-col { width: 40px; }
+          .time-col { width: 35px; }
+          .timeline-section-panel { padding: 0.25rem; }
+          .tl-travel-meta.home-side { margin-left: 2px; }
+          .tl-travel-meta.away-side { margin-right: 2px; }
 
           
           /* Flight Row Mobile Fixes */

@@ -10,6 +10,7 @@
   - Number of days displayed as badge (e.g., `4 Days`) below the date row.
   - **Sticky Duration**: Changing the start date shifts the entire trip (end date moves to keep the same # of days). Changing the start date also shifts all flights and hotel dates.
 - **Conference Center**: Displayed below the trip dates next to the day count. Includes a Google Maps link icon.
+- **Briefcase Icon**: Use a briefcase icon (💼) for the work destination (Destination City) and related header sections instead of airplane icons.
 - **Currency Toggle**: 
   - Located at the top of the **Totals Section** at the bottom of the page.
   - Domestic ($) and Foreign toggle buttons.
@@ -18,6 +19,7 @@
 - **Registration Fee**: Included in totals with its own currency context toggle.
 
 ## Flights Panel
+- **Local Times**: All flight times (set in the Flights panel) correspond to the local time of the respective airport.
 - **Single-line Flight Entry**: Each flight booking shows:
   - Drag handle (grip icon) on left.
   - Airline name input.
@@ -61,8 +63,9 @@
 
     11:00a ✈️  (Arrival Time + To Icon)
     ```
-  - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport).
-  - Mode: 🚘 (Uber/Car/Taxi).
+  - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport), 💼 (Work/Destination).
+  - Mode: 🚘 (Uber/Car/Taxi). The car icon should be placed just outside the transportation block (thinner bars) and to the left of the time/icon label stack.
+  - **Arrival/Departure Context**: Once arrived at the destination airport, all subsequent transportation (to hotel/work) should use the **Destination Time Zone**, be aligned to the **Right**, and use **Orange** text for times.
 - **Auto-populate Travel Legs**:
   - Ride to / from the airport takes 1 hour (Home <-> Airport).
   - Get to the airport 3 hours before the flight.
@@ -72,6 +75,7 @@
   - Transportation updates automatically on flight or time zone changes.
 
 ## Data & Logic
+- **Local Times**: All flight times (set in the Flights panel) correspond to the local time of the respective airport.
 - **Precision**: Show cents for every total (always 2 decimal places).
 - **M&IE First/Last Day**: 75% of full rate on travel days.
 - **Date Format**: EEE M/d/yy for dates (e.g., Wed 8/16/26).
@@ -83,6 +87,7 @@
 - **Placeholders**: Dark gray (#475569).
 - **Accent Color**: Indigo (#6366f1).
 - **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.
+- **Mobile Timeline Width**: Maximize the horizontal space for the timeline grid on mobile by removing unnecessary blank space in margins and between side columns.
 ### Time Zones
 - **5-Column Layout**: The timeline is partitioned into 5 distinct vertical tracks:
   1. **Home Date**: The date label for the home time zone.
