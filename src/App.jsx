@@ -31,6 +31,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEAL_RATIOS_FOREIGN, MEAL_RATIOS_US, getMealCost } from './utils/calculations';
 
 import { autoPopulateHotels } from './utils/hotelLogic';
+import ContinuousTimeline from './components/ContinuousTimeline';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -3130,7 +3131,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 07:44 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 11:53 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3316,26 +3317,21 @@ function App() {
                 {showMIE ? <Utensils size={14} /> : <CreditCard size={14} />} M&IE
               </button>
             </div>
-            <div className="vertical-timeline">
-              <TimelineHeader isDifferentTZ={isDifferentTZ} />
-              {days.map((day, idx) => (
-                <TimelineDay
-                  key={day.id}
-                  day={day}
-                  dayIndex={idx}
-                  totalDays={days.length}
-                  flights={flights}
-                  hotels={hotels}
-                  currentRates={currentRates}
-                  showMIE={showMIE}
-                  onEditEvent={(ev) => setEditingEvent(ev)}
-                  homeTimeZone={homeTimeZone}
-                  destTimeZone={destTimeZone}
-                  homeCity={homeCity}
-                  destCity={destCity}
-                />
-              ))}
-            </div>
+            <ContinuousTimeline
+              days={days}
+              flights={flights}
+              hotels={hotels}
+              showMIE={showMIE}
+              onEditEvent={(ev) => setEditingEvent(ev)}
+              onUpdateMeals={(dayId, meal) => {
+                setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+              }}
+              homeTimeZone={homeTimeZone}
+              destTimeZone={destTimeZone}
+              homeCity={homeCity}
+              destCity={destCity}
+              currentRates={currentRates}
+            />
 
             {editingEvent && (
               <div className="edit-overlay glass" onClick={() => setEditingEvent(null)}>
@@ -4049,6 +4045,26 @@ function App() {
         .mie-toggle-btn.active:hover { background: var(--accent); opacity: 0.9; }
 
         .timeline-section-panel { padding: 2rem; background: var(--glass); border-radius: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem; overflow: visible; }
+        
+        /* Continuous Timeline Styles */
+        .continuous-timeline-wrapper { overflow: visible; }
+        .continuous-timeline { overflow: visible; display: flex; position: relative; }
+        .continuous-timeline .timeline-col { flex-shrink: 0; position: relative; }
+        .continuous-timeline .day-col { width: 65px; }
+        .continuous-timeline .time-col { width: 55px; }
+        .continuous-timeline .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
+        .continuous-timeline .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
+        .continuous-timeline .time-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
+        .continuous-timeline .day-col.right { border-left: 1px solid rgba(255,255,255,0.05); }
+        .continuous-timeline .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(255,255,255,0.02) 4px, rgba(255,255,255,0.02) 5px); overflow: visible; }
+        
+        .midnight-line-continuous { pointer-events: none; }
+        .midnight-line-continuous.home { border-color: #6366f1 !important; }
+        .midnight-line-continuous.dest { border-color: #f59e0b !important; }
+        
+        .timeline-mie-column { border-left: 1px solid rgba(255,255,255,0.05); }
+        .mie-day-block { border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
         .timeline-day-row { display: flex; min-height: 80px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-col { flex-shrink: 0; position: relative; }

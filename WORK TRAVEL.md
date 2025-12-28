@@ -66,31 +66,35 @@
   - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before.
   - **Fix**: Check-in date should match the arrival day at the destination (unless the Early Arrival Rule applies).
 
-## Vertical Timeline
-- **Compact Layout**: Timeline days have a reduced height (approx 85-100px) to show more days in the viewport. No internal scrollbars.
-- **Day Display**: Shows EEE (Wed) and M/d/yy for each day.
-- **M&IE Toggle**: Functional toggle button located at the top right of the Timeline section header.
-- **Flight & Hotel Events**: 
-  - Flight events displayed at correct time positions with compact label (Airline/Flight + Route).
-  - Hotel events displayed at check-in/out times with 🏨 icon and name.
+## Vertical Timeline (Continuous Graph)
+- **Single Continuous Timeline**: The timeline is rendered as one continuous vertical graph spanning the entire trip duration, NOT as separate day units.
+- **Multi-Day Spanning Elements**: 
+  - Flights and hotels can span across multiple days and past midnight, existing as single continuous elements.
+  - An overnight flight departing at 11pm and arriving at 6am the next day appears as one seamless block.
+  - Hotels spanning 3 nights appear as one continuous block from check-in to check-out.
+- **Timeline Scale**: Height is calculated based on total trip hours (24 hours per day × number of days).
+- **M&IE Toggle**: Functional toggle button located at the top right of the Timeline section header. Shows per-day M&IE totals in a column on the right.
+- **Midnight Lines**:
+  - **Home Midnight**: Solid indigo line extending from the left edge (past the home time column) all the way into the timeline grid.
+  - **Destination Midnight**: Dashed orange line extending from the timeline grid all the way to the right edge (past the destination time column).
+  - Date labels appear at midnight positions in respective time zone columns.
+- **Flight Events**: 
+  - Displayed as continuous blocks from departure to arrival time.
+  - Show airline/flight number + route codes.
+  - Time markers appear in both home and destination time columns.
+- **Hotel Events**: 
+  - Displayed as continuous blocks from check-in to check-out spanning all nights.
+  - Show 🏨 icon and hotel name.
+  - Right-aligned in timeline grid (destination-side).
 - **Travel Blocks (Uber/Taxi)**:
-  - Positioned on the **right side** of the timeline to avoid overlap with flights.
-  - However, for clarity: Home transport is on the **left**, Away transport is on the **right**.
-  - **Vertical Format** (Times rendered Inline):
-    ```
-    10:15a 🏡  (Start Time + From Icon)
-
-    11:00a ✈️  (Arrival Time + To Icon)
-    ```
-  - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport), 💼 (Work/Destination).
-  - Mode: 🚘 (Uber/Car/Taxi). The car icon should be placed just outside the transportation block (thinner bars) and to the left of the time/icon label stack.
-  - **Arrival/Departure Context**: Once arrived at the destination airport, all subsequent transportation (to hotel/work) should use the **Destination Time Zone**, be aligned to the **Right**, and use **Orange** text for times.
+  - Home transport is on the **left** (indigo/home styling).
+  - Away transport is on the **right** (orange/destination styling).
+  - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport), 💼 (Work/Destination), 🚘 (Uber/Car).
 - **Auto-populate Travel Legs**:
   - Ride to / from the airport takes 1 hour (Home <-> Airport).
   - Get to the airport 3 hours before the flight.
   - Leave the airport 1 hour after arrival.
   - Ride between airport and hotel takes 30 minutes (Hotel <-> Airport).
-  - Maintain correct location time zone for each ride.
   - Transportation updates automatically on flight or time zone changes.
 
 ## Data & Logic
