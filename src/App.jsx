@@ -2901,7 +2901,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:30 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:37 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3500,6 +3500,7 @@ function App() {
           border-top: 1px solid rgba(99, 102, 241, 0.2);
         }
 
+
         /* SingleDatePicker Styles */
         .single-date-picker { position: relative; display: inline-block; width: 100%; }
         .date-single-display { 
@@ -3520,7 +3521,12 @@ function App() {
           background: rgba(0,0,0,0.4);
         }
         .date-single-placeholder { color: #475569; font-style: italic; font-size: 0.65rem; }
-        .cal-popup.single { width: 280px; }
+        
+        /* Override for single date picker popup - ensure proper sizing */
+        .single-date-picker .cal-popup.vertical-scroll.single { 
+          width: 300px; 
+          z-index: 10000 !important;
+        }
 
         /* Flight arrival date display */
         .f-arr-date-display {
@@ -3548,6 +3554,8 @@ function App() {
           align-items: center;
           gap: 12px;
           margin-top: 8px;
+          position: relative;
+          z-index: 1;
         }
         .h-times-row {
           display: flex;
@@ -3558,6 +3566,16 @@ function App() {
           color: rgba(255,255,255,0.3);
           font-weight: 300;
         }
+        
+        /* Ensure date-range-picker in hotels has high z-index */
+        .hotel-row-item .date-range-picker {
+          position: relative;
+          z-index: 1;
+        }
+        .hotel-row-item .cal-popup.vertical-scroll {
+          z-index: 10000 !important;
+        }
+        
         
         .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
         .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
@@ -3593,11 +3611,11 @@ function App() {
         .f-inp::placeholder { color: #475569; }
 
         /* Flight Panel & Groups */
-        .flight-panel, .hotel-panel { background: var(--glass); border: 1px solid var(--border); border-radius: 1.5rem; padding: 1.5rem; }
+        .flight-panel, .hotel-panel { background: var(--glass); border: 1px solid var(--border); border-radius: 1.5rem; padding: 1.5rem; overflow: visible; }
         .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
         .f-title { font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
         
-        .flight-group { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; transition: all 0.2s; }
+        .flight-group { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; transition: all 0.2s; overflow: visible; }
         .f-group-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 0.75rem; }
         .f-grip-group { color: #475569; cursor: grab; }
         .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; align-items: center; }
@@ -3797,7 +3815,7 @@ function App() {
 
 
         /* Hotel Row Fixes */
-        .hotel-row-item { background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.03); }
+        .hotel-row-item { background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.03); overflow: visible; }
         .h-row-line { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
         .h-row-top { justify-content: space-between; }
         .h-name { flex: 1; max-width: 200px; font-weight: 800; }
