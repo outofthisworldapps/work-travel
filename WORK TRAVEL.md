@@ -39,8 +39,7 @@
   - Delete button.
 - **Segment Details**: Each leg shows:
   - Flight number (e.g., "FI 642").
-  - **Departure Date**: Single date picker (vertical scrolling calendar, like trip dates).
-    - User selects only the departure date.
+  - **Departure Date**: Simple dropdown selector showing all dates within the trip duration.
     - Arrival date is **auto-calculated** based on departure and arrival times.
     - If arrival time is earlier than departure time, it's next day (redeye flight).
     - Displayed as: `→ Wed Apr 13` (arrow with arrival date).
@@ -55,10 +54,12 @@
 ## Hotels Panel
 - **Hotel Entry**: 
   - Hotel name with cost (total for stay) and $ / Globe toggle.
-  - **Date Range Picker** (same Google Flights-style vertical scrolling calendar):
-    - 🗓️ icon opens calendar for selecting check-in and check-out dates.
+  - **Compact Trip Date Range Picker**:
+    - Shows only the week(s) of the trip (not the full year).
+    - 🗓️ icon opens compact calendar showing only trip dates.
     - First click = check-in date, second click = check-out date.
     - Display shows: `Sun JAN 4 – Thu JAN 8 (5 days)`.
+    - Can also click individual dates as fallback.
   - Check-in and check-out times displayed on same row after dates.
 - **Currency Toggle**: Individual toggle for domestic/foreign rate context.
 - **Default Stay Logic**: STAY includes arrival night to departure day.
