@@ -31,6 +31,13 @@
 
 ## Flights Panel
 - **Local Times**: All flight times (set in the Flights panel) correspond to the local time of the respective airport.
+  - **Outbound Flights**: Departure time is in home time zone, arrival time is in destination time zone.
+  - **Return Flights**: Departure time is in destination time zone, arrival time is in home time zone.
+- **Editable Flight Data**: 
+  - All flight times and dates are fully editable in text inputs.
+  - Flight date dropdowns allow selection of any date within the trip duration.
+  - Changes to flight times immediately update the timeline display and positioning.
+  - No automatic history saves on keystroke - allows smooth editing without performance issues.
 - **Single-line Flight Entry**: Each flight booking shows:
   - Drag handle (grip icon) on left.
   - Airline name input.
@@ -80,8 +87,13 @@
   - Date labels appear at midnight positions in respective time zone columns.
 - **Flight Events**: 
   - Displayed as continuous blocks from departure to arrival time.
+  - **No Minimum Height**: Flight blocks scale precisely to match flight duration with no artificial minimum size.
+  - Flight information (airline, flight number, seat, confirmation) is rendered within the block regardless of size.
   - Show airline/flight number + route codes.
-  - Time markers appear in both home and destination time columns.
+  - **Time Zone Relevance**: Time markers use opacity to indicate relevance:
+    - **Outbound**: Home/left times are opaque (relevant), destination/right times are transparent (0.4 opacity).
+    - **Return**: Destination/right times are opaque (relevant), home/left times are transparent (0.4 opacity).
+    - This clarifies which timezone each flight time corresponds to.
 - **Hotel Events**: 
   - Displayed as continuous blocks from check-in to check-out spanning all nights.
   - Show 🏨 icon and hotel name.

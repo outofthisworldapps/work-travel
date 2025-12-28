@@ -412,6 +412,9 @@ const ContinuousTimeline = ({
                         const endPos = getPosition(seg.endHours);
                         const height = endPos - startPos;
 
+                        // Determine if this is outbound or return for time zone relevance
+                        const isOutbound = seg.parentFlight.outbound && seg.parentFlight.outbound.find(s => s.id === seg.id);
+
                         return (
                             <div
                                 key={seg.id}
@@ -425,8 +428,7 @@ const ContinuousTimeline = ({
                                     right: 0,
                                     borderRadius: '8px',
                                     zIndex: 10,
-                                    padding: 0,
-                                    minHeight: '24px'
+                                    padding: 0
                                 }}
                             >
                                 <div className="tl-f-main-wrap" style={{
@@ -455,16 +457,22 @@ const ContinuousTimeline = ({
                                     </div>
                                 </div>
 
-                                {/* Time markers */}
+                                {/* Time markers - show relevant time zone more prominently */}
+                                {/* For outbound: dep is home (left), arr is dest (right) */}
+                                {/* For return: dep is dest (right), arr is home (left) */}
                                 <div className="flight-time-marker dep" style={{
                                     position: 'absolute', top: 0, left: '-55px', fontSize: '0.55rem',
-                                    fontWeight: 950, color: '#a5b4fc', transform: 'translateY(-50%)'
+                                    fontWeight: 950, color: '#a5b4fc',
+                                    transform: 'translateY(-50%)',
+                                    opacity: isOutbound ? 1 : 0.4
                                 }}>
                                     {formatTimeNum(seg.depTime)}
                                 </div>
                                 <div className="flight-time-marker arr" style={{
                                     position: 'absolute', bottom: 0, left: '-55px', fontSize: '0.55rem',
-                                    fontWeight: 950, color: '#a5b4fc', transform: 'translateY(50%)'
+                                    fontWeight: 950, color: '#a5b4fc',
+                                    transform: 'translateY(50%)',
+                                    opacity: isOutbound ? 0.4 : 1
                                 }}>
                                     {formatTimeNum(seg.arrTime)}
                                 </div>
@@ -472,13 +480,17 @@ const ContinuousTimeline = ({
                                     <>
                                         <div className="flight-time-marker dep dest" style={{
                                             position: 'absolute', top: 0, right: '-55px', fontSize: '0.55rem',
-                                            fontWeight: 950, color: '#f59e0b', transform: 'translateY(-50%)'
+                                            fontWeight: 950, color: '#f59e0b',
+                                            transform: 'translateY(-50%)',
+                                            opacity: isOutbound ? 0.4 : 1
                                         }}>
                                             {formatTimeNum(seg.depTime + getTZOffset(tripStartDate, destTimeZone, homeTimeZone))}
                                         </div>
                                         <div className="flight-time-marker arr dest" style={{
                                             position: 'absolute', bottom: 0, right: '-55px', fontSize: '0.55rem',
-                                            fontWeight: 950, color: '#f59e0b', transform: 'translateY(50%)'
+                                            fontWeight: 950, color: '#f59e0b',
+                                            transform: 'translateY(50%)',
+                                            opacity: isOutbound ? 1 : 0.4
                                         }}>
                                             {formatTimeNum(seg.arrTime + getTZOffset(tripStartDate, destTimeZone, homeTimeZone))}
                                         </div>

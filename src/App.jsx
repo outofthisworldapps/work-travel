@@ -1046,7 +1046,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           <div className="f-date-wrapper">
             <select
               className="f-inp f-date-select monospace-font"
-              value={segment.depDate || ''}
+              value={depDate ? format(depDate, 'yyyy-MM-dd') : ''}
               onChange={e => handleDepDateChange(e.target.value)}
               style={{ fontFamily: 'monospace' }}
             >
@@ -3105,7 +3105,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 13:55 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 14:17 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
