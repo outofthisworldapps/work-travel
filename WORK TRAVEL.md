@@ -39,20 +39,27 @@
   - Delete button.
 - **Segment Details**: Each leg shows:
   - Flight number (e.g., "FI 642").
-  - Departure date (M/d/yy format with weekday).
+  - **Departure Date**: Single date picker (vertical scrolling calendar, like trip dates).
+    - User selects only the departure date.
+    - Arrival date is **auto-calculated** based on departure and arrival times.
+    - If arrival time is earlier than departure time, it's next day (redeye flight).
+    - Displayed as: `→ Wed Apr 13` (arrow with arrival date).
   - Departure time (e.g., "8:30p").
   - Departure airport code (e.g., "BWI") + **Terminal** (e.g., "T4").
   - Arrow (→).
   - Arrival airport code + **Terminal**.
-  - Arrival time.
-  - Arrival date.
+  - Arrival time (e.g., "6:25a").
   - **Mobile Layout**: Two-row compact grid (Row 1: Flight#/Dep info, Row 2: Seat#/Arr info) that fits perfectly within 375px screens.
-- **Date Selectors**: Same nice text + calendar icon format as the header.
 - **Layovers**: Displayed between segments with time duration.
 
 ## Hotels Panel
-- **Hotel Entry**: Name, Check-in Date/Time, Check-out Date/Time.
-- **Total Cost**: Entered as total for stay with $ / Globe toggle.
+- **Hotel Entry**: 
+  - Hotel name with cost (total for stay) and $ / Globe toggle.
+  - **Date Range Picker** (same Google Flights-style vertical scrolling calendar):
+    - 🗓️ icon opens calendar for selecting check-in and check-out dates.
+    - First click = check-in date, second click = check-out date.
+    - Display shows: `Sun JAN 4 – Thu JAN 8 (5 days)`.
+  - Check-in and check-out times displayed on same row after dates.
 - **Currency Toggle**: Individual toggle for domestic/foreign rate context.
 - **Default Stay Logic**: STAY includes arrival night to departure day.
   - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before.

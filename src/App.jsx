@@ -935,6 +935,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 
 // --- Components ---
 
+// Updated FlightSegmentRow component
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
   const parseFrag = (dateStr) => {
     if (!dateStr) return new Date();
@@ -954,14 +955,63 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
     } catch (e) { return new Date(); }
   };
 
+  const parseTimeToMinutes = (timeStr) => {
+    if (!timeStr) return null;
+    try {
+      let t = timeStr.toLowerCase().replace(' ', '');
+      let meridiem = t.slice(-1);
+      let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+      let parts = timePart.split(':');
+      let h = parseInt(parts[0]);
+      let m = parseInt(parts[1]) || 0;
+      if (isNaN(h)) return null;
+      if (meridiem === 'p' && h < 12) h += 12;
+      if (meridiem === 'a' && h === 12) h = 0;
+      return h * 60 + m;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const depDate = parseFrag(segment.depDate);
   const arrDate = parseFrag(segment.arrDate);
 
-  const handleDateChange = (field, date) => {
+  const handleDepDateChange = (date) => {
     if (date && !isNaN(date.getTime())) {
-      onUpdate(field, safeFormat(date, 'M/d/yy'));
+      onUpdate('depDate', safeFormat(date, 'M/d/yy'));
+
+      // Auto-calculate arrival date based on times
+      const depMins = parseTimeToMinutes(segment.depTime);
+      const arrMins = parseTimeToMinutes(segment.arrTime);
+
+      if (depMins !== null && arrMins !== null) {
+        // If arrival time is less than departure time, it's probably next day (redeye)
+        const daysToAdd = arrMins < depMins ? 1 : 0;
+        const newArrDate = addDays(date, daysToAdd);
+        onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
+      } else {
+        // Default to same day if no times
+        onUpdate('arrDate', safeFormat(date, 'M/d/yy'));
+      }
     }
   };
+
+  // Auto-update arrival date when times change
+  React.useEffect(() => {
+    const depMins = parseTimeToMinutes(segment.depTime);
+    const arrMins = parseTimeToMinutes(segment.arrTime);
+
+    if (depMins !== null && arrMins !== null && segment.depDate) {
+      const baseDep = parseFrag(segment.depDate);
+      const daysToAdd = arrMins < depMins ? 1 : 0;
+      const newArrDate = addDays(baseDep, daysToAdd);
+      const expectedArr = safeFormat(newArrDate, 'M/d/yy');
+
+      if (segment.arrDate !== expectedArr) {
+        onUpdate('arrDate', expectedArr);
+      }
+    }
+  }, [segment.depTime, segment.arrTime, segment.depDate]);
 
   return (
     <div className="f-segment">
@@ -989,8 +1039,21 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
         </div>
 
         <div className="f-grid-col f-date-col">
-          <DateInput value={depDate} onChange={(d) => handleDateChange('depDate', d)} className="s-date" />
-          <DateInput value={arrDate} onChange={(d) => handleDateChange('arrDate', d)} className="s-date" />
+          <SingleDatePicker
+            value={depDate}
+            onChange={handleDepDateChange}
+            className="s-date"
+            placeholder="Dep date"
+          />
+          <div className="f-arr-date-display">
+            {arrDate && !isNaN(arrDate.getTime()) ? (
+              <span className="arr-date-text">
+                → {format(arrDate, 'EEE MMM d')}
+              </span>
+            ) : (
+              <span className="arr-date-placeholder">Arrival</span>
+            )}
+          </div>
         </div>
 
         <div className="f-grid-col f-time-col">
@@ -1159,8 +1222,12 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
 };
 
 const HotelRow = ({ hotel, onUpdate, onDelete }) => {
-  const handleDateChange = (field, date) => {
-    onUpdate(hotel.id, field, date);
+  const handleStartChange = (date) => {
+    onUpdate(hotel.id, 'checkIn', date);
+  };
+
+  const handleEndChange = (date) => {
+    onUpdate(hotel.id, 'checkOut', date);
   };
 
   return (
@@ -1192,15 +1259,18 @@ const HotelRow = ({ hotel, onUpdate, onDelete }) => {
           <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
         </div>
       </div>
-      <div className="h-row-line h-row-date">
-        <div className="h-label">Arrival:</div>
-        <DateInput value={hotel.checkIn} onChange={(d) => handleDateChange('checkIn', d)} className="f-date-sel" />
-        <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
-      </div>
-      <div className="h-row-line h-row-date">
-        <div className="h-label">Departure:</div>
-        <DateInput value={hotel.checkOut} onChange={(d) => handleDateChange('checkOut', d)} className="f-date-sel" />
-        <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+      <div className="h-row-line h-row-dates-range">
+        <DateRangePicker
+          startDate={hotel.checkIn}
+          endDate={hotel.checkOut}
+          onStartChange={handleStartChange}
+          onEndChange={handleEndChange}
+        />
+        <div className="h-times-row">
+          <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+          <span className="time-sep">–</span>
+          <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+        </div>
       </div>
     </div>
   );
@@ -1416,6 +1486,146 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     </div>
   );
 };
+// Single date picker (for flight departure dates)
+const SingleDatePicker = ({ value, onChange, className, placeholder = "Select date" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const popupRef = React.useRef(null);
+  const scrollRef = React.useRef(null);
+  const startMonthRef = React.useRef(null);
+
+  // Generate 13 months: current month + 12 months ahead
+  const months = useMemo(() => {
+    const result = [];
+    const today = new Date();
+    const firstMonth = startOfMonth(today);
+    for (let i = 0; i < 13; i++) {
+      result.push(addMonths(firstMonth, i));
+    }
+    return result;
+  }, []);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Scroll to the selected date's month when opening
+  React.useEffect(() => {
+    if (isOpen && scrollRef.current && startMonthRef.current) {
+      setTimeout(() => {
+        startMonthRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      }, 50);
+    }
+  }, [isOpen]);
+
+  const openCalendar = () => {
+    setIsOpen(true);
+  };
+
+  const handleDayClick = (day) => {
+    onChange(day);
+    setIsOpen(false);
+  };
+
+  const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+  const renderMonth = (monthDate, isStartMonth) => {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const totalDays = daysInMonth(year, month);
+    const startDay = firstDayOfMonth(year, month);
+    const cells = [];
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    // Empty cells for days before the 1st
+    for (let i = 0; i < startDay; i++) {
+      cells.push(<div key={`empty-${i}`} className="cal-day empty" />);
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const date = new Date(year, month, d, 12, 0, 0);
+      const isPast = isBefore(date, today) && !isSameDay(date, today);
+      const isSelected = value && isSameDay(date, value);
+      const isToday = isSameDay(date, today);
+
+      cells.push(
+        <div
+          key={d}
+          className={`cal-day ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}
+          onClick={() => !isPast && handleDayClick(date)}
+        >
+          {d}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={format(monthDate, 'yyyy-MM')}
+        className="cal-month-block"
+        ref={isStartMonth ? startMonthRef : null}
+      >
+        <div className="cal-month-header">
+          {format(monthDate, 'MMMM yyyy')}
+        </div>
+        <div className="cal-weekdays">
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
+        </div>
+        <div className="cal-grid">
+          {cells}
+        </div>
+      </div>
+    );
+  };
+
+  // Find which month the value is in for scrolling
+  const valueMonthIndex = useMemo(() => {
+    if (!value) return 0;
+    const valueMo = startOfMonth(value);
+    const idx = months.findIndex(m => isSameDay(startOfMonth(m), valueMo));
+    return idx >= 0 ? idx : 0;
+  }, [value, months]);
+
+  // Format display
+  const formatDisplay = () => {
+    if (!value || isNaN(value.getTime())) {
+      return <span className="date-single-placeholder">{placeholder}</span>;
+    }
+    const dow = format(value, 'EEE');
+    const mon = format(value, 'MMM').toUpperCase();
+    const day = format(value, 'd');
+    return (
+      <>
+        <span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span>
+      </>
+    );
+  };
+
+  return (
+    <div className={`single-date-picker ${className || ''}`} ref={popupRef}>
+      <div className="date-single-display" onClick={openCalendar}>
+        {formatDisplay()}
+      </div>
+
+      {isOpen && (
+        <div className="cal-popup vertical-scroll single">
+          <div className="cal-scroll-container" ref={scrollRef}>
+            {months.map((monthDate, idx) => renderMonth(monthDate, idx === valueMonthIndex))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const SegmentedDateInput = ({ value, onChange, className }) => {
   const [mon, setMon] = useState(safeFormat(value, 'M'));
@@ -2691,7 +2901,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:25 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:30 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3273,6 +3483,12 @@ function App() {
           box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
         }
         .cal-day.in-range { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+        .cal-day.selected { 
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); 
+          color: #fff; 
+          font-weight: 900; 
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
         .cal-hint { 
           text-align: center; 
           font-size: 0.7rem; 
@@ -3282,6 +3498,65 @@ function App() {
           text-transform: uppercase; 
           background: rgba(99, 102, 241, 0.1);
           border-top: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        /* SingleDatePicker Styles */
+        .single-date-picker { position: relative; display: inline-block; width: 100%; }
+        .date-single-display { 
+          display: flex; 
+          align-items: center; 
+          gap: 4px; 
+          cursor: pointer; 
+          padding: 4px 8px; 
+          background: rgba(0,0,0,0.3); 
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 6px;
+          transition: all 0.2s;
+          font-size: 0.7rem;
+          min-height: 24px;
+        }
+        .date-single-display:hover { 
+          border-color: var(--accent); 
+          background: rgba(0,0,0,0.4);
+        }
+        .date-single-placeholder { color: #475569; font-style: italic; font-size: 0.65rem; }
+        .cal-popup.single { width: 280px; }
+
+        /* Flight arrival date display */
+        .f-arr-date-display {
+          padding: 4px 8px;
+          background: rgba(0,0,0,0.2);
+          border-radius: 6px;
+          min-height: 24px;
+          display: flex;
+          align-items: center;
+        }
+        .arr-date-text {
+          color: #94a3b8;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
+        .arr-date-placeholder {
+          color: #475569;
+          font-style: italic;
+          font-size: 0.65rem;
+        }
+
+        /* Hotel date range styles */
+        .h-row-dates-range {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 8px;
+        }
+        .h-times-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .time-sep {
+          color: rgba(255,255,255,0.3);
+          font-weight: 300;
         }
         
         .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
