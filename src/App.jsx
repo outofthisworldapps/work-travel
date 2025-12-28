@@ -179,7 +179,7 @@ const getDualTime = (homeTime, date, homeTZ, destTZ, relevance) => {
 
   const dateStr = format(date, 'yyyy-MM-dd');
   // homeTime is already normalized to Home Time Zone.
-  const offset = getTZOffset(new Date(dateStr + 'T12:00:00'), destTZ, homeTZ); // Dest relative to Home
+  const offset = getTZOffset(new Date(dateStr + 'T12:00:00'), homeTZ, destTZ); // Dest relative to Home
   const destTimeNum = homeTime + offset;
 
   const formatTimeNum = (num) => {
@@ -2434,7 +2434,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:30 PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:39 PM</div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">
