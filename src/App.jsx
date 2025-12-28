@@ -329,8 +329,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
       const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
       const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
 
-      const normDepShift = getTZOffset(new Date(day.date), homeTimeZone, depTZ);
-      const normArrShift = getTZOffset(new Date(day.date), homeTimeZone, arrTZ);
+      const normDepShift = getTZOffset(new Date(day.date), depTZ, homeTimeZone);
+      const normArrShift = getTZOffset(new Date(day.date), arrTZ, homeTimeZone);
 
       const depH = parseTime(s.depTime) + normDepShift;
       const arrH = parseTime(s.arrTime) + normArrShift;
@@ -543,7 +543,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           if (!isCheckInDay && !isCheckOutDay && !isMidStay) return null;
 
           const hotelTZ = destTimeZone; // Hotels are ALWAYS at destination
-          const shift = getTZOffset(day.date, homeTimeZone, hotelTZ);
+          const shift = getTZOffset(day.date, hotelTZ, homeTimeZone);
           const startNum = (parseTime(h.checkInTime) || 14) + shift;
           const endNum = (parseTime(h.checkOutTime) || 11) + shift;
 
@@ -645,7 +645,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           if (l.type === 'flight') return null;
           const relevance = getEventRelevance('leg', l);
           const legTZ = relevance === 'home' ? homeTimeZone : destTimeZone;
-          const shift = getTZOffset(day.date, homeTimeZone, legTZ);
+          const shift = getTZOffset(day.date, legTZ, homeTimeZone);
           const start = (parseTime(l.time) || 0) + shift;
           const end = (parseTime(l.time) + (l.duration || 0) / 60) + shift;
 
@@ -2434,7 +2434,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:05 PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:30 PM</div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">
