@@ -1016,20 +1016,16 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
             value={(segment.airlineCode || '') + (segment.flightNumber ? ' ' + segment.flightNumber : '')}
             onChange={e => {
               const val = e.target.value;
-              // Regex to split: first part is alphanumeric (airline), rest is flight num
-              // Even better: just standard split but handle the spaces logic manually to avoid fighting the cursor?
-              // Simple split on first space is robust enough if we don't trim the display value.
               const parts = val.split(' ');
-              onUpdate('airlineCode', parts[0] || '');
-              onUpdate('flightNumber', parts.slice(1).join(' ') || '');
+              const airlineCode = parts[0] || '';
+              const flightNumber = parts.slice(1).join(' ') || '';
+              // Single update with both fields to avoid blocking
+              onUpdate('airlineCode', airlineCode);
+              if (flightNumber !== segment.flightNumber) {
+                setTimeout(() => onUpdate('flightNumber', flightNumber), 0);
+              }
             }}
-            placeholder=""
-            style={{
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '4px',
-              background: 'rgba(0,0,0,0.2)',
-              padding: '2px 6px'
-            }}
+            placeholder="Flight #"
           />
           <div className="f-sub-label">
             <span className="seat-label">SEAT:</span>
@@ -1046,7 +1042,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           <div className="f-date-wrapper">
             <select
               className="f-inp f-date-select monospace-font"
-              value={depDate ? format(depDate, 'yyyy-MM-dd') : ''}
+              value={depDate && !isNaN(depDate.getTime()) ? format(depDate, 'yyyy-MM-dd') : ''}
               onChange={e => handleDepDateChange(e.target.value)}
               style={{ fontFamily: 'monospace' }}
             >
@@ -1059,7 +1055,6 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
                 );
               })}
             </select>
-            {/* Visual overlay if select styling is hard, but simple CSS class should do - keeping it native per user request for "regular like the rest of the text" */}
           </div>
           <div className="f-arr-date-display">
             {arrDate && !isNaN(arrDate.getTime()) ? (
@@ -3105,7 +3100,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 14:17 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 14:26 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3922,8 +3917,8 @@ function App() {
         .reg-unit { font-size: 0.65rem; color: #64748b; font-weight: 850; margin-left: 4px; }
 
         /* Shared Form Styling */
-        .f-inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 6px; color: #fff; outline: none; font-size: 0.75rem; transition: all 0.2s; }
-        .f-inp:focus { border-color: var(--accent); background: rgba(0,0,0,0.5); }
+        .f-inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; padding: 3px 6px; color: #fff; outline: none; font-size: 0.75rem; transition: all 0.2s; }
+        .f-inp:focus { border-color: var(--accent); background: rgba(0,0,0,0.5); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); }
         .f-inp::placeholder { color: #475569; }
 
         /* Flight Panel & Groups */
