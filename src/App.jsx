@@ -1012,13 +1012,23 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
         <div className="f-grid-col f-id-col">
           <input
             className="f-inp s-full-num"
-            value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
+            value={(segment.airlineCode || '') + (segment.flightNumber ? ' ' + segment.flightNumber : '')}
             onChange={e => {
-              const parts = e.target.value.split(' ');
+              const val = e.target.value;
+              // Regex to split: first part is alphanumeric (airline), rest is flight num
+              // Even better: just standard split but handle the spaces logic manually to avoid fighting the cursor?
+              // Simple split on first space is robust enough if we don't trim the display value.
+              const parts = val.split(' ');
               onUpdate('airlineCode', parts[0] || '');
               onUpdate('flightNumber', parts.slice(1).join(' ') || '');
             }}
             placeholder=""
+            style={{
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '4px',
+              background: 'rgba(0,0,0,0.2)',
+              padding: '2px 6px'
+            }}
           />
           <div className="f-sub-label">
             <span className="seat-label">SEAT:</span>
@@ -1062,7 +1072,18 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
         </div>
 
         <div className="f-grid-col f-time-col">
-          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="" />
+          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => {
+            onUpdate('depTime', e.target.value);
+            // Trigger auto-date calculation
+            const depMins = parseTimeToMinutes(e.target.value);
+            const arrMins = parseTimeToMinutes(segment.arrTime);
+            if (segment.depDate && depMins !== null && arrMins !== null) {
+              const d = parseFrag(segment.depDate);
+              const daysToAdd = arrMins < depMins ? 1 : 0;
+              const newArrDate = addDays(d, daysToAdd);
+              onUpdate('arrDate', format(newArrDate, 'yyyy-MM-dd'));
+            }
+          }} placeholder="" />
           <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => {
             onUpdate('arrTime', e.target.value);
             // Trigger auto-date calculation if needed
