@@ -1073,30 +1073,18 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
         </div>
 
         <div className="f-grid-col f-time-col">
-          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => {
-            onUpdate('depTime', e.target.value);
-            // Trigger auto-date calculation
-            const depMins = parseTimeToMinutes(e.target.value);
-            const arrMins = parseTimeToMinutes(segment.arrTime);
-            if (segment.depDate && depMins !== null && arrMins !== null) {
-              const d = parseFrag(segment.depDate);
-              const daysToAdd = arrMins < depMins ? 1 : 0;
-              const newArrDate = addDays(d, daysToAdd);
-              onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
-            }
-          }} placeholder="" />
-          <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => {
-            onUpdate('arrTime', e.target.value);
-            // Trigger auto-date calculation if needed
-            const depMins = parseTimeToMinutes(segment.depTime);
-            const arrMins = parseTimeToMinutes(e.target.value);
-            if (segment.depDate && depMins !== null && arrMins !== null) {
-              const d = parseFrag(segment.depDate);
-              const daysToAdd = arrMins < depMins ? 1 : 0;
-              const newArrDate = addDays(d, daysToAdd);
-              onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
-            }
-          }} placeholder="" />
+          <input
+            className="f-inp s-time"
+            value={segment.depTime || ''}
+            onChange={e => onUpdate('depTime', e.target.value)}
+            placeholder=""
+          />
+          <input
+            className="f-inp s-time"
+            value={segment.arrTime || ''}
+            onChange={e => onUpdate('arrTime', e.target.value)}
+            placeholder=""
+          />
         </div>
 
         <div className="f-grid-col f-port-col">
@@ -2845,25 +2833,24 @@ function App() {
   };
 
   const updateFlight = (id, field, value) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+    // Removed saveToHistory from here - it was blocking every keystroke
+    // History will be saved on blur or other major actions instead
     setFlights(prev => {
       return prev.map(f => {
         if (f.id !== id) return f;
         let newF = { ...f, [field]: value };
 
-        // Ensure we deep-clone segments to avoid mutation
-        if (field === 'outbound') newF.outbound = value.map(s => ({ ...s }));
-        if (field === 'returnSegments') newF.returnSegments = value.map(s => ({ ...s }));
-
-        // Smarter mirroring for airports
+        // Only deep-clone and mirror for segment array updates
         if (field === 'outbound' || field === 'returnSegments') {
-          // Clone arrays before modifying interior objects
+          // Clone the updated array
           const out = (newF.outbound || []).map(s => ({ ...s }));
           const ret = (newF.returnSegments || []).map(s => ({ ...s }));
 
+          // Only run mirroring logic if both legs exist
+          // Mirroring should only apply to AIRPORTS, not times/dates
           if (out.length > 0 && ret.length > 0) {
             const sOut = out[0];
-            const sRet = ret[ret.length - 1]; // Mirror outbound dep to last return arr
+            const sRet = ret[ret.length - 1];
 
             const mirror = (src, tgt) => {
               if (!src) return tgt;
@@ -2871,13 +2858,12 @@ function App() {
               return tgt;
             };
 
-            // outbound depPort -> return arrPort
+            // Mirror airports only (not times/dates)
             sRet.arrPort = mirror(sOut.depPort, sRet.arrPort);
-            // outbound arrPort -> return depPort
             ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
           }
 
-          // Always reassign the cloned arrays back, not just when mirroring
+          // Always reassign the cloned arrays
           newF.outbound = out;
           newF.returnSegments = ret;
         }
@@ -3119,7 +3105,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 13:44 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 13:55 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
