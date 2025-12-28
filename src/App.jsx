@@ -939,142 +939,142 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 // Simplified FlightSegmentRow with dropdown date selector
 // Simplified FlightSegmentRow with dropdown date selector
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDates }) => {
-    const parseFrag = (dateStr) => {
-        if (!dateStr) return new Date();
-        try {
-            let d = null;
-            if (dateStr.includes('/')) {
-                d = parse(dateStr, 'M/d/yy', new Date());
-                if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
-            } else {
-                d = new Date(dateStr);
-                if (!isNaN(d.getTime()) && (d.getFullYear() < 2024 || d.getFullYear() > 2099)) {
-                    d.setFullYear(new Date().getFullYear());
-                }
-            }
-            return (!d || isNaN(d.getTime())) ? new Date() : d;
-        } catch (e) { return new Date(); }
-    };
-
-    const parseTimeToMinutes = (timeStr) => {
-        if (!timeStr) return null;
-        try {
-            let t = timeStr.toLowerCase().replace(' ', '');
-            let meridiem = t.slice(-1);
-            let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
-            let parts = timePart.split(':');
-            let h = parseInt(parts[0]);
-            let m = parseInt(parts[1]) || 0;
-            if (isNaN(h)) return null;
-            if (meridiem === 'p' && h < 12) h += 12;
-            if (meridiem === 'a' && h === 12) h = 0;
-            return h * 60 + m;
-        } catch (e) {
-            return null;
+  const parseFrag = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      let d = null;
+      if (dateStr.includes('/')) {
+        d = parse(dateStr, 'M/d/yy', new Date());
+        if (isNaN(d.getTime())) d = parse(dateStr, 'M/d/yyyy', new Date());
+      } else {
+        d = new Date(dateStr);
+        if (!isNaN(d.getTime()) && (d.getFullYear() < 2024 || d.getFullYear() > 2099)) {
+          d.setFullYear(new Date().getFullYear());
         }
-    };
+      }
+      return (!d || isNaN(d.getTime())) ? new Date() : d;
+    } catch (e) { return new Date(); }
+  };
 
-    const depDate = parseFrag(segment.depDate);
-    const arrDate = parseFrag(segment.arrDate);
+  const parseTimeToMinutes = (timeStr) => {
+    if (!timeStr) return null;
+    try {
+      let t = timeStr.toLowerCase().replace(' ', '');
+      let meridiem = t.slice(-1);
+      let timePart = t.endsWith('a') || t.endsWith('p') ? t.slice(0, -1) : t;
+      let parts = timePart.split(':');
+      let h = parseInt(parts[0]);
+      let m = parseInt(parts[1]) || 0;
+      if (isNaN(h)) return null;
+      if (meridiem === 'p' && h < 12) h += 12;
+      if (meridiem === 'a' && h === 12) h = 0;
+      return h * 60 + m;
+    } catch (e) {
+      return null;
+    }
+  };
 
-    const handleDepDateChange = (dateStr) => {
-        if (dateStr) {
-            onUpdate('depDate', dateStr);
+  const depDate = parseFrag(segment.depDate);
+  const arrDate = parseFrag(segment.arrDate);
 
-            // Auto-calculate arrival date based on times
-            const date = parseFrag(dateStr);
-            const depMins = parseTimeToMinutes(segment.depTime);
-            const arrMins = parseTimeToMinutes(segment.arrTime);
+  const handleDepDateChange = (dateStr) => {
+    if (dateStr) {
+      onUpdate('depDate', dateStr);
 
-            if (depMins !== null && arrMins !== null) {
-                const daysToAdd = arrMins < depMins ? 1 : 0;
-                const newArrDate = addDays(date, daysToAdd);
-                onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
-            } else {
-                onUpdate('arrDate', dateStr);
-            }
-        }
-    };
+      // Auto-calculate arrival date based on times
+      const date = parseFrag(dateStr);
+      const depMins = parseTimeToMinutes(segment.depTime);
+      const arrMins = parseTimeToMinutes(segment.arrTime);
 
-    // REMOVED: Auto-update effect that was causing the date flipping bug
-    // The auto-calculation now only happens when user explicitly changes dep date
+      if (depMins !== null && arrMins !== null) {
+        const daysToAdd = arrMins < depMins ? 1 : 0;
+        const newArrDate = addDays(date, daysToAdd);
+        onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
+      } else {
+        onUpdate('arrDate', dateStr);
+      }
+    }
+  };
 
-    return (
-        <div className="f-segment">
-            <div className="f-seg-grid">
-                <div className="f-grid-col f-id-col">
-                    <input
-                        className="f-inp s-full-num"
-                        value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
-                        onChange={e => {
-                            const parts = e.target.value.split(' ');
-                            onUpdate('airlineCode', parts[0] || '');
-                            onUpdate('flightNumber', parts.slice(1).join(' ') || '');
-                        }}
-                        placeholder="FI 642"
-                    />
-                    <div className="f-sub-label">
-                        <span className="seat-label">SEAT:</span>
-                        <input
-                            className="f-inp s-seat"
-                            value={segment.seat || ''}
-                            onChange={e => onUpdate('seat', e.target.value)}
-                            placeholder="—"
-                        />
-                    </div>
-                </div>
+  // REMOVED: Auto-update effect that was causing the date flipping bug
+  // The auto-calculation now only happens when user explicitly changes dep date
 
-                <div className="f-grid-col f-date-col">
-                    <select
-                        className="f-inp f-date-select"
-                        value={segment.depDate || ''}
-                        onChange={e => handleDepDateChange(e.target.value)}
-                    >
-                        <option value="">Select date</option>
-                        {tripDates && tripDates.map((date, idx) => {
-                            const dateStr = safeFormat(date, 'M/d/yy');
-                            const displayStr = safeFormat(date, 'EEE MMM d');
-                            return (
-                                <option key={idx} value={dateStr}>{displayStr}</option>
-                            );
-                        })}
-                    </select>
-                    <div className="f-arr-date-display">
-                        {arrDate && !isNaN(arrDate.getTime()) ? (
-                            <span className="arr-date-text">
-                                → {format(arrDate, 'EEE MMM d')}
-                            </span>
-                        ) : (
-                            <span className="arr-date-placeholder">Arrival</span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="f-grid-col f-time-col">
-                    <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
-                    <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
-                </div>
-
-                <div className="f-grid-col f-port-col">
-                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
-                        <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="T4" />
-                    </div>
-                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
-                        <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="T1" />
-                    </div>
-                </div>
-
-                <button className="f-seg-del" onClick={onDelete}><Trash2 size={12} /></button>
-            </div>
-            {layover && (
-                <div className="f-layover">
-                    <RefreshCcw size={10} /> {layover} layover
-                </div>
-            )}
+  return (
+    <div className="f-segment">
+      <div className="f-seg-grid">
+        <div className="f-grid-col f-id-col">
+          <input
+            className="f-inp s-full-num"
+            value={`${segment.airlineCode || ''} ${segment.flightNumber || ''}`.trim()}
+            onChange={e => {
+              const parts = e.target.value.split(' ');
+              onUpdate('airlineCode', parts[0] || '');
+              onUpdate('flightNumber', parts.slice(1).join(' ') || '');
+            }}
+            placeholder="FI 642"
+          />
+          <div className="f-sub-label">
+            <span className="seat-label">SEAT:</span>
+            <input
+              className="f-inp s-seat"
+              value={segment.seat || ''}
+              onChange={e => onUpdate('seat', e.target.value)}
+              placeholder="—"
+            />
+          </div>
         </div>
-    );
+
+        <div className="f-grid-col f-date-col">
+          <select
+            className="f-inp f-date-select"
+            value={segment.depDate || ''}
+            onChange={e => handleDepDateChange(e.target.value)}
+          >
+            <option value="">Select date</option>
+            {tripDates && tripDates.map((date, idx) => {
+              const dateStr = safeFormat(date, 'M/d/yy');
+              const displayStr = safeFormat(date, 'EEE MMM d');
+              return (
+                <option key={idx} value={dateStr}>{displayStr}</option>
+              );
+            })}
+          </select>
+          <div className="f-arr-date-display">
+            {arrDate && !isNaN(arrDate.getTime()) ? (
+              <span className="arr-date-text">
+                → {format(arrDate, 'EEE MMM d')}
+              </span>
+            ) : (
+              <span className="arr-date-placeholder">Arrival</span>
+            )}
+          </div>
+        </div>
+
+        <div className="f-grid-col f-time-col">
+          <input className="f-inp s-time" value={segment.depTime || ''} onChange={e => onUpdate('depTime', e.target.value)} placeholder="8:30p" />
+          <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => onUpdate('arrTime', e.target.value)} placeholder="6:25a" />
+        </div>
+
+        <div className="f-grid-col f-port-col">
+          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+            <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="T4" />
+          </div>
+          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+            <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="T1" />
+          </div>
+        </div>
+
+        <button className="f-seg-del" onClick={onDelete}><Trash2 size={12} /></button>
+      </div>
+      {layover && (
+        <div className="f-layover">
+          <RefreshCcw size={10} /> {layover} layover
+        </div>
+      )}
+    </div>
+  );
 };
 
 
@@ -1210,67 +1210,67 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
         ))}
         {flights.length === 0 && <div className="no-travel" style={{ padding: '1rem' }}>No flights added</div>}
       </div>
-      <button className="f-add-btn" onClick={onAdd} title="Adds an outbound and its reverse return leg">
-        <Plus size={10} /> ADD OUTBOUND + RETURN PAIR
+      <button className="f-add-btn" onClick={onAdd} title="Adds a booking with outbound and return legs">
+        <Plus size={10} /> ADD BOOKING
       </button>
     </div>
   );
 };
 
 const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
-    const handleStartChange = (date) => {
-        onUpdate(hotel.id, 'checkIn', date);
-    };
+  const handleStartChange = (date) => {
+    onUpdate(hotel.id, 'checkIn', date);
+  };
 
-    const handleEndChange = (date) => {
-        onUpdate(hotel.id, 'checkOut', date);
-    };
+  const handleEndChange = (date) => {
+    onUpdate(hotel.id, 'checkOut', date);
+  };
 
-    return (
-        <div className="hotel-row-item">
-            <div className="h-row-line h-row-top">
-                <input
-                    className="f-inp h-name"
-                    value={hotel.name || ''}
-                    onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
-                    placeholder="Hotel Name"
-                />
-                <div className="h-cost-actions">
-                    <div className="f-cost-box">
-                        <button
-                            className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
-                            onClick={() => onUpdate(hotel.id, 'isForeign', !hotel.isForeign)}
-                            title="Toggle Foreign/Domestic"
-                        >
-                            {hotel.isForeign ? <Globe size={11} /> : <span className="unit-mini">$</span>}
-                        </button>
-                        <input
-                            className="f-inp h-cost"
-                            type="number"
-                            value={hotel.cost || ''}
-                            onChange={e => onUpdate(hotel.id, 'cost', parseFloat(e.target.value) || 0)}
-                            placeholder="0"
-                        />
-                    </div>
-                    <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
-                </div>
-            </div>
-            <div className="h-row-line h-row-dates-range">
-                <TripDateRangePicker
-                    startDate={hotel.checkIn}
-                    endDate={hotel.checkOut}
-                    onStartChange={handleStartChange}
-                    onEndChange={handleEndChange}
-                    tripDates={tripDates}
-                />
-                <div className="h-times-row">
-                    <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
-                    <span className="time-sep">–</span>
-                    <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
-                </div>
-            </div>
+  return (
+    <div className="hotel-row-item">
+      <div className="h-row-line h-row-top">
+        <input
+          className="f-inp h-name"
+          value={hotel.name || ''}
+          onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
+          placeholder="Hotel Name"
+        />
+        <div className="h-cost-actions">
+          <div className="f-cost-box">
+            <button
+              className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
+              onClick={() => onUpdate(hotel.id, 'isForeign', !hotel.isForeign)}
+              title="Toggle Foreign/Domestic"
+            >
+              {hotel.isForeign ? <Globe size={11} /> : <span className="unit-mini">$</span>}
+            </button>
+            <input
+              className="f-inp h-cost"
+              type="number"
+              value={hotel.cost || ''}
+              onChange={e => onUpdate(hotel.id, 'cost', parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+          <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
         </div>
-    );
+      </div>
+      <div className="h-row-line h-row-dates-range">
+        <TripDateRangePicker
+          startDate={hotel.checkIn}
+          endDate={hotel.checkOut}
+          onStartChange={handleStartChange}
+          onEndChange={handleEndChange}
+          tripDates={tripDates}
+        />
+        <div className="h-times-row">
+          <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
+          <span className="time-sep">–</span>
+          <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd, tripDates }) => {
@@ -1627,140 +1627,140 @@ const SingleDatePicker = ({ value, onChange, className, placeholder = "Select da
 
 // Compact trip date range picker for hotels (only shows trip week(s))
 const TripDateRangePicker = ({ startDate, endDate, onStartChange, onEndChange, tripDates }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [selectingStart, setSelectingStart] = useState(true);
-    const [tempStart, setTempStart] = useState(null);
-    const popupRef = React.useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectingStart, setSelectingStart] = useState(true);
+  const [tempStart, setTempStart] = useState(null);
+  const popupRef = React.useRef(null);
 
-    // Close on outside click
-    React.useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (popupRef.current && !popupRef.current.contains(e.target)) {
-                setIsOpen(false);
-                setTempStart(null);
-                setSelectingStart(true);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const openCalendar = () => {
+  // Close on outside click
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setIsOpen(false);
         setTempStart(null);
         setSelectingStart(true);
-        setIsOpen(true);
+      }
     };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    const handleDayClick = (day) => {
-        if (selectingStart) {
-            setTempStart(day);
-            setSelectingStart(false);
-        } else {
-            if (tempStart && isBefore(day, tempStart)) {
-                setTempStart(day);
-            } else {
-                const finalStart = tempStart || startDate;
-                onStartChange(finalStart);
-                onEndChange(day);
-                setIsOpen(false);
-                setTempStart(null);
-                setSelectingStart(true);
-            }
-        }
+  const openCalendar = () => {
+    setTempStart(null);
+    setSelectingStart(true);
+    setIsOpen(true);
+  };
+
+  const handleDayClick = (day) => {
+    if (selectingStart) {
+      setTempStart(day);
+      setSelectingStart(false);
+    } else {
+      if (tempStart && isBefore(day, tempStart)) {
+        setTempStart(day);
+      } else {
+        const finalStart = tempStart || startDate;
+        onStartChange(finalStart);
+        onEndChange(day);
+        setIsOpen(false);
+        setTempStart(null);
+        setSelectingStart(true);
+      }
+    }
+  };
+
+  // Calculate number of days in range
+  const dayCount = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return differenceInCalendarDays(endDate, startDate) + 1;
+  }, [startDate, endDate]);
+
+  // Format display
+  const formatDisplay = () => {
+    if (!startDate || !endDate) {
+      return <span className="date-range-placeholder">Select dates</span>;
+    }
+    const fmtDate = (d) => {
+      const dow = format(d, 'EEE');
+      const mon = format(d, 'MMM').toUpperCase();
+      const day = format(d, 'd');
+      return <><span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span></>;
     };
+    return (
+      <>
+        {fmtDate(startDate)} <span className="range-dash">–</span> {fmtDate(endDate)} <span className="day-count-badge">({dayCount} day{dayCount !== 1 ? 's' : ''})</span>
+      </>
+    );
+  };
 
-    // Calculate number of days in range
-    const dayCount = useMemo(() => {
-        if (!startDate || !endDate) return 0;
-        return differenceInCalendarDays(endDate, startDate) + 1;
-    }, [startDate, endDate]);
+  // Render compact trip calendar
+  const renderTripCalendar = () => {
+    if (!tripDates || tripDates.length === 0) return null;
 
-    // Format display
-    const formatDisplay = () => {
-        if (!startDate || !endDate) {
-            return <span className="date-range-placeholder">Select dates</span>;
-        }
-        const fmtDate = (d) => {
-            const dow = format(d, 'EEE');
-            const mon = format(d, 'MMM').toUpperCase();
-            const day = format(d, 'd');
-            return <><span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span></>;
-        };
-        return (
-            <>
-                {fmtDate(startDate)} <span className="range-dash">–</span> {fmtDate(endDate)} <span className="day-count-badge">({dayCount} day{dayCount !== 1 ? 's' : ''})</span>
-            </>
-        );
-    };
-
-    // Render compact trip calendar
-    const renderTripCalendar = () => {
-        if (!tripDates || tripDates.length === 0) return null;
-
-        const activeStart = tempStart || startDate;
-        const activeEnd = tempStart ? null : endDate;
-
-        return (
-            <div className="trip-cal-grid">
-                <div className="trip-cal-weekdays">
-                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
-                </div>
-                <div className="trip-cal-days">
-                    {tripDates.map((date, idx) => {
-                        const isStart = activeStart && isSameDay(date, activeStart);
-                        const isEnd = activeEnd && isSameDay(date, activeEnd);
-                        const isInRange = activeStart && activeEnd && isAfter(date, activeStart) && isBefore(date, activeEnd);
-                        const dayOfWeek = date.getDay();
-
-                        // Add empty cells for proper alignment (only for first week)
-                        if (idx === 0 && dayOfWeek > 0) {
-                            return (
-                                <React.Fragment key={`frag-${idx}`}>
-                                    {[...Array(dayOfWeek)].map((_, i) => <div key={`empty-${i}`} className="trip-day empty" />)}
-                                    <div
-                                        className={`trip-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
-                                        onClick={() => handleDayClick(date)}
-                                    >
-                                        {format(date, 'd')}
-                                    </div>
-                                </React.Fragment>
-                            );
-                        }
-
-                        return (
-                            <div
-                                key={idx}
-                                className={`trip-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
-                                onClick={() => handleDayClick(date)}
-                            >
-                                {format(date, 'd')}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
+    const activeStart = tempStart || startDate;
+    const activeEnd = tempStart ? null : endDate;
 
     return (
-        <div className="trip-date-range-picker" ref={popupRef}>
-            <button className="cal-icon-btn trip-cal-btn" onClick={openCalendar} type="button" title="Select date range">
-                <span className="cal-emoji">🗓️</span>
-            </button>
-            <div className="date-range-display trip-display" onClick={openCalendar}>
-                {formatDisplay()}
-            </div>
-
-            {isOpen && (
-                <div className="trip-cal-popup">
-                    {renderTripCalendar()}
-                    <div className="cal-hint">
-                        {selectingStart ? 'Select check-in date' : 'Select check-out date'}
-                    </div>
-                </div>
-            )}
+      <div className="trip-cal-grid">
+        <div className="trip-cal-weekdays">
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
         </div>
+        <div className="trip-cal-days">
+          {tripDates.map((date, idx) => {
+            const isStart = activeStart && isSameDay(date, activeStart);
+            const isEnd = activeEnd && isSameDay(date, activeEnd);
+            const isInRange = activeStart && activeEnd && isAfter(date, activeStart) && isBefore(date, activeEnd);
+            const dayOfWeek = date.getDay();
+
+            // Add empty cells for proper alignment (only for first week)
+            if (idx === 0 && dayOfWeek > 0) {
+              return (
+                <React.Fragment key={`frag-${idx}`}>
+                  {[...Array(dayOfWeek)].map((_, i) => <div key={`empty-${i}`} className="trip-day empty" />)}
+                  <div
+                    className={`trip-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
+                    onClick={() => handleDayClick(date)}
+                  >
+                    {format(date, 'd')}
+                  </div>
+                </React.Fragment>
+              );
+            }
+
+            return (
+              <div
+                key={idx}
+                className={`trip-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
+                onClick={() => handleDayClick(date)}
+              >
+                {format(date, 'd')}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
+  };
+
+  return (
+    <div className="trip-date-range-picker" ref={popupRef}>
+      <button className="cal-icon-btn trip-cal-btn" onClick={openCalendar} type="button" title="Select date range">
+        <span className="cal-emoji">🗓️</span>
+      </button>
+      <div className="date-range-display trip-display" onClick={openCalendar}>
+        {formatDisplay()}
+      </div>
+
+      {isOpen && (
+        <div className="trip-cal-popup">
+          {renderTripCalendar()}
+          <div className="cal-hint">
+            {selectingStart ? 'Select check-in date' : 'Select check-out date'}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const SegmentedDateInput = ({ value, onChange, className }) => {
@@ -2067,28 +2067,7 @@ function App() {
 
   const [registrationCurrency, setRegistrationCurrency] = useState('USD');
   const [hotels, setHotels] = useState([]);
-  const [flights, setFlights] = useState([
-    {
-      id: 'f-1',
-      pairId: 'p-1',
-      airline: 'United',
-      confirmation: 'CONF123',
-      cost: 450,
-      segments: [
-        { id: 's-1', airlineCode: 'UA', flightNumber: '123', seat: '12A', depDate: 'Sun Apr 12 2026', depTime: '2:00p', depPort: 'SFO', arrDate: 'Sun Apr 12 2026', arrTime: '10:00p', arrPort: 'IAD' }
-      ]
-    },
-    {
-      id: 'f-2',
-      pairId: 'p-1',
-      airline: 'United',
-      confirmation: 'CONF123',
-      cost: 0,
-      segments: [
-        { id: 's-3', airlineCode: 'UA', flightNumber: '456', seat: '14C', depDate: 'Fri Apr 17 2026', depTime: '6:00p', depPort: 'IAD', arrDate: 'Sat Apr 18 2026', arrTime: '1:00a', arrPort: 'SFO' }
-      ]
-    }
-  ]);
+  const [flights, setFlights] = useState([]);
 
   const flightTotal = useMemo(() => {
     return flights.reduce((sum, f) => sum + (f.cost || 0), 0);
@@ -2684,45 +2663,42 @@ function App() {
 
   const addFlightLeg = () => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-      const pairId = generateId();
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+
+      const outboundDate = days[0] ? format(days[0].date, 'M/d/yy') : '';
+      const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '';
+
       const newFlight = {
         id: generateId(),
-        pairId,
         airline: '',
         confirmation: '',
         cost: 0,
-        segments: [{
-          id: generateId(),
-          airlineCode: '',
-          flightNumber: '',
-          seat: '',
-          depDate: days[0] ? format(days[0].date, 'M/d/yy') : '',
-          depTime: '',
-          depPort: '',
-          arrDate: days[0] ? format(days[0].date, 'M/d/yy') : '',
-          arrTime: '',
-          arrPort: ''
-        }]
-      };
-      const returnFlight = {
-        id: generateId(),
-        pairId,
-        airline: '',
-        confirmation: '',
-        cost: 0,
-        segments: [{
-          id: generateId(),
-          airlineCode: '',
-          flightNumber: '',
-          seat: '',
-          depDate: days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '',
-          depTime: '',
-          depPort: '',
-          arrDate: days[days.length - 1] ? format(days[days.length - 1].date, 'M/d/yy') : '',
-          arrTime: '',
-          arrPort: ''
-        }]
+        segments: [
+          {
+            id: generateId(),
+            airlineCode: '',
+            flightNumber: '',
+            seat: '',
+            depDate: outboundDate,
+            depTime: '10:00a',
+            depPort: '',
+            arrDate: outboundDate,
+            arrTime: '2:00p',
+            arrPort: ''
+          },
+          {
+            id: generateId(),
+            airlineCode: '',
+            flightNumber: '',
+            seat: '',
+            depDate: returnDate,
+            depTime: '4:00p',
+            depPort: '',
+            arrDate: returnDate,
+            arrTime: '8:00p',
+            arrPort: ''
+          }
+        ]
       };
 
       // Auto-update hotel dates when flights are added
@@ -2736,10 +2712,7 @@ function App() {
         });
       });
 
-      const updated = [...prev];
-      updated.push(newFlight);
-      updated.push(returnFlight);
-      return updated;
+      return [...prev, newFlight];
     });
   };
 
@@ -2754,8 +2727,28 @@ function App() {
 
   const updateFlight = (id, field, value) => {
     setFlights(prev => {
-      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-      const updated = prev.map(f => f.id === id ? { ...f, [field]: value } : f);
+      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
+
+      let updatedSegments = null;
+      if (field === 'segments') {
+        // Intra-flight mirroring (Outbound -> Return)
+        // If it's a 2-segment flight (common booking), mirror ports
+        if (value.length === 2) {
+          const s1 = value[0];
+          const s2 = value[1];
+          // Mirror outbound depPort to return arrPort if return arrPort is blank
+          if (s1.depPort && !s2.arrPort) s2.arrPort = s1.depPort;
+          // Mirror outbound arrPort to return depPort if return depPort is blank
+          if (s1.arrPort && !s2.depPort) s2.depPort = s1.arrPort;
+          // Mirror return arrPort to outbound depPort if outbound depPort is blank
+          if (s2.arrPort && !s1.depPort) s1.depPort = s2.arrPort;
+          // Mirror return depPort to outbound arrPort if outbound arrPort is blank
+          if (s2.depPort && !s1.arrPort) s1.arrPort = s2.depPort;
+        }
+        updatedSegments = value;
+      }
+
+      const updated = prev.map(f => f.id === id ? { ...f, [field]: value, segments: updatedSegments || f.segments } : f);
 
       const current = updated.find(f => f.id === id);
       if (current.pairId) {
@@ -2765,13 +2758,19 @@ function App() {
               return { ...f, [field]: value };
             }
             if (field === 'segments') {
+              // Be careful not to destroy dates during cross-flight mirroring
               const partners = value.map((s, idx) => {
                 const counterpart = value[value.length - 1 - idx];
+                const existing = f.segments[idx] || {};
                 return {
                   ...s,
-                  id: generateId(),
-                  depDate: '', depTime: '', depPort: counterpart.arrPort,
-                  arrDate: '', arrTime: '', arrPort: counterpart.depPort
+                  id: existing.id || generateId(),
+                  depDate: existing.depDate || '',
+                  depTime: existing.depTime || '',
+                  depPort: counterpart.arrPort || existing.depPort || '',
+                  arrDate: existing.arrDate || '',
+                  arrTime: existing.arrTime || '',
+                  arrPort: counterpart.depPort || existing.arrPort || ''
                 };
               });
               return { ...f, segments: partners };
@@ -3037,7 +3036,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:57 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 06:50 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
