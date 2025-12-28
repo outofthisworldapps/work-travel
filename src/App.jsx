@@ -1082,7 +1082,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               const d = parseFrag(segment.depDate);
               const daysToAdd = arrMins < depMins ? 1 : 0;
               const newArrDate = addDays(d, daysToAdd);
-              onUpdate('arrDate', format(newArrDate, 'yyyy-MM-dd'));
+              onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
             }
           }} placeholder="" />
           <input className="f-inp s-time" value={segment.arrTime || ''} onChange={e => {
@@ -1094,7 +1094,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               const d = parseFrag(segment.depDate);
               const daysToAdd = arrMins < depMins ? 1 : 0;
               const newArrDate = addDays(d, daysToAdd);
-              onUpdate('arrDate', format(newArrDate, 'yyyy-MM-dd'));
+              onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
             }
           }} placeholder="" />
         </div>
@@ -2535,8 +2535,8 @@ function App() {
   };
 
   const addLeg = (dayIdx) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const newDays = [...prev];
       const day = newDays[dayIdx];
       const lastLeg = day.legs[day.legs.length - 1];
@@ -2555,8 +2555,8 @@ function App() {
   };
 
   const addDay = () => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const lastDay = prev[prev.length - 1];
       const newDate = addDays(lastDay?.date || new Date(), 1);
       const newDay = {
@@ -2584,8 +2584,8 @@ function App() {
   };
 
   const toggleLink = (legId) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setDays(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
       const newDays = JSON.parse(JSON.stringify(prev));
       let targetLeg = null;
       newDays.forEach(d => d.legs.forEach(l => { if (l.id === legId) targetLeg = l }));
@@ -2599,8 +2599,8 @@ function App() {
   };
 
   const updateLeg = useCallback((dayId, legId, field, value) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setDays((prev) => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
       const newDays = JSON.parse(JSON.stringify(prev));
       const day = newDays.find(d => d.id === dayId);
       const leg = day?.legs.find(l => l.id === legId);
@@ -2781,8 +2781,8 @@ function App() {
   };
 
   const addFlightLeg = () => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setFlights(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
 
       const outboundDate = days[0] ? format(days[0].date, 'yyyy-MM-dd') : '';
       const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'yyyy-MM-dd') : '';
@@ -2840,24 +2840,27 @@ function App() {
 
 
   const deleteFlight = (id) => {
-    setFlights(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-      return prev.filter(f => f.id !== id);
-    });
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+    setFlights(prev => prev.filter(f => f.id !== id));
   };
 
   const updateFlight = (id, field, value) => {
+    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     setFlights(prev => {
-      saveToHistory(prev, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels);
-
-      const updated = prev.map(f => {
+      return prev.map(f => {
         if (f.id !== id) return f;
         let newF = { ...f, [field]: value };
 
+        // Ensure we deep-clone segments to avoid mutation
+        if (field === 'outbound') newF.outbound = value.map(s => ({ ...s }));
+        if (field === 'returnSegments') newF.returnSegments = value.map(s => ({ ...s }));
+
         // Smarter mirroring for airports
         if (field === 'outbound' || field === 'returnSegments') {
-          const out = newF.outbound || [];
-          const ret = newF.returnSegments || [];
+          // Clone arrays before modifying interior objects
+          const out = (newF.outbound || []).map(s => ({ ...s }));
+          const ret = (newF.returnSegments || []).map(s => ({ ...s }));
+
           if (out.length > 0 && ret.length > 0) {
             const sOut = out[0];
             const sRet = ret[ret.length - 1]; // Mirror outbound dep to last return arr
@@ -2873,10 +2876,13 @@ function App() {
             // outbound arrPort -> return depPort
             ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
           }
+
+          // Always reassign the cloned arrays back, not just when mirroring
+          newF.outbound = out;
+          newF.returnSegments = ret;
         }
         return newF;
       });
-      return updated;
     });
   };
 
@@ -2898,23 +2904,22 @@ function App() {
     let globalChanged = false;
     const nextDays = days.map((day, dIdx) => {
       const dayStr = safeFormat(day.date, 'yyyy-MM-dd');
-      let newLegs = [...day.legs];
-      let dayChanged = false;
+      let currentNonAutoLegs = (day.legs || []).filter(l => !l.auto);
+      const neededAutoLegs = [];
 
-      flights.forEach((f, fIdx) => {
+      flights.forEach((f) => {
         const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
         allSegments.forEach((seg, sIdx) => {
-          const segDepDate = parseSegDate(seg.depDate);
-          const segArrDate = parseSegDate(seg.arrDate);
+          const segDepDateStr = parseSegDate(seg.depDate);
+          const segArrDateStr = parseSegDate(seg.arrDate);
 
           const isOutbound = f.outbound && f.outbound.includes(seg);
           const isReturn = f.returnSegments && f.returnSegments.includes(seg);
 
-          // Use getPortTZ as a fallback, but trust fIdx for start/end of trip
           const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
           let isDepHome = depPortTZ === homeTimeZone;
           if (isOutbound && sIdx === 0) isDepHome = true;
-          if (isReturn && sIdx === allSegments.length - 1) isDepHome = false; // Ending at home, but starting from away
+          if (isReturn && sIdx === allSegments.length - 1) isDepHome = false;
 
           const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
           let isArrHome = arrPortTZ === homeTimeZone;
@@ -2922,93 +2927,76 @@ function App() {
           if (isReturn && seg === f.returnSegments[f.returnSegments.length - 1]) isArrHome = true;
 
           // Departure to airport
-          if (segDepDate === dayStr) {
+          if (segDepDateStr === dayStr) {
             const flTime = parseTime(seg.depTime);
             let rideDur = isDepHome ? 1 : 0.5;
             let waitAtAirport = 3;
             const rideStartTimeNum = flTime ? (flTime - waitAtAirport - rideDur + 24) % 24 : 11;
-            const newTime = formatTime(rideStartTimeNum);
-            const durationMins = rideDur * 60;
-
-            const existingIdx = newLegs.findIndex(l => l.auto && l.to === seg.depPort);
-            if (existingIdx >= 0) {
-              const ex = newLegs[existingIdx];
-              if (ex.time !== newTime || ex.duration !== durationMins || ex.from !== (isDepHome ? 'Home' : 'Hotel')) {
-                newLegs[existingIdx] = { ...ex, time: newTime, duration: durationMins, from: isDepHome ? 'Home' : 'Hotel' };
-                dayChanged = true;
-              }
-            } else {
-              newLegs.push({
-                id: generateId(),
-                from: isDepHome ? 'Home' : 'Hotel',
-                to: seg.depPort,
-                type: 'uber',
-                time: newTime,
-                duration: durationMins,
-                amount: 45,
-                currency: 'USD',
-                auto: true
-              });
-              dayChanged = true;
-            }
+            neededAutoLegs.push({
+              from: isDepHome ? 'Home' : 'Hotel',
+              to: seg.depPort,
+              type: 'uber',
+              time: formatTime(rideStartTimeNum),
+              duration: rideDur * 60,
+              amount: 45,
+              currency: 'USD',
+              auto: true
+            });
           }
 
           // Arrival from airport
-          if (segArrDate === dayStr) {
+          if (segArrDateStr === dayStr) {
             const flArrTime = parseTime(seg.arrTime);
             let rideDur = isArrHome ? 1 : 0.5;
             let waitAtAirport = 1;
             const rideStartTimeNum = flArrTime ? (flArrTime + waitAtAirport) % 24 : 12;
-            const newTime = formatTime(rideStartTimeNum);
-            const durationMins = rideDur * 60;
-
-            const existingIdx = newLegs.findIndex(l => l.auto && l.from === seg.arrPort);
-            if (existingIdx >= 0) {
-              const ex = newLegs[existingIdx];
-              if (ex.time !== newTime || ex.duration !== durationMins || ex.to !== (isArrHome ? 'Home' : 'Hotel')) {
-                newLegs[existingIdx] = { ...ex, time: newTime, duration: durationMins, to: isArrHome ? 'Home' : 'Hotel' };
-                dayChanged = true;
-              }
-            } else {
-              newLegs.push({
-                id: generateId(),
-                from: seg.arrPort,
-                to: isArrHome ? 'Home' : 'Hotel',
-                type: 'uber',
-                time: newTime,
-                duration: durationMins,
-                amount: 45,
-                currency: 'USD',
-                auto: true
-              });
-              dayChanged = true;
-            }
+            neededAutoLegs.push({
+              from: seg.arrPort,
+              to: isArrHome ? 'Home' : 'Hotel',
+              type: 'uber',
+              time: formatTime(rideStartTimeNum),
+              duration: rideDur * 60,
+              amount: 45,
+              currency: 'USD',
+              auto: true
+            });
           }
         });
       });
 
-      // Special check: if NO flight exists on this day anymore, remove auto-legs
-      const dayHasFlight = flights.some(f => [...(f.outbound || []), ...(f.returnSegments || [])].some(s => parseSegDate(s.depDate) === dayStr || parseSegDate(s.arrDate) === dayStr));
-      if (!dayHasFlight) {
-        const legsKeep = newLegs.filter(l => !l.auto);
-        if (legsKeep.length !== newLegs.length) {
-          newLegs = legsKeep;
+      // Match needed with existing to preserve IDs
+      let dayChanged = false;
+      const existingAutoLegs = (day.legs || []).filter(l => l.auto);
+      const finalLegs = [...currentNonAutoLegs];
+
+      neededAutoLegs.forEach(needed => {
+        const foundIdx = existingAutoLegs.findIndex(ex => ex.from === needed.from && ex.to === needed.to);
+        if (foundIdx >= 0) {
+          const matched = existingAutoLegs.splice(foundIdx, 1)[0];
+          if (matched.time !== needed.time || matched.duration !== needed.duration || matched.from !== needed.from || matched.to !== needed.to) {
+            dayChanged = true;
+          }
+          finalLegs.push({ ...matched, ...needed });
+        } else {
+          finalLegs.push({ id: generateId(), ...needed });
           dayChanged = true;
         }
-      }
+      });
+
+      if (existingAutoLegs.length > 0) dayChanged = true;
 
       if (dayChanged) {
         globalChanged = true;
-        return { ...day, legs: newLegs };
+        return { ...day, legs: finalLegs };
       }
       return day;
     });
 
-
     if (globalChanged) {
       setDays(nextDays);
+      saveToHistory(nextDays, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     }
-  }, [flights, days.length, homeTimeZone, destTimeZone]);
+  }, [flights, homeCity, destCity, homeTimeZone, destTimeZone]);
 
   // Ensure trip covers all flight segments
   React.useEffect(() => {

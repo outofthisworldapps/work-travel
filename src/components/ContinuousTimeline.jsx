@@ -32,21 +32,37 @@ const formatTimeNum = (num) => {
 };
 
 // Parse segment date string to Date
-const parseSegDate = (dateStr) => {
+const parseSegDate = (dateStr, refDate) => {
     if (!dateStr) return null;
     try {
-        if (dateStr.includes('-')) {
-            const [y, m, d] = dateStr.split('-').map(Number);
-            return new Date(y, m - 1, d, 12, 0, 0);
-        }
+        let d = null;
         if (dateStr.includes('/')) {
             const parts = dateStr.split('/');
             let y = parseInt(parts[2]);
             if (y < 100) y += 2000;
-            return new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
+            d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
+        } else if (dateStr.includes('-')) {
+            const [y, m, d_part] = dateStr.split('-').map(Number);
+            d = new Date(y, m - 1, d_part, 12, 0, 0);
+        } else {
+            // Try native parsing for 'EEE MMM d yyyy' etc.
+            d = new Date(dateStr);
+            if (isNaN(d.getTime())) {
+                // Handle formats like "Wed Apr 15"
+                const parts = dateStr.split(' ');
+                if (parts.length >= 3) {
+                    const months = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+                    const month = months[parts[1]];
+                    const day = parseInt(parts[2]);
+                    const year = parts[3] ? parseInt(parts[3]) : (refDate ? refDate.getFullYear() : new Date().getFullYear());
+                    d = new Date(year, month, day, 12, 0, 0);
+                }
+            } else if (refDate && d.getFullYear() !== refDate.getFullYear()) {
+                // If it parsed but the year is wrong (e.g. current year vs trip year)
+                d.setFullYear(refDate.getFullYear());
+            }
         }
-        const d = new Date(dateStr);
-        return isNaN(d.getTime()) ? null : d;
+        return (!d || isNaN(d.getTime())) ? null : d;
     } catch (e) { return null; }
 };
 
@@ -154,19 +170,35 @@ const ContinuousTimeline = ({
     };
 
     // Calculate all midnights
-    const midnights = useMemo(() =>
-        calculateMidnights(tripStartDate, totalDays, homeTimeZone, destTimeZone),
-        [tripStartDate, totalDays, homeTimeZone, destTimeZone]
-    );
+    const midnights = useMemo(() => {
+        if (!tripStartDate) return [];
+        const homeMidnights = calculateMidnights(tripStartDate, totalDays, homeTimeZone, homeTimeZone);
+        let awayMidnights = [];
+        if (isDifferentTZ) {
+            awayMidnights = calculateMidnights(tripStartDate, totalDays, homeTimeZone, destTimeZone);
+        }
+        return [...homeMidnights, ...awayMidnights];
+    }, [tripStartDate, totalDays, homeTimeZone, destTimeZone, isDifferentTZ]);
 
     // Process all flights into timeline segments
     const flightSegments = useMemo(() => {
         const segments = [];
+        const seenIds = new Set();
 
-        flights.forEach(f => {
-            (f.segments || []).forEach(s => {
-                const depDate = parseSegDate(s.depDate);
-                const arrDate = parseSegDate(s.arrDate);
+        flights.forEach((f, fIdx) => {
+            const allSegs = [
+                ...(f.outbound || []),
+                ...(f.returnSegments || [])
+            ];
+
+            allSegs.forEach((s, sIdx) => {
+                if (!s.id) return;
+                // Avoid duplicates if a segment is in multiple lists for some reason
+                if (seenIds.has(s.id)) return;
+                seenIds.add(s.id);
+
+                const depDate = parseSegDate(s.depDate, tripStartDate);
+                const arrDate = parseSegDate(s.arrDate, tripStartDate);
                 const depTime = parseTime(s.depTime);
                 const arrTime = parseTime(s.arrTime);
 
@@ -182,20 +214,20 @@ const ContinuousTimeline = ({
 
                 // Calculate days offset from trip start
                 const tripStart = startOfDay(tripStartDate);
-                const depDayOffset = differenceInHours(startOfDay(depDate), tripStart) / 24;
-                const arrDayOffset = differenceInHours(startOfDay(arrDate), tripStart) / 24;
+                const depDayOffset = Math.round(differenceInMinutes(startOfDay(depDate), tripStart) / 1440);
+                const arrDayOffset = Math.round(differenceInMinutes(startOfDay(arrDate), tripStart) / 1440);
 
                 const depHoursFromStart = depDayOffset * 24 + depTime + depShift;
                 const arrHoursFromStart = arrDayOffset * 24 + arrTime + arrShift;
 
-                // Only include if within trip bounds
-                if (depHoursFromStart >= 0 && depHoursFromStart <= totalHours) {
+                // Only include if within trip bounds (allow slight overflow for long flights)
+                if (arrHoursFromStart >= -24 && depHoursFromStart <= totalHours + 24) {
                     segments.push({
-                        id: s.id,
+                        id: s.id || `f-${fIdx}-${sIdx}`,
                         parentFlight: f,
                         segment: s,
-                        startHours: Math.max(0, depHoursFromStart),
-                        endHours: Math.min(totalHours, arrHoursFromStart),
+                        startHours: depHoursFromStart,
+                        endHours: arrHoursFromStart,
                         depPort: s.depPort,
                         arrPort: s.arrPort,
                         depTime: depTime + depShift,
@@ -212,7 +244,7 @@ const ContinuousTimeline = ({
     const hotelSegments = useMemo(() => {
         const segments = [];
 
-        hotels.forEach(h => {
+        hotels.forEach((h, hIdx) => {
             if (!h.checkIn || !h.checkOut || isNaN(h.checkIn.getTime()) || isNaN(h.checkOut.getTime())) return;
 
             const tripStart = startOfDay(tripStartDate);
@@ -228,12 +260,12 @@ const ContinuousTimeline = ({
             const startHours = checkInDayOffset * 24 + checkInTime + shift;
             const endHours = checkOutDayOffset * 24 + checkOutTime + shift;
 
-            if (startHours < totalHours && endHours > 0) {
+            if (startHours < totalHours + 24 && endHours > -24) {
                 segments.push({
-                    id: h.id,
+                    id: h.id || `h-${hIdx}`,
                     hotel: h,
-                    startHours: Math.max(0, startHours),
-                    endHours: Math.min(totalHours, endHours),
+                    startHours: Math.max(-24, startHours),
+                    endHours: Math.min(totalHours + 24, endHours),
                     name: h.name
                 });
             }
@@ -247,7 +279,7 @@ const ContinuousTimeline = ({
         const legs = [];
 
         days.forEach((day, dayIdx) => {
-            (day.legs || []).forEach(l => {
+            (day.legs || []).forEach((l, legIdx) => {
                 if (l.type === 'flight') return;
 
                 const isHome = l.from === 'Home' || l.to === 'Home';
@@ -261,7 +293,7 @@ const ContinuousTimeline = ({
                 const endHours = startHours + duration;
 
                 legs.push({
-                    id: l.id,
+                    id: l.id || `l-${dayIdx}-${legIdx}`,
                     leg: l,
                     dayIndex: dayIdx,
                     startHours,
@@ -275,7 +307,7 @@ const ContinuousTimeline = ({
         });
 
         return legs;
-    }, [days, homeTimeZone, destTimeZone]);
+    }, [days, tripStartDate, homeTimeZone, destTimeZone]);
 
     // Get emoji for location
     const getEmoji = (loc, isAway = false) => {
