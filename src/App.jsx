@@ -937,6 +937,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 
 // Updated FlightSegmentRow component
 // Simplified FlightSegmentRow with dropdown date selector
+// Simplified FlightSegmentRow with dropdown date selector
 const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDates }) => {
     const parseFrag = (dateStr) => {
         if (!dateStr) return new Date();
@@ -995,22 +996,8 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
         }
     };
 
-    // Auto-update arrival date when times change
-    React.useEffect(() => {
-        const depMins = parseTimeToMinutes(segment.depTime);
-        const arrMins = parseTimeToMinutes(segment.arrTime);
-
-        if (depMins !== null && arrMins !== null && segment.depDate) {
-            const baseDep = parseFrag(segment.depDate);
-            const daysToAdd = arrMins < depMins ? 1 : 0;
-            const newArrDate = addDays(baseDep, daysToAdd);
-            const expectedArr = safeFormat(newArrDate, 'M/d/yy');
-
-            if (segment.arrDate !== expectedArr) {
-                onUpdate('arrDate', expectedArr);
-            }
-        }
-    }, [segment.depTime, segment.arrTime, segment.depDate]);
+    // REMOVED: Auto-update effect that was causing the date flipping bug
+    // The auto-calculation now only happens when user explicitly changes dep date
 
     return (
         <div className="f-segment">
@@ -3050,7 +3037,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:46 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 22:57 EST</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3903,18 +3890,18 @@ function App() {
         .f-route-display { display: grid; grid-template-columns: 120px 60px 50px 20px 50px 60px 120px; align-items: center; gap: 6px; }
         .s-date { font-size: 0.7rem; width: 100% !important; }
         .s-time { width: 55px !important; font-size: 0.75rem; text-align: center; font-weight: 600; }
-        .s-port { width: 45px !important; font-weight: 900; text-transform: uppercase; text-align: center; color: #fff !important; }
+        .s-port { width: 50px !important; font-weight: 900; text-transform: uppercase; text-align: center; color: #fff !important; }
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
-        .f-seg-grid { display: grid; grid-template-columns: 75px 115px 55px 40px 24px; gap: 4px 6px; align-items: center; }
+        .f-seg-grid { display: grid; grid-template-columns: 75px 170px 60px 110px 32px; gap: 4px 6px; align-items: center; }
         .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
         .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
         .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
         .s-date { font-size: 0.65rem; width: 100% !important; }
         .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: left !important; }
-        .s-port { width: 45px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
-        .s-term { width: 28px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
+        .s-port { width: 50px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
+        .s-term { width: 32px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
         .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
         .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; grid-column: 5; align-self: center; transition: color 0.2s; }
