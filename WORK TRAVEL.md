@@ -64,10 +64,12 @@
   - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport).
   - Mode: 🚘 (Uber/Car/Taxi).
 - **Auto-populate Travel Legs**:
-  - Outbound to Airport: 45m drive, arriving 3h before.
-  - Outbound from Airport: 1h after arrival, 45m drive.
-  - Return to Airport: 45m drive, arriving 3h before.
-  - Return from Airport: 1h after arrival, 45m drive.
+  - Ride to / from the airport takes 1 hour (Home <-> Airport).
+  - Get to the airport 3 hours before the flight.
+  - Leave the airport 1 hour after arrival.
+  - Ride between airport and hotel takes 30 minutes (Hotel <-> Airport).
+  - Maintain correct location time zone for each ride.
+  - Transportation updates automatically on flight or time zone changes.
 
 ## Data & Logic
 - **Precision**: Show cents for every total (always 2 decimal places).

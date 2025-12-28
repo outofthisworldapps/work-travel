@@ -260,7 +260,7 @@ const getMidnights = (date, homeTZ, destTZ) => {
   midnights.push({
     time: 0,
     tz: 'home',
-    label: format(homeStart, 'EEE MMM d').toUpperCase()
+    label: format(homeStart, 'EEE|MMM d').toUpperCase()
   });
 
   if (homeTZ !== destTZ) {
@@ -277,7 +277,7 @@ const getMidnights = (date, homeTZ, destTZ) => {
             midnights.push({
               time: h + (m + 1) / 60,
               tz: 'dest',
-              label: new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
+              label: (new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, weekday: 'short' }) + '|' + new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, month: 'short', day: 'numeric' })).toUpperCase()
             });
             break;
           }
@@ -398,11 +398,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
       <div className="timeline-col day-col left">
         {midnights.filter(m => m.tz === 'home').map((m, i) => (
           <div key={i} className="midnight-label-stack home" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
-            <div className="date-stack home"><div className="tl-dw">{m.label}</div></div>
+            <div className="date-stack home">
+              <div className="tl-dw">{m.label.split('|')[0]}</div>
+              <div className="tl-dm">{m.label.split('|')[1]}</div>
+            </div>
           </div>
         ))}
       </div>
-      <div className="timeline-col time-col left" />
+      <div className="timeline-col time-col left" style={{ width: '65px' }} />
 
 
       <div className="timeline-hours-container">
@@ -713,11 +716,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
       {isDifferentTZ && (
         <>
-          <div className="timeline-col time-col right" />
+          <div className="timeline-col time-col right" style={{ width: '65px' }} />
           <div className="timeline-col day-col right">
             {midnights.filter(m => m.tz === 'dest').map((m, i) => (
               <div key={i} className="midnight-label-stack dest" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
-                <div className="date-stack dest"><div className="tl-dw">{m.label}</div></div>
+                <div className="date-stack dest">
+                  <div className="tl-dw">{m.label.split('|')[0]}</div>
+                  <div className="tl-dm">{m.label.split('|')[1]}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -1504,6 +1510,7 @@ function App() {
   const [useAlt, setUseAlt] = useState(true);
   const [customRates, setCustomRates] = useState(MOCK_RATES);
   const [tripName, setTripName] = useState('Global Tech Summit');
+  const [tripWebsite, setTripWebsite] = useState('');
   const [homeCity, setHomeCity] = useState('Washington, DC');
   const [homeTimeZone, setHomeTimeZone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [destCity, setDestCity] = useState('London');
@@ -1558,6 +1565,7 @@ function App() {
       past: [...prev.past.slice(-50), {
         days: currentDays,
         tripName: currentTripName,
+        tripWebsite: tripWebsite,
         registrationFee: currentRegistrationFee,
         registrationCurrency: currentRegistrationCurrency,
         altCurrency: currentAltCurrency,
@@ -1593,9 +1601,11 @@ function App() {
       if (previous.hotels) setHotels(previous.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
       // Removed setFlightTotal as it's a derived state (useMemo)
 
+      if (previous.tripWebsite !== undefined) setTripWebsite(previous.tripWebsite);
+
       return {
         past: newPast,
-        future: [{ days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone }, ...prev.future]
+        future: [{ days, tripName, tripWebsite, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone }, ...prev.future]
       };
     });
   }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone]);
@@ -2191,29 +2201,35 @@ function App() {
         (flight.segments || []).forEach((seg, sIdx) => {
           const segDepDate = parseSegDate(seg.depDate);
           const segArrDate = parseSegDate(seg.arrDate);
-          const isOutbound = dIdx < days.length / 2;
+
+          const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+          const isDepHome = depPortTZ === homeTimeZone;
+
+          const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+          const isArrHome = arrPortTZ === homeTimeZone;
 
           if (segDepDate === dayStr) {
             const flTime = parseTime(seg.depTime);
-            // Outbound: arrive 3h before. Travel time 0.75h (45m).
-            // Start of trip = DepTime - 3 - 0.75 = DepTime - 3.75
-            const uberTimeNum = flTime ? (flTime - 3.75 + 24) % 24 : 11;
+            const isStartOfTrip = (dIdx === 0);
+            let rideDur = isStartOfTrip ? 1 : 0.5;
+            let waitTime = 3;
+            const uberTimeNum = flTime ? (flTime - waitTime - rideDur + 24) % 24 : 11;
             const newTime = formatTime(uberTimeNum);
-
 
             const existingIdx = newLegs.findIndex(l => l.auto && l.to === seg.depPort);
             if (existingIdx >= 0) {
-              if (newLegs[existingIdx].time !== newTime) {
-                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime };
+              if (newLegs[existingIdx].time !== newTime || newLegs[existingIdx].duration !== rideDur * 60) {
+                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime, duration: rideDur * 60, from: isStartOfTrip ? 'Home' : 'Hotel' };
                 dayChanged = true;
               }
             } else {
               newLegs.push({
                 id: generateId(),
-                from: dIdx === 0 ? 'Home' : 'Hotel',
+                from: isStartOfTrip ? 'Home' : 'Hotel',
                 to: seg.depPort,
                 type: 'uber',
                 time: newTime,
+                duration: rideDur * 60,
                 amount: 45,
                 currency: 'USD',
                 auto: true
@@ -2224,22 +2240,26 @@ function App() {
 
           if (segArrDate === dayStr) {
             const flArrTime = parseTime(seg.arrTime);
-            const uberStart = flArrTime ? (flArrTime + 1) : 12;
+            const isEndOfTrip = (dIdx === days.length - 1);
+            let rideDur = isEndOfTrip ? 1 : 0.5;
+            let waitTime = 1;
+            const uberStart = flArrTime ? (flArrTime + waitTime) : 12;
             const newTime = formatTime(uberStart);
 
             const existingIdx = newLegs.findIndex(l => l.auto && l.from === seg.arrPort);
             if (existingIdx >= 0) {
-              if (newLegs[existingIdx].time !== newTime) {
-                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime };
+              if (newLegs[existingIdx].time !== newTime || newLegs[existingIdx].duration !== rideDur * 60) {
+                newLegs[existingIdx] = { ...newLegs[existingIdx], time: newTime, duration: rideDur * 60, to: isEndOfTrip ? 'Home' : 'Hotel' };
                 dayChanged = true;
               }
             } else {
               newLegs.push({
                 id: generateId(),
                 from: seg.arrPort,
-                to: dIdx === days.length - 1 ? 'Home' : 'Hotel',
+                to: isEndOfTrip ? 'Home' : 'Hotel',
                 type: 'uber',
                 time: newTime,
+                duration: rideDur * 60,
                 amount: 45,
                 currency: 'USD',
                 auto: true
@@ -2401,62 +2421,76 @@ function App() {
                   onChange={e => setTripName(e.target.value)}
                 />
 
-                <div className="location-grid">
-                  <div className="location-row active">
-                    <span className="loc-icon"><Home size={16} /></span>
-                    <input
-                      className="location-input"
-                      value={homeCity}
-                      onChange={e => setHomeCity(e.target.value)}
-                      placeholder="Home City"
-                    />
-                    <TimeZoneSelector value={homeTimeZone} onChange={setHomeTimeZone} />
+                <div className="website-row">
+                  <Link2 size={14} className="web-icon" />
+                  <input
+                    className="trip-web-input"
+                    value={tripWebsite}
+                    onChange={e => setTripWebsite(e.target.value)}
+                    placeholder="Website (Optional)"
+                  />
+                </div>
+
+                <div className="trip-meta-row-vertical">
+                  <div className="header-dates-row">
+                    <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
+                    <span className="date-sep">—</span>
+                    <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
                   </div>
-                  <div className="location-row">
-                    <span className="loc-icon"><Plane size={16} /></span>
-                    <input
-                      className="location-input"
-                      value={destCity}
-                      onChange={e => setDestCity(e.target.value)}
-                      placeholder="Destination City"
-                    />
+                  <div className="day-count-row">
+                    <span className="day-count">{days.length} Days</span>
+                  </div>
+                  <div className="conf-center-block">
+                    <div className="conf-center-row">
+                      <span className="conf-icon"><MapPin size={12} /></span>
+                      <input
+                        className="conf-input"
+                        value={conferenceCenter}
+                        onChange={(e) => setConferenceCenter(e.target.value)}
+                        placeholder="Conference Center"
+                      />
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="conf-map-link"
+                        title="Open in Google Maps"
+                      >
+                        <Navigation size={12} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="location-grid-vertical">
+                  <div className="location-block">
+                    <div className="location-input-row">
+                      <span className="loc-icon"><Plane size={16} /></span>
+                      <input
+                        className="location-input"
+                        value={destCity}
+                        onChange={e => setDestCity(e.target.value)}
+                        placeholder="Destination City"
+                      />
+                    </div>
                     <TimeZoneSelector
                       value={destTimeZone}
                       onChange={setDestTimeZone}
                       homeValue={homeTimeZone}
                     />
                   </div>
-                </div>
 
-
-                <div className="trip-meta-row">
-                  <div className="trip-dates-vertical-wrap">
-                    <div className="header-dates-row">
-                      <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
-                      <span className="date-sep">—</span>
-                      <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
+                  <div className="location-block home-block">
+                    <div className="location-input-row">
+                      <span className="loc-icon"><Home size={16} /></span>
+                      <input
+                        className="location-input"
+                        value={homeCity}
+                        onChange={e => setHomeCity(e.target.value)}
+                        placeholder="Home City"
+                      />
                     </div>
-                    <div className="header-sub-row">
-                      <span className="day-count">{days.length} Days</span>
-                      <div className="conf-center-row">
-                        <span className="conf-icon"><MapPin size={12} /></span>
-                        <input
-                          className="conf-input"
-                          value={conferenceCenter}
-                          onChange={(e) => setConferenceCenter(e.target.value)}
-                          placeholder="Conference Center"
-                        />
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="conf-map-link"
-                          title="Open in Google Maps"
-                        >
-                          <Navigation size={12} />
-                        </a>
-                      </div>
-                    </div>
+                    <TimeZoneSelector value={homeTimeZone} onChange={setHomeTimeZone} />
                   </div>
                 </div>
               </div>
@@ -2675,18 +2709,25 @@ function App() {
         .trip-header-section { padding: 1.5rem 2rem; }
         .trip-header-main { width: 100%; }
 
-        .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0.5rem; letter-spacing: -0.02em; text-align: left; }
+        .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0rem; letter-spacing: -0.02em; text-align: left; }
+        .website-row { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; opacity: 0.6; }
+        .web-icon { color: var(--accent); }
+        .trip-web-input { background: transparent; border: none; color: #fff; font-size: 0.8rem; outline: none; width: 100%; }
         
-        .location-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-        .location-row { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; transition: border-color 0.2s; }
-        .location-row.active { border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.05); }
-        .loc-icon { color: var(--accent); opacity: 0.8; display: flex; align-items: center; }
-        .location-input { background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; outline: none; flex: 1; }
-        .tz-select { background: transparent; border: none; color: var(--subtext); font-size: 0.75rem; font-weight: 800; outline: none; cursor: pointer; max-width: 250px; }
+        .location-grid-vertical { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+        .location-block { display: flex; flex-direction: column; gap: 4px; }
+        .location-block .location-input-row { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; }
+        .location-block .tz-select { padding-left: 28px; opacity: 0.8; }
+        .location-block.home-block { opacity: 0.6; }
+        .location-block.home-block .loc-icon { color: var(--subtext); }
 
-        .tz-select option { background: #1e293b; color: #fff; }
-
-        .trip-meta-row { display: flex; align-items: center; gap: 2rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; }
+        .trip-meta-row-vertical { display: flex; flex-direction: column; gap: 0.5rem; color: var(--subtext); font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .day-count-row { font-size: 0.75rem; font-weight: 900; color: var(--accent); opacity: 0.8; }
+        .conf-center-block { margin-top: 2px; }
+        .conf-icon { color: var(--accent); opacity: 0.8; display: flex; align-items: center; }
+        .conf-input { background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; outline: none; flex: 1; }
+        .conf-map-link { color: var(--subtext); opacity: 0.5; transition: opacity 0.2s; }
+        .conf-map-link:hover { opacity: 1; color: var(--accent); }
         .trip-dates-vertical-wrap { display: flex; flex-direction: column; gap: 0.75rem; }
         .header-dates-row { display: flex; align-items: center; gap: 0.5rem; }
         .header-sub-row { display: flex; align-items: center; gap: 1rem; }
@@ -2887,8 +2928,9 @@ function App() {
         .midnight-label-stack.home { color: var(--accent); }
         .midnight-label-stack.dest { color: #f59e0b; }
         
-        .date-stack { display: flex; align-items: center; justify-content: center; padding: 4px 0; white-space: nowrap; height: 24px; text-align: center; }
-        .tl-dw { font-size: 0.5rem; font-weight: 950; color: inherit; text-transform: uppercase; line-height: 1; }
+        .date-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 0; white-space: nowrap; height: auto; text-align: center; gap: 2px; }
+        .tl-dw { font-size: 0.7rem; font-weight: 950; color: inherit; text-transform: uppercase; line-height: 1; }
+        .tl-dm { font-size: 0.7rem; font-weight: 800; color: inherit; line-height: 1; }
 
         .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(255,255,255,0.02) 4px, rgba(255,255,255,0.02) 5px); overflow: visible; }
         .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); }
