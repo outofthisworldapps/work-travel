@@ -665,14 +665,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   style={{ top: 0, height: '100%' }}
                 >
                   <div className={`tl-travel-meta ${relevance === 'home' ? 'home-side' : 'away-side'}`}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="mode-icon-meta" style={{ minWidth: '14px', textAlign: 'center' }}>
-                        {l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       <div className="loc-icon-meta" style={{ opacity: 0.8 }}>
                         {getEmoji(l.from, relevance === 'dest')}
                       </div>
-                      <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
+                      <div className="inline-leg" style={{ display: 'flex', gap: '2px' }}>
                         <DualTimeMarker
                           timeNum={normStart}
                           date={day.date}
@@ -687,12 +684,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                         />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="mode-icon-meta" style={{ minWidth: '14px', visibility: 'hidden' }}>🚘</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       <div className="loc-icon-meta" style={{ opacity: 0.8 }}>
                         {getEmoji(l.to, relevance === 'dest')}
                       </div>
-                      <div className="inline-leg" style={{ display: 'flex', gap: '4px' }}>
+                      <div className="inline-leg" style={{ display: 'flex', gap: '2px' }}>
                         <DualTimeMarker
                           timeNum={normEnd}
                           date={day.date}
@@ -711,6 +707,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
 
                   <div className="tl-event-label travel-vertical-label">
+                  </div>
+                  <div className="car-icon-meta" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)' }}>
+                    {l.type === 'uber' ? '🚘' : (l.type === 'drive' ? '🚗' : '📍')}
                   </div>
                 </div>
 
@@ -993,8 +992,14 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover }) => {
         </div>
 
         <div className="f-grid-col f-port-col">
-          <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
-          <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="BWI" />
+            <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="T4" />
+          </div>
+          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="KEF" />
+            <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="T1" />
+          </div>
         </div>
 
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={12} /></button>
@@ -1221,6 +1226,111 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 // --- Components ---
 
+const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectingStart, setSelectingStart] = useState(true);
+  const [viewMonth, setViewMonth] = useState(startDate || new Date());
+  const popupRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const openCalendar = () => {
+    setViewMonth(startDate || new Date());
+    setSelectingStart(true);
+    setIsOpen(true);
+  };
+
+  const handleDayClick = (day) => {
+    if (selectingStart) {
+      onStartChange(day);
+      setSelectingStart(false);
+    } else {
+      if (day < startDate) {
+        onStartChange(day);
+        setSelectingStart(false);
+      } else {
+        onEndChange(day);
+        setSelectingStart(true);
+        setIsOpen(false);
+      }
+    }
+  };
+
+  const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+  const renderCalendar = () => {
+    const year = viewMonth.getFullYear();
+    const month = viewMonth.getMonth();
+    const totalDays = daysInMonth(year, month);
+    const startDay = firstDayOfMonth(year, month);
+    const cells = [];
+
+    for (let i = 0; i < startDay; i++) {
+      cells.push(<div key={`empty-${i}`} className="cal-day empty" />);
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const date = new Date(year, month, d, 12, 0, 0);
+      const isStart = startDate && format(date, 'yyyy-MM-dd') === format(startDate, 'yyyy-MM-dd');
+      const isEnd = endDate && format(date, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd');
+      const isInRange = startDate && endDate && date > startDate && date < endDate;
+
+      cells.push(
+        <div
+          key={d}
+          className={`cal-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
+          onClick={() => handleDayClick(date)}
+        >
+          {d}
+        </div>
+      );
+    }
+
+    return cells;
+  };
+
+  const prevMonth = () => setViewMonth(subMonths(viewMonth, 1));
+  const nextMonth = () => setViewMonth(addMonths(viewMonth, 1));
+
+  return (
+    <div className="date-range-picker" ref={popupRef}>
+      <button className="cal-icon-btn" onClick={openCalendar} type="button">
+        <Calendar size={14} />
+      </button>
+      <DateInput value={startDate} onChange={onStartChange} className="header-date-input" />
+      <span className="date-sep">—</span>
+      <DateInput value={endDate} onChange={onEndChange} className="header-date-input" />
+
+      {isOpen && (
+        <div className="cal-popup">
+          <div className="cal-header">
+            <button onClick={prevMonth} type="button">&lt;</button>
+            <span>{format(viewMonth, 'MMMM yyyy')}</span>
+            <button onClick={nextMonth} type="button">&gt;</button>
+          </div>
+          <div className="cal-weekdays">
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
+          </div>
+          <div className="cal-grid">
+            {renderCalendar()}
+          </div>
+          <div className="cal-hint">
+            {selectingStart ? 'Select Start Date' : 'Select End Date'}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SegmentedDateInput = ({ value, onChange, className }) => {
   const [mon, setMon] = useState(safeFormat(value, 'M'));
@@ -1727,7 +1837,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${tripName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.json`;
+    link.download = `travel_${tripName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd-HHmmss')}.json`;
     link.click();
   };
 
@@ -2434,7 +2544,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:39 PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:55 PM</div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">
@@ -2456,9 +2566,12 @@ function App() {
 
                 <div className="trip-meta-row-vertical">
                   <div className="header-dates-row">
-                    <DateInput value={days[0].date} onChange={handleStartDateChange} className="header-date-input" />
-                    <span className="date-sep">—</span>
-                    <DateInput value={days[days.length - 1].date} onChange={handleEndDateChange} className="header-date-input" />
+                    <DateRangePicker
+                      startDate={days[0].date}
+                      endDate={days[days.length - 1].date}
+                      onStartChange={handleStartDateChange}
+                      onEndChange={handleEndDateChange}
+                    />
                   </div>
                   <div className="day-count-row">
                     <span className="day-count">{days.length} Days</span>
@@ -2804,6 +2917,26 @@ function App() {
         .si-cal { margin-left: 6px; color: #475569; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
         .si-cal:hover { color: var(--accent); }
         .hidden-date-picker { visibility: hidden; width: 0; min-width: 0; height: 0; padding: 0; margin: 0; position: absolute; }
+
+        /* DateRangePicker Styles */
+        .date-range-picker { position: relative; display: flex; align-items: center; gap: 4px; }
+        .cal-icon-btn { background: transparent; border: none; color: #6366f1; cursor: pointer; padding: 4px; display: flex; align-items: center; transition: all 0.2s; border-radius: 4px; }
+        .cal-icon-btn:hover { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+        .cal-popup { position: absolute; top: 100%; left: 0; margin-top: 8px; background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; z-index: 1000; box-shadow: 0 20px 50px rgba(0,0,0,0.6); min-width: 260px; }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .cal-header button { background: transparent; border: none; color: #6366f1; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: 800; }
+        .cal-header button:hover { color: #a5b4fc; }
+        .cal-header span { font-weight: 700; color: #fff; font-size: 0.9rem; }
+        .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 6px; }
+        .cal-weekdays div { text-align: center; font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cal-day { text-align: center; padding: 8px 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border-radius: 6px; color: #94a3b8; transition: all 0.15s; }
+        .cal-day:hover { background: rgba(99, 102, 241, 0.3); color: #fff; }
+        .cal-day.empty { cursor: default; }
+        .cal-day.start { background: #6366f1; color: #fff; font-weight: 900; }
+        .cal-day.end { background: #f59e0b; color: #fff; font-weight: 900; }
+        .cal-day.in-range { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+        .cal-hint { text-align: center; font-size: 0.65rem; color: #6366f1; font-weight: 700; margin-top: 8px; text-transform: uppercase; }
         
         .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
         .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
@@ -2876,7 +3009,8 @@ function App() {
         .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
         .s-date { font-size: 0.65rem; width: 100% !important; }
         .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: left !important; }
-        .s-port { width: 100% !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
+        .s-port { width: 45px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
+        .s-term { width: 28px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
         .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
         .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; grid-column: 5; align-self: center; transition: color 0.2s; }
@@ -2982,11 +3116,14 @@ function App() {
         .tl-hotel-name { font-size: 0.7rem; font-weight: 950; color: #10b981; pointer-events: none; position: absolute; left: 0; right: 0; text-align: center; z-index: 5; }
         
         .tl-travel-meta { position: absolute; top: 50%; display: flex; flex-direction: column; gap: 0; fontSize: 0.55rem; fontWeight: 950; color: #fff; white-space: nowrap; zIndex: 50; transform: translateY(-50%); }
-        .tl-travel-meta.home-side { left: 100%; margin-left: 10px; text-align: left; }
-        .tl-travel-meta.away-side { right: 100%; margin-right: 10px; text-align: right; }
+        .tl-travel-meta.home-side { right: 100%; margin-right: 8px; text-align: right; }
+        .tl-travel-meta.away-side { left: 100%; margin-left: 8px; text-align: left; }
         
-        .tl-travel-meta.away-side .inline-leg { justify-content: flex-end; }
-        .tl-travel-meta.home-side .inline-leg { justify-content: flex-start; }
+        .tl-travel-meta.away-side .inline-leg { justify-content: flex-start; }
+        .tl-travel-meta.home-side .inline-leg { justify-content: flex-end; }
+        .car-icon-meta { position: absolute; font-size: 0.7rem; z-index: 30; }
+        .tl-event.travel-event.home-side .car-icon-meta { left: -18px; }
+        .tl-event.travel-event.away-side .car-icon-meta { right: -18px; }
 
 
 

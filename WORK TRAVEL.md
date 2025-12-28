@@ -30,14 +30,15 @@
   - Flight number (e.g., "FI 642").
   - Departure date (M/d/yy format with weekday).
   - Departure time (e.g., "8:30p").
-  - Departure airport code (e.g., "BWI").
+  - Departure airport code (e.g., "BWI") + **Terminal** (e.g., "T4").
   - Arrow (→).
-  - Arrival airport code.
+  - Arrival airport code + **Terminal**.
   - Arrival time.
   - Arrival date.
   - **Mobile Layout**: Two-row compact grid (Row 1: Flight#/Dep info, Row 2: Seat#/Arr info) that fits perfectly within 375px screens.
 - **Date Selectors**: Same nice text + calendar icon format as the header.
 - **Layovers**: Displayed between segments with time duration.
+- **Date Range Picker**: Single calendar icon opens a calendar popup for selecting date ranges (first click = start date, second click = end date, third click = new start, etc.).
 
 ## Hotels Panel
 - **Hotel Entry**: Name, Check-in Date/Time, Check-out Date/Time.
