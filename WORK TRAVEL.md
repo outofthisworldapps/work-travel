@@ -3,13 +3,18 @@
 ## Header & Trip Meta
 - **Trip Name**: Large, bold editable text at the top.
 - **Trip Dates**: 
-  - Displayed in M/d/yy format (e.g., `Wed 8/16/26`) with abbreviated weekday.
-  - Each date part is clickable to edit.
-  - Calendar icon for date picker.
-  - **Range Picker**: Clicking the calendar icon should ideally allow selecting a range (start and end).
-  - Number of days displayed as badge (e.g., `4 Days`) below the date row.
+  - **Vertically Scrolling Date Range Picker** (Google Flights style):
+    - Single 🗓️ calendar icon on the left opens the calendar.
+    - Calendar scrolls vertically showing 13 months (current + 12 months ahead).
+    - First click selects the departure (start) date.
+    - Second click selects the return (end) date to complete the range.
+    - If user clicks a date before the selected start, it resets as the new start.
+    - Past dates are grayed out and not selectable.
+    - Calendar auto-scrolls to the currently selected start month when opened.
+  - **Display Format**: `🗓️ Sun JAN 4 – Thu JAN 8 (5 days)` showing weekday, month (uppercase), day, and trip duration.
   - **Sticky Duration**: Changing the start date shifts the entire trip (end date moves to keep the same # of days). Changing the start date also shifts all flights and hotel dates.
-- **Conference Center**: Displayed below the trip dates next to the day count. Includes a Google Maps link icon.
+  - **User Never Enters Year**: Year is auto-determined as the next upcoming occurrence of the selected month/day.
+- **Conference Center**: Displayed below the trip dates. Includes a Google Maps link icon.
 - **Briefcase Icon**: Use a briefcase icon (💼) for the work destination (Destination City) and related header sections instead of airplane icons.
 - **Currency Toggle**: 
   - Located at the top of the **Totals Section** at the bottom of the page.
@@ -38,7 +43,6 @@
   - **Mobile Layout**: Two-row compact grid (Row 1: Flight#/Dep info, Row 2: Seat#/Arr info) that fits perfectly within 375px screens.
 - **Date Selectors**: Same nice text + calendar icon format as the header.
 - **Layovers**: Displayed between segments with time duration.
-- **Date Range Picker**: Single calendar icon opens a calendar popup for selecting date ranges (first click = start date, second click = end date, third click = new start, etc.).
 
 ## Hotels Panel
 - **Hotel Entry**: Name, Check-in Date/Time, Check-out Date/Time.

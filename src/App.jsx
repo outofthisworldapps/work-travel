@@ -7,7 +7,7 @@ import {
   Bus, Info, Calendar, Home, GripVertical, X,
   Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase
 } from 'lucide-react';
-import { format, addDays, differenceInDays, differenceInCalendarDays, parse } from 'date-fns';
+import { format, addDays, addMonths, differenceInDays, differenceInCalendarDays, parse, startOfMonth, isSameDay, isAfter, isBefore, setYear, setMonth, setDate } from 'date-fns';
 import {
   DndContext,
   closestCorners,
@@ -1226,40 +1226,72 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd }) => {
 
 // --- Components ---
 
+// Vertically scrolling date range picker (Google Flights style)
 const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectingStart, setSelectingStart] = useState(true);
-  const [viewMonth, setViewMonth] = useState(startDate || new Date());
+  const [tempStart, setTempStart] = useState(null);
   const popupRef = React.useRef(null);
+  const scrollRef = React.useRef(null);
+  const startMonthRef = React.useRef(null);
 
+  // Generate 13 months: current month + 12 months ahead
+  const months = useMemo(() => {
+    const result = [];
+    const today = new Date();
+    const firstMonth = startOfMonth(today);
+    for (let i = 0; i < 13; i++) {
+      result.push(addMonths(firstMonth, i));
+    }
+    return result;
+  }, []);
+
+  // Close on outside click
   React.useEffect(() => {
     const handleClickOutside = (e) => {
       if (popupRef.current && !popupRef.current.contains(e.target)) {
         setIsOpen(false);
+        setTempStart(null);
+        setSelectingStart(true);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Scroll to the start date's month when opening
+  React.useEffect(() => {
+    if (isOpen && scrollRef.current && startMonthRef.current) {
+      setTimeout(() => {
+        startMonthRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      }, 50);
+    }
+  }, [isOpen]);
+
   const openCalendar = () => {
-    setViewMonth(startDate || new Date());
+    setTempStart(null);
     setSelectingStart(true);
     setIsOpen(true);
   };
 
   const handleDayClick = (day) => {
     if (selectingStart) {
-      onStartChange(day);
+      // First click: set temp start
+      setTempStart(day);
       setSelectingStart(false);
     } else {
-      if (day < startDate) {
-        onStartChange(day);
-        setSelectingStart(false);
+      // Second click: finalize range
+      if (tempStart && isBefore(day, tempStart)) {
+        // Clicked before temp start - swap and set as new temp start
+        setTempStart(day);
       } else {
+        // Set final range
+        const finalStart = tempStart || startDate;
+        onStartChange(finalStart);
         onEndChange(day);
-        setSelectingStart(true);
         setIsOpen(false);
+        setTempStart(null);
+        setSelectingStart(true);
       }
     }
   };
@@ -1267,64 +1299,110 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
-  const renderCalendar = () => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
+  const renderMonth = (monthDate, isStartMonth) => {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
     const totalDays = daysInMonth(year, month);
     const startDay = firstDayOfMonth(year, month);
     const cells = [];
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
 
+    // Empty cells for days before the 1st
     for (let i = 0; i < startDay; i++) {
       cells.push(<div key={`empty-${i}`} className="cal-day empty" />);
     }
 
+    // Active selection (for highlighting)
+    const activeStart = tempStart || startDate;
+    const activeEnd = tempStart ? null : endDate;
+
     for (let d = 1; d <= totalDays; d++) {
       const date = new Date(year, month, d, 12, 0, 0);
-      const isStart = startDate && format(date, 'yyyy-MM-dd') === format(startDate, 'yyyy-MM-dd');
-      const isEnd = endDate && format(date, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd');
-      const isInRange = startDate && endDate && date > startDate && date < endDate;
+      const isPast = isBefore(date, today) && !isSameDay(date, today);
+      const isStart = activeStart && isSameDay(date, activeStart);
+      const isEnd = activeEnd && isSameDay(date, activeEnd);
+      const isInRange = activeStart && activeEnd && isAfter(date, activeStart) && isBefore(date, activeEnd);
+      const isToday = isSameDay(date, today);
 
       cells.push(
         <div
           key={d}
-          className={`cal-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
-          onClick={() => handleDayClick(date)}
+          className={`cal-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}
+          onClick={() => !isPast && handleDayClick(date)}
         >
           {d}
         </div>
       );
     }
 
-    return cells;
+    return (
+      <div
+        key={format(monthDate, 'yyyy-MM')}
+        className="cal-month-block"
+        ref={isStartMonth ? startMonthRef : null}
+      >
+        <div className="cal-month-header">
+          {format(monthDate, 'MMMM yyyy')}
+        </div>
+        <div className="cal-weekdays">
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
+        </div>
+        <div className="cal-grid">
+          {cells}
+        </div>
+      </div>
+    );
   };
 
-  const prevMonth = () => setViewMonth(subMonths(viewMonth, 1));
-  const nextMonth = () => setViewMonth(addMonths(viewMonth, 1));
+  // Find which month the start date is in for scrolling
+  const startMonthIndex = useMemo(() => {
+    if (!startDate) return 0;
+    const startMo = startOfMonth(startDate);
+    const idx = months.findIndex(m => isSameDay(startOfMonth(m), startMo));
+    return idx >= 0 ? idx : 0;
+  }, [startDate, months]);
+
+  // Calculate number of days in range
+  const dayCount = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return differenceInCalendarDays(endDate, startDate) + 1;
+  }, [startDate, endDate]);
+
+  // Format display: 🗓️ Sun JAN 4 – Thu JAN 8 (5 days)
+  const formatDisplay = () => {
+    if (!startDate || !endDate) {
+      return <span className="date-range-placeholder">Select dates</span>;
+    }
+    const fmtDate = (d) => {
+      const dow = format(d, 'EEE'); // Sun, Mon, etc.
+      const mon = format(d, 'MMM').toUpperCase(); // JAN, FEB, etc.
+      const day = format(d, 'd');
+      return <><span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span></>;
+    };
+    return (
+      <>
+        {fmtDate(startDate)} <span className="range-dash">–</span> {fmtDate(endDate)} <span className="day-count-badge">({dayCount} day{dayCount !== 1 ? 's' : ''})</span>
+      </>
+    );
+  };
 
   return (
     <div className="date-range-picker" ref={popupRef}>
-      <button className="cal-icon-btn" onClick={openCalendar} type="button">
-        <Calendar size={14} />
+      <button className="cal-icon-btn" onClick={openCalendar} type="button" title="Select date range">
+        <span className="cal-emoji">🗓️</span>
       </button>
-      <DateInput value={startDate} onChange={onStartChange} className="header-date-input" />
-      <span className="date-sep">—</span>
-      <DateInput value={endDate} onChange={onEndChange} className="header-date-input" />
+      <div className="date-range-display" onClick={openCalendar}>
+        {formatDisplay()}
+      </div>
 
       {isOpen && (
-        <div className="cal-popup">
-          <div className="cal-header">
-            <button onClick={prevMonth} type="button">&lt;</button>
-            <span>{format(viewMonth, 'MMMM yyyy')}</span>
-            <button onClick={nextMonth} type="button">&gt;</button>
-          </div>
-          <div className="cal-weekdays">
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
-          </div>
-          <div className="cal-grid">
-            {renderCalendar()}
+        <div className="cal-popup vertical-scroll">
+          <div className="cal-scroll-container" ref={scrollRef}>
+            {months.map((monthDate, idx) => renderMonth(monthDate, idx === startMonthIndex))}
           </div>
           <div className="cal-hint">
-            {selectingStart ? 'Select Start Date' : 'Select End Date'}
+            {selectingStart ? 'Select departure date' : 'Select return date'}
           </div>
         </div>
       )}
@@ -2544,7 +2622,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:55 PM</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-27 21:58 PM</div>
 
             <div className="trip-header-container">
               <div className="trip-header-main">
@@ -2572,9 +2650,6 @@ function App() {
                       onStartChange={handleStartDateChange}
                       onEndChange={handleEndDateChange}
                     />
-                  </div>
-                  <div className="day-count-row">
-                    <span className="day-count">{days.length} Days</span>
                   </div>
                   <div className="conf-center-block">
                     <div className="conf-center-row">
@@ -2919,24 +2994,136 @@ function App() {
         .hidden-date-picker { visibility: hidden; width: 0; min-width: 0; height: 0; padding: 0; margin: 0; position: absolute; }
 
         /* DateRangePicker Styles */
-        .date-range-picker { position: relative; display: flex; align-items: center; gap: 4px; }
-        .cal-icon-btn { background: transparent; border: none; color: #6366f1; cursor: pointer; padding: 4px; display: flex; align-items: center; transition: all 0.2s; border-radius: 4px; }
-        .cal-icon-btn:hover { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
-        .cal-popup { position: absolute; top: 100%; left: 0; margin-top: 8px; background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; z-index: 1000; box-shadow: 0 20px 50px rgba(0,0,0,0.6); min-width: 260px; }
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .cal-header button { background: transparent; border: none; color: #6366f1; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: 800; }
-        .cal-header button:hover { color: #a5b4fc; }
-        .cal-header span { font-weight: 700; color: #fff; font-size: 0.9rem; }
+        .date-range-picker { position: relative; display: flex; align-items: center; gap: 8px; }
+        .cal-icon-btn { 
+          background: transparent; 
+          border: none; 
+          cursor: pointer; 
+          padding: 4px; 
+          display: flex; 
+          align-items: center; 
+          transition: all 0.2s; 
+          border-radius: 6px; 
+          font-size: 1.3rem;
+        }
+        .cal-icon-btn:hover { background: rgba(99, 102, 241, 0.15); transform: scale(1.1); }
+        .cal-emoji { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+        
+        .date-range-display { 
+          display: flex; 
+          align-items: center; 
+          gap: 6px; 
+          cursor: pointer; 
+          padding: 6px 12px; 
+          background: rgba(0,0,0,0.3); 
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          transition: all 0.2s;
+          font-size: 0.85rem;
+        }
+        .date-range-display:hover { 
+          border-color: var(--accent); 
+          background: rgba(0,0,0,0.4);
+        }
+        .date-range-display .dow { color: var(--accent); font-weight: 700; }
+        .date-range-display .mon { color: #fff; font-weight: 900; }
+        .date-range-display .day { color: #fff; font-weight: 600; }
+        .date-range-display .range-dash { color: rgba(255,255,255,0.4); margin: 0 2px; }
+        .date-range-display .day-count-badge { 
+          color: var(--accent); 
+          font-weight: 800; 
+          font-size: 0.75rem;
+          opacity: 0.8;
+          margin-left: 4px;
+        }
+        .date-range-placeholder { color: #64748b; font-style: italic; }
+        
+        .cal-popup.vertical-scroll { 
+          position: absolute; 
+          top: 100%; 
+          left: 0; 
+          margin-top: 8px; 
+          background: rgba(15, 23, 42, 0.98); 
+          border: 1px solid rgba(255,255,255,0.15); 
+          border-radius: 16px; 
+          padding: 0; 
+          z-index: 1000; 
+          box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1); 
+          width: 300px;
+          overflow: hidden;
+        }
+        .cal-scroll-container { 
+          max-height: 400px; 
+          overflow-y: auto; 
+          padding: 12px;
+          scroll-behavior: smooth;
+        }
+        .cal-scroll-container::-webkit-scrollbar { width: 6px; }
+        .cal-scroll-container::-webkit-scrollbar-track { background: transparent; }
+        .cal-scroll-container::-webkit-scrollbar-thumb { 
+          background: rgba(99, 102, 241, 0.3); 
+          border-radius: 3px; 
+        }
+        .cal-scroll-container::-webkit-scrollbar-thumb:hover { 
+          background: rgba(99, 102, 241, 0.5); 
+        }
+        
+        .cal-month-block { margin-bottom: 20px; }
+        .cal-month-block:last-child { margin-bottom: 8px; }
+        .cal-month-header { 
+          font-weight: 800; 
+          color: #fff; 
+          font-size: 0.9rem; 
+          margin-bottom: 10px;
+          padding: 8px 4px;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          position: sticky;
+          top: -12px;
+          background: rgba(15, 23, 42, 0.95);
+          backdrop-filter: blur(4px);
+          z-index: 1;
+        }
+        
         .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 6px; }
-        .cal-weekdays div { text-align: center; font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-        .cal-day { text-align: center; padding: 8px 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border-radius: 6px; color: #94a3b8; transition: all 0.15s; }
-        .cal-day:hover { background: rgba(99, 102, 241, 0.3); color: #fff; }
+        .cal-weekdays div { text-align: center; font-size: 0.55rem; font-weight: 800; color: #475569; text-transform: uppercase; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .cal-day { 
+          text-align: center; 
+          padding: 10px 4px; 
+          font-size: 0.8rem; 
+          font-weight: 600; 
+          cursor: pointer; 
+          border-radius: 8px; 
+          color: #94a3b8; 
+          transition: all 0.15s; 
+        }
+        .cal-day:hover:not(.empty):not(.past) { background: rgba(99, 102, 241, 0.3); color: #fff; }
         .cal-day.empty { cursor: default; }
-        .cal-day.start { background: #6366f1; color: #fff; font-weight: 900; }
-        .cal-day.end { background: #f59e0b; color: #fff; font-weight: 900; }
+        .cal-day.past { color: #334155; cursor: not-allowed; }
+        .cal-day.today { border: 2px solid var(--accent); }
+        .cal-day.start { 
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); 
+          color: #fff; 
+          font-weight: 900; 
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        .cal-day.end { 
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
+          color: #fff; 
+          font-weight: 900; 
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
         .cal-day.in-range { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
-        .cal-hint { text-align: center; font-size: 0.65rem; color: #6366f1; font-weight: 700; margin-top: 8px; text-transform: uppercase; }
+        .cal-hint { 
+          text-align: center; 
+          font-size: 0.7rem; 
+          color: #6366f1; 
+          font-weight: 700; 
+          padding: 12px 16px; 
+          text-transform: uppercase; 
+          background: rgba(99, 102, 241, 0.1);
+          border-top: 1px solid rgba(99, 102, 241, 0.2);
+        }
         
         .currency-controls { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end; }
         .curr-toggle-group { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
