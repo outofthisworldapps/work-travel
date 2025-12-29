@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 17:17 EST";
+const APP_VERSION = "2025-12-29 17:22 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -740,8 +740,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           );
         })}
 
-        {/* Travel Legs (Uber, etc.) */}
-        {day.legs.map(l => {
+        {/* Travel Legs (Uber, etc.) - DEPRECATED: using transportation[] instead */}
+        {(day.legs || []).map(l => {
           if (l.type === 'flight') return null;
           const relevance = getEventRelevance('leg', l);
           const legTZ = relevance === 'home' ? homeTimeZone : destTimeZone;
@@ -2564,19 +2564,20 @@ function App() {
 
   const [days, setDays] = useState(() => {
     if (initialState.days) {
-      // Clear legs if we have transportation array (avoids duplicates)
-      const hasTransportation = initialState.transportation && initialState.transportation.length > 0;
-      return initialState.days.map(d => ({
-        ...d,
-        date: new Date(d.date),
-        legs: hasTransportation ? [] : (d.legs || [])
-      }));
+      // Strip legs field entirely - transportation is now in separate array
+      return initialState.days.map(d => {
+        // eslint-disable-next-line no-unused-vars
+        const { legs, ...dayWithoutLegs } = d;
+        return {
+          ...dayWithoutLegs,
+          date: new Date(d.date)
+        };
+      });
     }
     return [
       {
         id: "day-0",
         date: new Date(2026, 3, 12),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
@@ -2591,7 +2592,6 @@ function App() {
       {
         id: "day-1",
         date: new Date(2026, 3, 13),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
@@ -2606,7 +2606,6 @@ function App() {
       {
         id: "day-2",
         date: new Date(2026, 3, 14),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
@@ -2621,7 +2620,6 @@ function App() {
       {
         id: "day-3",
         date: new Date(2026, 3, 15),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
@@ -2636,7 +2634,6 @@ function App() {
       {
         id: "day-4",
         date: new Date(2026, 3, 16),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 185, hotelTax: 25, hotelCurrency: 'USD',
@@ -2651,7 +2648,6 @@ function App() {
       {
         id: "day-5",
         date: new Date(2026, 3, 17),
-        legs: [],
         mieBase: 105,
         meals: { B: true, L: true, D: true, I: true },
         hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
@@ -2820,94 +2816,65 @@ function App() {
     try {
       saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
 
-      // Check if this is version 2 (category-based) format
-      if (data.version === 2) {
-        // Load from new category-based format
-
-        // Trip metadata
-        if (data.trip) {
-          if (data.trip.name) setTripName(data.trip.name);
-          if (data.trip.website) setTripWebsite(data.trip.website);
-          if (data.trip.home?.city) setHomeCity(data.trip.home.city);
-          if (data.trip.home?.timeZone) setHomeTimeZone(data.trip.home.timeZone);
-          if (data.trip.destination?.city) setDestCity(data.trip.destination.city);
-          if (data.trip.destination?.timeZone) setDestTimeZone(data.trip.destination.timeZone);
-          if (data.trip.conferenceCenter) setConferenceCenter(data.trip.conferenceCenter);
-        }
-
-        // Reconstruct days from mie and lodging arrays
-        if (data.mie && data.lodging && data.mie.length === data.lodging.length) {
-          // Don't copy legs from legacy if we have transportation array (avoids duplicates)
-          const hasTransportation = data.transportation && data.transportation.length > 0;
-
-          const reconstructedDays = data.mie.map((m, idx) => {
-            const l = data.lodging[idx] || {};
-            return {
-              id: `day-${idx}`,
-              date: new Date(m.date),
-              legs: hasTransportation ? [] : (data._legacyDays?.[idx]?.legs || []),
-              mieBase: m.baseRate || 0,
-              meals: m.meals || { B: true, L: true, D: true, I: true },
-              location: m.location || '',
-              isForeignMie: m.isForeign || false,
-              hotelRate: l.rate || 0,
-              hotelTax: l.tax || 0,
-              hotelCurrency: l.currency || 'USD',
-              maxLodging: l.maxLodging || 200,
-              overageCapPercent: l.overageCapPercent || 25,
-              isForeignHotel: l.isForeign || false,
-              hotelName: l.hotelName || '',
-              registrationFee: 0
-            };
-          });
-          setDays(reconstructedDays);
-        } else if (data._legacyDays) {
-          // Fallback to legacy days if present - also clear legs if transportation exists
-          const hasTransportation = data.transportation && data.transportation.length > 0;
-          setDays(data._legacyDays.map(d => ({
-            ...d,
-            date: new Date(d.date),
-            legs: hasTransportation ? [] : (d.legs || [])
-          })));
-        }
-
-        // Registration
-        if (data.registration) {
-          if (data.registration.fee !== undefined) setRegistrationFee(data.registration.fee);
-          if (data.registration.currency) setRegistrationCurrency(data.registration.currency);
-        }
-
-        // Currency settings
-        if (data.currency) {
-          if (data.currency.altCurrency) setAltCurrency(data.currency.altCurrency);
-          if (data.currency.customRates) setCustomRates(data.currency.customRates);
-          if (data.currency.useAlt !== undefined) setUseAlt(data.currency.useAlt);
-        }
-
-        // Flights, hotels, transportation
-        if (data.flights) setFlights(data.flights);
-        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
-        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: parseLocalDate(t.date) || new Date() })));
-
-      } else if (data.days) {
-        // Legacy format (version 1 / unversioned)
-        setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
-        if (data.tripName) setTripName(data.tripName);
-        if (data.tripWebsite) setTripWebsite(data.tripWebsite);
-        if (data.homeCity) setHomeCity(data.homeCity);
-        if (data.homeTimeZone) setHomeTimeZone(data.homeTimeZone);
-        if (data.destCity) setDestCity(data.destCity);
-        if (data.destTimeZone) setDestTimeZone(data.destTimeZone);
-        if (data.registrationFee !== undefined) setRegistrationFee(data.registrationFee);
-        if (data.registrationCurrency) setRegistrationCurrency(data.registrationCurrency);
-        if (data.altCurrency) setAltCurrency(data.altCurrency);
-        if (data.customRates) setCustomRates(data.customRates);
-        if (data.useAlt !== undefined) setUseAlt(data.useAlt);
-        if (data.flights) setFlights(data.flights);
-        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
-        if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
-        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: parseLocalDate(t.date) || new Date() })));
+      // Only support version 2 (category-based) format
+      if (data.version !== 2) {
+        alert('This file uses an outdated format. Please export a new file from a recent version of the app.');
+        return;
       }
+
+      // Trip metadata
+      if (data.trip) {
+        if (data.trip.name) setTripName(data.trip.name);
+        if (data.trip.website) setTripWebsite(data.trip.website);
+        if (data.trip.home?.city) setHomeCity(data.trip.home.city);
+        if (data.trip.home?.timeZone) setHomeTimeZone(data.trip.home.timeZone);
+        if (data.trip.destination?.city) setDestCity(data.trip.destination.city);
+        if (data.trip.destination?.timeZone) setDestTimeZone(data.trip.destination.timeZone);
+        if (data.trip.conferenceCenter) setConferenceCenter(data.trip.conferenceCenter);
+      }
+
+      // Reconstruct days from mie and lodging arrays (NO legs - deprecated)
+      if (data.mie && data.lodging && data.mie.length === data.lodging.length) {
+        const reconstructedDays = data.mie.map((m, idx) => {
+          const l = data.lodging[idx] || {};
+          return {
+            id: `day-${idx}`,
+            date: new Date(m.date),
+            // legs field removed - transportation is in separate array
+            mieBase: m.baseRate || 0,
+            meals: m.meals || { B: true, L: true, D: true, I: true },
+            location: m.location || '',
+            isForeignMie: m.isForeign || false,
+            hotelRate: l.rate || 0,
+            hotelTax: l.tax || 0,
+            hotelCurrency: l.currency || 'USD',
+            maxLodging: l.maxLodging || 200,
+            overageCapPercent: l.overageCapPercent || 25,
+            isForeignHotel: l.isForeign || false,
+            hotelName: l.hotelName || '',
+            registrationFee: 0
+          };
+        });
+        setDays(reconstructedDays);
+      }
+
+      // Registration
+      if (data.registration) {
+        if (data.registration.fee !== undefined) setRegistrationFee(data.registration.fee);
+        if (data.registration.currency) setRegistrationCurrency(data.registration.currency);
+      }
+
+      // Currency settings
+      if (data.currency) {
+        if (data.currency.altCurrency) setAltCurrency(data.currency.altCurrency);
+        if (data.currency.customRates) setCustomRates(data.currency.customRates);
+        if (data.currency.useAlt !== undefined) setUseAlt(data.currency.useAlt);
+      }
+
+      // Flights, hotels, transportation
+      if (data.flights) setFlights(data.flights);
+      if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+      if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: parseLocalDate(t.date) || new Date() })));
     } catch (err) {
       console.error('Error loading data:', err);
       alert('Error loading data');
@@ -3041,13 +3008,8 @@ function App() {
       mie: mie,
       lodging: lodging,
       registration: registration,
-      currency: currency,
-      // Keep legacy 'days' for backward compatibility when loading (but clear legs since we have transportation)
-      _legacyDays: days.map(d => ({
-        ...d,
-        date: d.date?.toISOString() || d.date,
-        legs: [] // Legs are now in transportation array
-      }))
+      currency: currency
+      // NOTE: _legacyDays removed - legacy format no longer supported
     };
 
     const data = JSON.stringify(exportData, null, 2);
@@ -3099,8 +3061,8 @@ function App() {
       const activeIdx = prev.findIndex(d => d.id === activeContainer);
       const overIdx = prev.findIndex(d => d.id === overContainer);
 
-      const activeItems = [...prev[activeIdx].legs];
-      const overItems = [...prev[overIdx].legs];
+      const activeItems = [...(prev[activeIdx].legs || [])];
+      const overItems = [...(prev[overIdx].legs || [])];
 
       const activeItemIdx = activeItems.findIndex(l => l.id === active.id);
       const overItemIdx = overItems.findIndex(l => l.id === over.id);
@@ -3133,7 +3095,7 @@ function App() {
   const findContainer = (id) => {
     if (days.some(d => d.id === id)) return id;
     for (const d of days) {
-      if (d.legs.some(l => l.id === id)) return d.id;
+      if ((d.legs || []).some(l => l.id === id)) return d.id;
     }
     return null;
   };
@@ -3150,19 +3112,19 @@ function App() {
 
     if (activeContainer && overContainer && activeContainer === overContainer) {
       const dayIdx = days.findIndex(d => d.id === activeContainer);
-      const oldIndex = days[dayIdx].legs.findIndex(l => l.id === active.id);
-      let newIndex = days[dayIdx].legs.findIndex(l => l.id === over.id);
+      const oldIndex = (days[dayIdx].legs || []).findIndex(l => l.id === active.id);
+      let newIndex = (days[dayIdx].legs || []).findIndex(l => l.id === over.id);
 
       // Constraints for locked legs within the same day
       if (dayIdx === 0 && newIndex === 0) newIndex = 1;
-      if (dayIdx === days.length - 1 && newIndex === days[dayIdx].legs.length - 1) {
-        newIndex = days[dayIdx].legs.length - 2;
+      if (dayIdx === days.length - 1 && newIndex === (days[dayIdx].legs || []).length - 1) {
+        newIndex = (days[dayIdx].legs || []).length - 2;
       }
 
       if (oldIndex !== newIndex && newIndex >= 0) {
         setDays((prev) => {
           const newDays = [...prev];
-          const updatedLegs = arrayMove(newDays[dayIdx].legs, oldIndex, newIndex);
+          const updatedLegs = arrayMove(newDays[dayIdx].legs || [], oldIndex, newIndex);
           newDays[dayIdx] = { ...prev[dayIdx], legs: updatedLegs };
           return newDays;
         });
@@ -3177,7 +3139,7 @@ function App() {
     setDays(prev => {
       const newDays = [...prev];
       const day = newDays[dayIdx];
-      const lastLeg = day.legs[day.legs.length - 1];
+      const lastLeg = (day.legs || [])[(day.legs || []).length - 1];
       const newLeg = {
         id: generateId(),
         from: lastLeg?.to || 'Hotel',
@@ -3187,7 +3149,7 @@ function App() {
         currency: 'USD',
         isForeign: false
       };
-      newDays[dayIdx] = { ...day, legs: [...day.legs, newLeg] };
+      newDays[dayIdx] = { ...day, legs: [...(day.legs || []), newLeg] };
       return newDays;
     });
   };
@@ -3201,7 +3163,7 @@ function App() {
         ...lastDay,
         id: generateId(),
         date: newDate,
-        legs: [],
+        // NOTE: legs field removed - transportation uses separate array
         registrationFee: 0,
         hotelRate: lastDay?.hotelRate || 0,
         hotelTax: lastDay?.hotelTax || 0,
@@ -3226,11 +3188,11 @@ function App() {
     setDays(prev => {
       const newDays = JSON.parse(JSON.stringify(prev));
       let targetLeg = null;
-      newDays.forEach(d => d.legs.forEach(l => { if (l.id === legId) targetLeg = l }));
+      newDays.forEach(d => (d.legs || []).forEach(l => { if (l.id === legId) targetLeg = l }));
 
       if (targetLeg.mirrorId) {
         const currentMid = targetLeg.mirrorId;
-        newDays.forEach(d => d.legs.forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
+        newDays.forEach(d => (d.legs || []).forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
       }
       return newDays;
     });
@@ -3269,7 +3231,7 @@ function App() {
             }
 
             if (leg.mirrorId) {
-              newDays.forEach(d => d.legs.forEach(m => {
+              newDays.forEach(d => (d.legs || []).forEach(m => {
                 if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
                   m.from = leg.to;
                   m.to = leg.from;
@@ -3320,7 +3282,7 @@ function App() {
       }
 
       if (leg.mirrorId) {
-        newDays.forEach(d => d.legs.forEach(m => {
+        newDays.forEach(d => (d.legs || []).forEach(m => {
           if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
             if (field === 'from') m.to = value;
             if (field === 'to') m.from = value;
@@ -3329,12 +3291,12 @@ function App() {
         }));
       }
 
-      const lIdx = day.legs.findIndex(l => l.id === legId);
-      if (field === 'to' && day.legs[lIdx + 1]) {
-        day.legs[lIdx + 1].from = value;
+      const lIdx = (day.legs || []).findIndex(l => l.id === legId);
+      if (field === 'to' && (day.legs || [])[lIdx + 1]) {
+        (day.legs || [])[lIdx + 1].from = value;
       }
-      if (field === 'from' && day.legs[lIdx - 1]) {
-        day.legs[lIdx - 1].to = value;
+      if (field === 'from' && (day.legs || [])[lIdx - 1]) {
+        (day.legs || [])[lIdx - 1].to = value;
       }
 
       return newDays;
@@ -3421,7 +3383,7 @@ function App() {
             ...last,
             id: generateId(),
             date: addDays(last.date, i),
-            legs: [],
+            // NOTE: legs field removed - transportation uses separate array
             registrationFee: 0
           });
         }
@@ -3994,7 +3956,7 @@ function App() {
       mieTotal += calculateMIE(idx, days.length, day.mieBase, day.meals, day.isForeignMie);
 
       // Travel legs
-      day.legs.forEach(l => {
+      (day.legs || []).forEach(l => {
         if (l.type !== 'flight') {
           travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', currentRates);
         }
@@ -5384,7 +5346,7 @@ function MealChip({ label, active, onClick, cost, isForeign }) {
 
 function miesToDayTotal(day, mie, hotelTotal, rates) {
   let travel = 0;
-  day.legs.forEach(l => {
+  (day.legs || []).forEach(l => {
     if (l.type !== 'flight') {
       travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', rates);
     }

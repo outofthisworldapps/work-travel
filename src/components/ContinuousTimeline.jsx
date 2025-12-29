@@ -312,46 +312,9 @@ const ContinuousTimeline = ({
         return segments;
     }, [hotels, tripStartDate, totalHours, destTimeZone, homeTimeZone]);
 
-    // Process travel legs from days (legacy system - exclude if in transportation array)
-    const travelLegs = useMemo(() => {
-        const legs = [];
-        // Get IDs from transportation array to avoid duplicates
-        const transportIds = new Set((transportation || []).map(t => t.id));
 
-        days.forEach((day, dayIdx) => {
-            (day.legs || []).forEach((l, legIdx) => {
-                if (l.type === 'flight') return;
-                // Skip if this leg ID is in the transportation array
-                if (transportIds.has(l.id)) return;
-
-                // Use the isHome flag from auto-generated legs, or determine from location
-                const isHome = l.isHome !== undefined ? l.isHome : (l.from === 'Home' || l.to === 'Home');
-                const legTZ = isHome ? homeTimeZone : destTimeZone;
-                // Subtract offset to convert local time to home timeline time
-                const shift = getTZOffset(day.date, legTZ, homeTimeZone);
-
-                const startTime = parseTime(l.time) || 0;
-                const duration = (l.duration || 30) / 60;
-
-                const startHours = dayIdx * 24 + startTime - shift;
-                const endHours = startHours + duration;
-
-                legs.push({
-                    id: l.id || `l-${dayIdx}-${legIdx}`,
-                    leg: l,
-                    dayIndex: dayIdx,
-                    startHours,
-                    endHours,
-                    isHome,
-                    from: l.from,
-                    to: l.to,
-                    type: l.type
-                });
-            });
-        });
-
-        return legs;
-    }, [days, tripStartDate, homeTimeZone, destTimeZone, transportation]);
+    // NOTE: travelLegs from days[].legs is DEPRECATED
+    // All transportation is now in the transportation[] array
 
     // Map place values to emojis
     const getPlaceEmoji = (place) => {
@@ -658,44 +621,8 @@ const ContinuousTimeline = ({
                         );
                     })}
 
-                    {/* Travel Legs */}
-                    {travelLegs.map(leg => {
-                        const startPos = getPosition(leg.startHours);
-                        const endPos = getPosition(leg.endHours);
-                        const height = Math.max(endPos - startPos, 1);
 
-                        return (
-                            <div
-                                key={leg.id}
-                                className={`tl-event travel-event clickable ${leg.isHome ? 'home-side' : 'away-side'}`}
-                                onClick={() => onEditEvent({ type: 'leg', dayIndex: leg.dayIndex, legId: leg.id })}
-                                style={{
-                                    position: 'absolute',
-                                    top: `${startPos}%`,
-                                    height: `${height}%`,
-                                    minHeight: '6px'
-                                }}
-                            >
-                                <div className={`tl-travel-meta ${leg.isHome ? 'home-side' : 'away-side'}`}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                        <span style={{ opacity: 0.8 }}>{getEmoji(leg.from, !leg.isHome)}</span>
-                                        <span className={`time-item ${leg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(leg.startHours % 24)}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                        <span style={{ opacity: 0.8 }}>{getEmoji(leg.to, !leg.isHome)}</span>
-                                        <span className={`time-item ${leg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(leg.endHours % 24)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="car-icon-meta" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)' }}>
-                                    {leg.type === 'uber' ? '🚘' : (leg.type === 'drive' ? '🚗' : '📍')}
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {/* NOTE: Travel Legs (travelLegs) rendering REMOVED - deprecated */}
 
                     {/* Transportation Segments (from Transportation panel) */}
                     {transportationSegments.map(seg => {
