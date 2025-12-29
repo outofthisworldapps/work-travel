@@ -139,17 +139,20 @@ const calculateMidnights = (tripStartDate, totalDays, homeTZ, destTZ) => {
 
     // Calculate destination midnights (where destination clock hits midnight in home time)
     if (homeTZ !== destTZ) {
-        for (let dayIdx = 0; dayIdx <= totalDays; dayIdx++) {
-            const dayDate = addDays(tripStartDate, dayIdx);
-            // Find when dest midnight occurs in home time
-            const offset = getTZOffset(dayDate, destTZ, homeTZ);
+        for (let dayIdx = 0; dayIdx <= totalDays + 1; dayIdx++) {
+            // The destination date we want to find midnight for
+            const destDayDate = addDays(tripStartDate, dayIdx);
+
+            // Find when this destination midnight occurs in home timeline hours
+            // offset is positive when dest is ahead (e.g., Europe vs US East)
+            const offset = getTZOffset(destDayDate, destTZ, homeTZ);
+            // Midnight in dest timezone occurs 'offset' hours earlier in home time
             const destMidnightInHomeHours = dayIdx * 24 - offset;
 
-            // Only add if within trip bounds
-            if (destMidnightInHomeHours >= 0 && destMidnightInHomeHours <= totalDays * 24) {
-                // Get the actual dest date for the label
-                const destDate = new Date(dayDate.getTime() - offset * 3600000);
-                const destLabel = format(destDate, 'EEE|MMM d').toUpperCase();
+            // Only add if within trip bounds (with some margin)
+            if (destMidnightInHomeHours >= -12 && destMidnightInHomeHours <= (totalDays + 1) * 24) {
+                // The label should be for the destination date (dayIdx), not the home date
+                const destLabel = format(destDayDate, 'EEE|MMM d').toUpperCase();
 
                 midnights.push({
                     dayIndex: dayIdx,
