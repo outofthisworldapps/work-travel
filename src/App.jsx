@@ -32,8 +32,9 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
+import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-28 22:39 EST";
+const APP_VERSION = "2025-12-28 22:57 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -110,7 +111,13 @@ const getTZOffset = (date, tz1, tz2) => {
 
 const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ, preferredTZ) => {
   if (!port) return preferredTZ || destTZ;
-  const p = port.toUpperCase();
+  const p = port.toUpperCase().trim();
+
+  // First, try to get timezone from airport database
+  const airportTZ = getAirportTimezone(p);
+  if (airportTZ) return airportTZ;
+
+  // Fallback to city matching for non-airport codes
   const hc = (homeCity || '').toUpperCase();
   const dc = (destCity || '').toUpperCase();
   if (hc.includes(p) || (p.length === 3 && hc.includes(p))) return homeTZ;
@@ -372,7 +379,13 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
             homeDepDate,
             homeArrDate,
             finalDepH,
-            finalArrH
+            finalArrH,
+            // Store the actual timezone for each port for local time display
+            depTZ,
+            arrTZ,
+            // Store original local times for display
+            localDepTime: s.depTime,
+            localArrTime: s.arrTime
           });
         }
       });
@@ -398,8 +411,18 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     return taken;
   };
 
-  // Helper to get relevance for an event
+  // Helper to get relevance for an event based on airport timezone
   const getEventRelevance = (type, data) => {
+    // For flights, use the actual airport timezone to determine relevance
+    if (type === 'flight-dep' && data.depTZ) {
+      // If departure airport is in home timezone, show as home relevance
+      return data.depTZ === homeTimeZone ? 'home' : 'dest';
+    }
+    if (type === 'flight-arr' && data.arrTZ) {
+      // If arrival airport is in home timezone, show as home relevance
+      return data.arrTZ === homeTimeZone ? 'home' : 'dest';
+    }
+    // Fallback to segment type logic
     const isOutbound = data.segmentType === 'outbound';
     if (type === 'flight-dep') return isOutbound ? 'home' : 'dest';
     if (type === 'flight-arr') return isOutbound ? 'dest' : 'home';
@@ -524,8 +547,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-f-main-wrap" style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative', height: '100%' }}>
                     <div className="tl-f-ports-stack" style={{ position: 'absolute', left: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1px' }}>
-                      <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</div>
-                      <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</div>
+                      <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="tl-f-local-time" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff', opacity: 0.9, minWidth: '38px', textAlign: 'right' }}>{s.localDepTime || ''}</span>
+                        <span className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</span>
+                      </div>
+                      <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="tl-f-local-time" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff', opacity: 0.9, minWidth: '38px', textAlign: 'right' }}>{s.localArrTime || ''}</span>
+                        <span className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</span>
+                      </div>
                     </div>
 
                     <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
@@ -3118,6 +3147,32 @@ function App() {
       return prevDays;
     });
   }, [flights, days]);
+
+  // Auto-detect time zones from airports
+  React.useEffect(() => {
+    if (flights.length === 0) return;
+
+    // Find first outbound departure airport for home timezone
+    const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
+    if (firstOutbound && firstOutbound.outbound[0]?.depPort) {
+      const homeAirportTZ = getAirportTimezone(firstOutbound.outbound[0].depPort);
+      if (homeAirportTZ && homeAirportTZ !== homeTimeZone) {
+        setHomeTimeZone(homeAirportTZ);
+      }
+    }
+
+    // Find last arrival airport of outbound for destination timezone
+    if (firstOutbound && firstOutbound.outbound.length > 0) {
+      const lastOutboundSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
+      if (lastOutboundSeg?.arrPort) {
+        const destAirportTZ = getAirportTimezone(lastOutboundSeg.arrPort);
+        if (destAirportTZ && destAirportTZ !== destTimeZone) {
+          setDestTimeZone(destAirportTZ);
+        }
+      }
+    }
+  }, [flights]);
+
 
   const totals = useMemo(() => {
     let registration = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);

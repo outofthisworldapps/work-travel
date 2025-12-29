@@ -125,14 +125,22 @@
 - **Responsive**: No second scroll bars in timeline. Flight info uses a space-optimized 2-row layout on mobile (375px+) to ensure all data (airport codes, etc.) is visible.
 - **Mobile Timeline Width**: Maximize the horizontal space for the timeline grid on mobile by removing unnecessary blank space in margins and between side columns.
 ### Time Zones
+- **Automatic Time Zone Detection**: Time zones are automatically determined from airport codes.
+  - A built-in database of 500+ global airport codes maps to IANA timezone identifiers.
+  - When you enter an airport code (e.g., BWI, KEF, CPH), the app automatically knows the timezone.
+  - Home timezone is set from the first outbound departure airport.
+  - Destination timezone is set from the last outbound arrival airport.
+  - Layover airports also have their timezones correctly determined for accurate timeline display.
 - **5-Column Layout**: The timeline is partitioned into 5 distinct vertical tracks:
   1. **Home Date**: The date label for the home time zone.
   2. **Home Time**: The specific hour/minute markers for home.
   3. **Timeline Grid**: The central area for flights, hotels, and transportation.
   4. **Away Time**: The specific hour/minute markers for the destination.
   5. **Away Date**: The date label for the destination time zone.
+- **Local Times in Timeline**: Flight blocks display local departure/arrival times in white next to airport codes in the center.
+- **Bold Time Markers**: Times in the home and away columns are bolded when they correspond to that column's timezone (based on airport lookup).
 - **Flight Spanning**: Flights span the full width of the 'Timeline Grid' column.
 - **Transportation Alignment**: Home-based transportation is left-aligned in the grid; Away-based transportation is right-aligned.
 - **Midnight Cues**: Home midnight is a solid indigo line; Destination midnight is a dashed orange line.
-- **TZ Selector**: Ordered by offset from **Hawaii (-5)** to **New Zealand (+17)**.
+- **Fallback TZ Selector**: Manual time zone selectors still available for edge cases, ordered by offset from **Hawaii (-5)** to **New Zealand (+17)**.
 
