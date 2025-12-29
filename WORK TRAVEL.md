@@ -107,6 +107,10 @@
   - When foreign currency is selected, shows USD equivalent conversion
 - **Reordering**: Drag handle (grip icon) on left side allows reordering trips
 - **Add/Delete**: ADD TRIP button at bottom, delete (trash) button on each row
+- **Linked Arrival Time & Duration**: 
+  - Changing the **Arrival Time** updates the **Duration** automatically.
+  - Changing the **Duration** updates the **Arrival Time** automatically.
+  - The **Departure Time** remains fixed during these calculations.
 - **Timeline Integration**: Transportation items appear on the timeline:
   - Home-side transport (indigo, left-aligned)
   - Away-side transport (orange, right-aligned)

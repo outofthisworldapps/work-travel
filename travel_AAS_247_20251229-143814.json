@@ -1,0 +1,264 @@
+{
+  "days": [
+    {
+      "id": "day-0",
+      "date": "2026-01-04T05:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "registrationFee": 0,
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "overageCapPercent": 25
+    },
+    {
+      "id": "day-1",
+      "date": "2026-01-05T05:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "registrationFee": 750,
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "overageCapPercent": 25
+    },
+    {
+      "id": "day-2",
+      "date": "2026-01-06T05:00:00.000Z",
+      "legs": [
+        {
+          "id": "wcss0llwb",
+          "from": "Hotel",
+          "to": "PHX",
+          "type": "uber",
+          "time": "9:55a",
+          "duration": 30,
+          "amount": 45,
+          "currency": "USD",
+          "auto": true,
+          "isHome": false
+        }
+      ],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "registrationFee": 0,
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "overageCapPercent": 25
+    },
+    {
+      "id": "day-3",
+      "date": "2026-01-07T05:00:00.000Z",
+      "legs": [
+        {
+          "id": "2h7k33nwl",
+          "from": "BWI",
+          "to": "Home",
+          "type": "uber",
+          "time": "8:35p",
+          "duration": 60,
+          "amount": 45,
+          "currency": "USD",
+          "auto": true,
+          "isHome": true
+        }
+      ],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "registrationFee": 0,
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "overageCapPercent": 25
+    },
+    {
+      "id": "day-4",
+      "date": "2026-01-08T05:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "registrationFee": 0,
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "overageCapPercent": 25
+    }
+  ],
+  "tripName": "AAS 247",
+  "tripWebsite": "https://aas.org/meetings/aas247",
+  "registrationFee": 0,
+  "registrationCurrency": "USD",
+  "altCurrency": "EUR",
+  "customRates": {
+    "USD": 1,
+    "EUR": 0.92,
+    "GBP": 0.79,
+    "JPY": 151.2
+  },
+  "useAlt": true,
+  "flights": [
+    {
+      "id": "eifmft332",
+      "airline": "Southwest",
+      "confirmation": "CD8U43",
+      "cost": 0,
+      "outbound": [
+        {
+          "id": "c746tkayh",
+          "airlineCode": "",
+          "flightNumber": "",
+          "seat": "",
+          "depDate": "2026-01-04",
+          "depTime": "9:20a",
+          "depPort": "BWI",
+          "arrDate": "2026-01-04",
+          "arrTime": "12:35p",
+          "arrPort": "PHX"
+        }
+      ],
+      "returnSegments": [
+        {
+          "id": "dymek8e12",
+          "airlineCode": "",
+          "flightNumber": "",
+          "seat": "",
+          "depDate": "2026-01-08",
+          "depTime": "1:25p",
+          "depPort": "PHX",
+          "arrDate": "2026-01-08",
+          "arrTime": "7:35p",
+          "arrPort": "BWI"
+        }
+      ]
+    }
+  ],
+  "hotels": [
+    {
+      "id": "h-auto",
+      "name": "Stayberry Inn",
+      "checkIn": "2026-01-04T05:00:00.000Z",
+      "checkInTime": "2:00p",
+      "checkOut": "2026-01-08T05:00:00.000Z",
+      "checkOutTime": "11:00a",
+      "cost": 185,
+      "currency": "USD",
+      "isForeign": false
+    }
+  ],
+  "homeCity": "Washington, DC",
+  "homeTimeZone": "America/New_York",
+  "destCity": "London",
+  "destTimeZone": "America/Phoenix",
+  "conferenceCenter": "Phoenix Convention Center",
+  "transportation": [
+    {
+      "id": "t-out-home-airport",
+      "type": "uber",
+      "fromEmoji": "🏡",
+      "toEmoji": "✈️",
+      "description": "To BWI",
+      "date": "2026-01-04T05:00:00.000Z",
+      "time": "5:20a",
+      "endTime": "6:20a",
+      "duration": 60,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": true
+    },
+    {
+      "id": "t-out-airport-hotel",
+      "type": "uber",
+      "fromEmoji": "✈️",
+      "toEmoji": "🏨",
+      "description": "From PHX",
+      "date": "2026-01-04T05:00:00.000Z",
+      "time": "1:35p",
+      "endTime": "2:05p",
+      "duration": 30,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": false
+    },
+    {
+      "id": "t-ret-hotel-airport",
+      "type": "uber",
+      "fromEmoji": "🏨",
+      "toEmoji": "✈️",
+      "description": "To PHX",
+      "date": "2026-01-08T05:00:00.000Z",
+      "time": "9:55a",
+      "endTime": "10:25a",
+      "duration": 30,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": false
+    },
+    {
+      "id": "t-ret-airport-home",
+      "type": "uber",
+      "fromEmoji": "✈️",
+      "toEmoji": "🏡",
+      "description": "From BWI",
+      "date": "2026-01-08T05:00:00.000Z",
+      "time": "8:35p",
+      "endTime": "9:35p",
+      "duration": 60,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": true
+    }
+  ]
+}

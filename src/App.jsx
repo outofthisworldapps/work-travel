@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 18:52 EST";
+const APP_VERSION = "2025-12-29 18:56 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1687,12 +1687,26 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
       const startTime = parseTime(newStartTime);
       if (startTime !== null) {
         const endHours = startTime + transport.duration / 60;
-        const endTimeStr = formatTimeNum(endHours);
+        const endTimeStr = formatTime(endHours);
         onUpdate(transport.id, 'endTime', endTimeStr);
       }
     }
   };
-  const handleEndTimeChange = (e) => onUpdate(transport.id, 'endTime', e.target.value);
+  const handleEndTimeChange = (e) => {
+    const newEndTime = e.target.value;
+    onUpdate(transport.id, 'endTime', newEndTime);
+
+    // Recalculate duration from startTime and new endTime
+    if (transport.time) {
+      const startTime = parseTime(transport.time);
+      const endTime = parseTime(newEndTime);
+      if (startTime !== null && endTime !== null) {
+        let diffMinutes = Math.round((endTime - startTime) * 60);
+        if (diffMinutes < 0) diffMinutes += 1440; // Handle overnight
+        onUpdate(transport.id, 'duration', diffMinutes);
+      }
+    }
+  };
   const handleDurationChange = (e) => {
     const newDuration = parseFloat(e.target.value) || 0;
     onUpdate(transport.id, 'duration', newDuration);
@@ -1702,7 +1716,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
       const startTime = parseTime(transport.time);
       if (startTime !== null) {
         const endHours = startTime + newDuration / 60;
-        const endTimeStr = formatTimeNum(endHours);
+        const endTimeStr = formatTime(endHours);
         onUpdate(transport.id, 'endTime', endTimeStr);
       }
     }

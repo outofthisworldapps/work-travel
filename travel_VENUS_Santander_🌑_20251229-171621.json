@@ -1,0 +1,539 @@
+{
+  "version": 2,
+  "exportedAt": "2025-12-29T22:16:21.897Z",
+  "trip": {
+    "name": "VENUS Santander 🌑",
+    "website": "https://sites.google.com/view/lensingsolareclipse26",
+    "startDate": "2026-08-08T04:00:00.000Z",
+    "endDate": "2026-08-15T04:00:00.000Z",
+    "totalDays": 8,
+    "home": {
+      "city": "Washington, DC",
+      "timeZone": "America/New_York"
+    },
+    "destination": {
+      "city": "London",
+      "timeZone": "Europe/Madrid"
+    },
+    "conferenceCenter": "Hotel Santemar Santander, Spain"
+  },
+  "flights": [
+    {
+      "id": "eifmft332",
+      "airline": "United",
+      "confirmation": "",
+      "cost": 1081,
+      "outbound": [
+        {
+          "id": "c746tkayh",
+          "airlineCode": "UA966",
+          "flightNumber": "",
+          "seat": "",
+          "depDate": "2026-08-08",
+          "depTime": "6:10p",
+          "depPort": "IAD",
+          "arrDate": "2026-08-08",
+          "arrTime": "8:05a",
+          "arrPort": "MAD",
+          "arrTerminal": "T4"
+        }
+      ],
+      "returnSegments": [
+        {
+          "id": "dymek8e12",
+          "airlineCode": "UA967",
+          "flightNumber": "",
+          "seat": "",
+          "depDate": "2026-08-14",
+          "depTime": "11:15a",
+          "depPort": "MAD",
+          "arrDate": "2026-08-14",
+          "arrTime": "2:10p",
+          "arrPort": "IAD"
+        }
+      ]
+    }
+  ],
+  "hotels": [
+    {
+      "id": "h-auto",
+      "name": "Stayberry Inn",
+      "checkIn": "2027-03-12T05:00:00.000Z",
+      "checkInTime": "2:00p",
+      "checkOut": "2027-03-16T04:00:00.000Z",
+      "checkOutTime": "11:00a",
+      "cost": 185,
+      "currency": "USD",
+      "isForeign": false
+    }
+  ],
+  "transportation": [
+    {
+      "id": "t-out-home-airport",
+      "type": "uber",
+      "fromEmoji": "🏡",
+      "toEmoji": "✈️",
+      "description": "To IAD",
+      "date": "2026-08-08T16:00:00.000Z",
+      "time": "2:10p",
+      "endTime": "3:10p",
+      "duration": 60,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": true
+    },
+    {
+      "id": "t-out-airport-hotel",
+      "type": "uber",
+      "fromEmoji": "✈️",
+      "toEmoji": "🏨",
+      "description": "From MAD",
+      "date": "2026-08-09T16:00:00.000Z",
+      "time": "9:05a",
+      "endTime": "9:35a",
+      "duration": 30,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": false
+    },
+    {
+      "id": "t-ret-hotel-airport",
+      "type": "uber",
+      "fromEmoji": "🏨",
+      "toEmoji": "✈️",
+      "description": "To MAD",
+      "date": "2026-08-15T16:00:00.000Z",
+      "time": "7:45a",
+      "endTime": "8:15a",
+      "duration": 30,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": true
+    },
+    {
+      "id": "t-ret-airport-home",
+      "type": "uber",
+      "fromEmoji": "✈️",
+      "toEmoji": "🏡",
+      "description": "From IAD",
+      "date": "2026-08-15T16:00:00.000Z",
+      "time": "3:10p",
+      "endTime": "4:10p",
+      "duration": 60,
+      "cost": 0,
+      "currency": "USD",
+      "isHome": true
+    }
+  ],
+  "mie": [
+    {
+      "date": "2026-08-08T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-09T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-10T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-11T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-12T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-13T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-14T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    },
+    {
+      "date": "2026-08-15T04:00:00.000Z",
+      "location": "Washington DC",
+      "baseRate": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "isForeign": false
+    }
+  ],
+  "lodging": [
+    {
+      "date": "2026-08-08T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-09T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-10T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-11T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-12T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-13T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-14T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    },
+    {
+      "date": "2026-08-15T04:00:00.000Z",
+      "rate": 185,
+      "tax": 25,
+      "currency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeign": false,
+      "hotelName": "Stayberry Inn"
+    }
+  ],
+  "registration": {
+    "fee": 300,
+    "currency": "EUR"
+  },
+  "currency": {
+    "altCurrency": "EUR",
+    "customRates": {
+      "USD": 1,
+      "EUR": 0.92,
+      "GBP": 0.79,
+      "JPY": 151.2
+    },
+    "useAlt": true
+  },
+  "_legacyDays": [
+    {
+      "id": "day-0",
+      "date": "2026-08-08T04:00:00.000Z",
+      "legs": [
+        {
+          "id": "nm5kiqg4o",
+          "from": "MAD",
+          "to": "Hotel",
+          "type": "uber",
+          "time": "9:05a",
+          "duration": 30,
+          "amount": 45,
+          "currency": "USD",
+          "auto": true,
+          "isHome": false
+        }
+      ],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-1",
+      "date": "2026-08-09T04:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-2",
+      "date": "2026-08-10T04:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-3",
+      "date": "2026-08-11T04:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-4",
+      "date": "2026-08-12T04:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-5",
+      "date": "2026-08-13T04:00:00.000Z",
+      "legs": [
+        {
+          "id": "bfw09bf4r",
+          "from": "IAD",
+          "to": "Home",
+          "type": "uber",
+          "time": "3:10p",
+          "duration": 60,
+          "amount": 45,
+          "currency": "USD",
+          "auto": true,
+          "isHome": true
+        }
+      ],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-6",
+      "date": "2026-08-14T04:00:00.000Z",
+      "legs": [
+        {
+          "id": "36pceiwa6",
+          "from": "Hotel",
+          "to": "MAD",
+          "type": "uber",
+          "time": "7:45a",
+          "duration": 30,
+          "amount": 45,
+          "currency": "USD",
+          "auto": true,
+          "isHome": false
+        }
+      ],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    },
+    {
+      "id": "day-7",
+      "date": "2026-08-15T04:00:00.000Z",
+      "legs": [],
+      "mieBase": 105,
+      "meals": {
+        "B": true,
+        "L": true,
+        "D": true,
+        "I": true
+      },
+      "location": "Washington DC",
+      "isForeignMie": false,
+      "hotelRate": 185,
+      "hotelTax": 25,
+      "hotelCurrency": "USD",
+      "maxLodging": 200,
+      "overageCapPercent": 25,
+      "isForeignHotel": false,
+      "hotelName": "Stayberry Inn",
+      "registrationFee": 0
+    }
+  ]
+}
