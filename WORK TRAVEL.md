@@ -139,6 +139,7 @@
 - **Travel Blocks (Uber/Taxi)**:
   - Home transport is on the **left** (indigo/home styling).
   - Away transport is on the **right** (orange/destination styling).
+  - **No Minimum Height**: Blocks scale precisely to match duration.
   - Icons: 🏡 (Home), 🏨 (Hotel), ✈️ (Airport), 💼 (Work/Destination), 🚘 (Uber/Car).
 - **Auto-populate Travel Legs**:
   - Ride to / from the airport takes 1 hour (Home <-> Airport).

@@ -685,7 +685,7 @@ const ContinuousTimeline = ({
                     {transportationSegments.map(seg => {
                         const startPos = getPosition(seg.startHours);
                         const endPos = getPosition(seg.endHours);
-                        const height = Math.max(endPos - startPos, 1);
+                        const height = endPos - startPos;
 
                         // Get transport type emoji
                         const typeEmoji = seg.type === 'uber' ? '🚕' :
@@ -711,7 +711,7 @@ const ContinuousTimeline = ({
                                     transform: 'translate(-50%, -50%)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '6px'
+                                    gap: '3px'
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
                                         <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
