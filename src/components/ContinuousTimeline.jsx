@@ -701,7 +701,8 @@ const ContinuousTimeline = ({
                                 style={{
                                     position: 'absolute',
                                     top: `${startPos}%`,
-                                    height: `${height}%`
+                                    height: `${height}%`,
+                                    minHeight: '4px'
                                 }}
                             >
                                 <div className={`tl-travel-meta ${seg.isHome ? 'home-side' : 'away-side'}`} style={{
