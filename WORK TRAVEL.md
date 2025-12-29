@@ -47,6 +47,7 @@
 - **Segment Details**: Each leg shows:
   - Flight number (e.g., "FI 642").
   - **Departure Date**: Simple dropdown selector showing all dates within the trip duration.
+    - Dates are stored as `yyyy-MM-dd` to ensure consistency and prevent browser-specific parsing issues.
     - Arrival date is **auto-calculated** based on departure and arrival times.
     - If arrival time is earlier than departure time, it's next day (redeye flight).
     - Displayed as: `→ Wed Apr 13` (arrow with arrival date).

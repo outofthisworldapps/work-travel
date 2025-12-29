@@ -33,6 +33,8 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 
+const APP_VERSION = "2025-12-28 21:07 EST";
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const CUSTOM_TIME_ZONES = [
@@ -330,7 +332,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   const dayFlights = [];
   flights.forEach(f => {
-    (f.segments || []).forEach(s => {
+    const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
+    allSegments.forEach(s => {
       const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
       const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
 
@@ -807,8 +810,9 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
   const flightOptions = useMemo(() => {
     if (!flights) return [];
     return flights.map(f => {
-      const first = f.segments?.[0];
-      const last = f.segments?.[f.segments.length - 1];
+      const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+      const first = allSegs[0];
+      const last = allSegs[allSegs.length - 1];
       const label = `${first?.depPort || '?'} – ${last?.arrPort || '?'} (${f.airline || 'Flight'})`;
       return { id: f.id, label, flight: f };
     });
@@ -817,13 +821,14 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
   const handleFlightSelect = (flightId) => {
     const f = flights.find(fl => fl.id === flightId);
     if (!f) return;
-    const first = f.segments?.[0];
-    const last = f.segments?.[f.segments.length - 1];
+    const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+    const first = allSegs[0];
+    const last = allSegs[allSegs.length - 1];
     onUpdate('from', first?.depPort || '');
     onUpdate('to', last?.arrPort || '');
     onUpdate('amount', f.cost || 0);
-    if (f.segments.length > 1) {
-      onUpdate('layover', f.segments.slice(0, -1).map(s => s.arrPort).join(', '));
+    if (allSegs.length > 1) {
+      onUpdate('layover', allSegs.slice(0, -1).map(s => s.arrPort).join(', '));
     } else {
       onUpdate('layover', '');
     }
@@ -987,7 +992,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
 
   const handleDepDateChange = (dateStr) => {
     if (dateStr) {
-      onUpdate('depDate', dateStr);
+      const updates = { depDate: dateStr };
 
       // Auto-calculate arrival date based on times
       const date = parseFrag(dateStr);
@@ -997,10 +1002,12 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
       if (depMins !== null && arrMins !== null) {
         const daysToAdd = arrMins < depMins ? 1 : 0;
         const newArrDate = addDays(date, daysToAdd);
-        onUpdate('arrDate', safeFormat(newArrDate, 'M/d/yy'));
+        updates.arrDate = safeFormat(newArrDate, 'yyyy-MM-dd');
       } else {
-        onUpdate('arrDate', dateStr);
+        updates.arrDate = dateStr;
       }
+
+      onUpdate(updates);
     }
   };
 
@@ -1166,8 +1173,15 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
     onUpdate(type, newLegs);
   };
 
-  const updateLeg = (type, segId, field, val) => {
-    const newLegs = flight[type].map(s => s.id === segId ? { ...s, [field]: val } : s);
+  const updateLeg = (type, segId, fieldOrUpdates, val) => {
+    let updates = {};
+    if (typeof fieldOrUpdates === 'string') {
+      updates[fieldOrUpdates] = val;
+    } else {
+      updates = fieldOrUpdates;
+    }
+
+    const newLegs = flight[type].map(s => s.id === segId ? { ...s, ...updates } : s);
     onUpdate(type, newLegs);
   };
 
@@ -2595,18 +2609,20 @@ function App() {
       if (leg.type === 'flight' && (field === 'from' || field === 'to')) {
         if (value.includes(' – ') && value.includes('(')) {
           const match = flights.find(f => {
-            const first = f.segments?.[0];
-            const last = f.segments?.[f.segments.length - 1];
+            const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+            const first = allSegs[0];
+            const last = allSegs[allSegs.length - 1];
             return `${first?.depPort} – ${last?.arrPort} (${f.airline})` === value;
           });
           if (match) {
-            const first = match.segments?.[0];
-            const last = match.segments?.[match.segments.length - 1];
+            const allSegs = [...(match.outbound || []), ...(match.returnSegments || [])];
+            const first = allSegs[0];
+            const last = allSegs[allSegs.length - 1];
             leg.from = first?.depPort || '';
             leg.to = last?.arrPort || '';
             leg.amount = match.cost || 0;
-            if (match.segments.length > 1) {
-              leg.layover = match.segments.slice(0, -1).map(s => s.arrPort).join(', ');
+            if (allSegs.length > 1) {
+              leg.layover = allSegs.slice(0, -1).map(s => s.arrPort).join(', ');
             } else {
               leg.layover = '';
             }
@@ -2627,8 +2643,9 @@ function App() {
           if (leg[otherField]) {
             setFlights(prevFlights => {
               const exists = prevFlights.find(f => {
-                const first = f.segments?.[0];
-                const last = f.segments?.[f.segments.length - 1];
+                const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+                const first = allSegs[0];
+                const last = allSegs[allSegs.length - 1];
                 return first?.depPort === leg.from && last?.arrPort === leg.to;
               });
               if (!exists) {
@@ -2637,7 +2654,18 @@ function App() {
                   airline: 'Manual',
                   confirmation: '',
                   cost: 0,
-                  segments: [{ id: generateId(), airlineCode: '', flightNumber: '', depDate: format(day.date, 'EEE MMM d'), depTime: '', depPort: leg.from, arrDate: format(day.date, 'EEE MMM d'), arrTime: '', arrPort: leg.to }]
+                  outbound: [{
+                    id: generateId(),
+                    airlineCode: '',
+                    flightNumber: '',
+                    depDate: format(day.date, 'yyyy-MM-dd'),
+                    depTime: '',
+                    depPort: leg.from,
+                    arrDate: format(day.date, 'yyyy-MM-dd'),
+                    arrTime: '',
+                    arrPort: leg.to
+                  }],
+                  returnSegments: []
                 }];
               }
               return prevFlights;
@@ -2827,22 +2855,28 @@ function App() {
     setFlights(prev => prev.filter(f => f.id !== id));
   };
 
-  const updateFlight = (id, field, value) => {
-    // Removed saveToHistory from here - it was blocking every keystroke
-    // History will be saved on blur or other major actions instead
+  const updateFlight = (id, updatesOrField, value) => {
     setFlights(prev => {
       return prev.map(f => {
         if (f.id !== id) return f;
-        let newF = { ...f, [field]: value };
+
+        // Support both (field, value) and (updatesObject) patterns
+        let updates = {};
+        if (typeof updatesOrField === 'string') {
+          updates[updatesOrField] = value;
+        } else {
+          updates = updatesOrField;
+        }
+
+        let newF = { ...f, ...updates };
 
         // Only deep-clone and mirror for segment array updates
-        if (field === 'outbound' || field === 'returnSegments') {
-          // Clone the updated array
+        if (updates.outbound || updates.returnSegments) {
+          // Clone the updated arrays
           const out = (newF.outbound || []).map(s => ({ ...s }));
           const ret = (newF.returnSegments || []).map(s => ({ ...s }));
 
           // Only run mirroring logic if both legs exist
-          // Mirroring should only apply to AIRPORTS, not times/dates
           if (out.length > 0 && ret.length > 0) {
             const sOut = out[0];
             const sRet = ret[ret.length - 1];
@@ -2853,12 +2887,10 @@ function App() {
               return tgt;
             };
 
-            // Mirror airports only (not times/dates)
             sRet.arrPort = mirror(sOut.depPort, sRet.arrPort);
             ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
           }
 
-          // Always reassign the cloned arrays
           newF.outbound = out;
           newF.returnSegments = ret;
         }
@@ -2987,7 +3019,8 @@ function App() {
     let newEnd = days[days.length - 1].date;
 
     flights.forEach(f => {
-      (f.segments || []).forEach(s => {
+      const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+      allSegs.forEach(s => {
         const arrDateStr = parseSegDate(s.arrDate);
         if (arrDateStr && arrDateStr > maxDateStr) {
           needsUpdate = true;
@@ -3100,7 +3133,7 @@ function App() {
       <div className="travel-app dark">
         <main className="one-column-layout">
           <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version 2025-12-28 14:26 EST</div>
+            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version {APP_VERSION}</div>
 
             <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
               <button
@@ -3451,7 +3484,7 @@ function App() {
               </div>
             </div>
           </section>
-        </main>
+        </main >
 
         <DragOverlay>
           {activeId ? (
@@ -4237,7 +4270,7 @@ function App() {
           .f-route-display { grid-template-columns: 1fr auto 1fr; gap: 0.5rem; }
         }
         `}</style>
-      </div>
+      </div >
     </DndContext >
   );
 }
