@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-28 23:11 EST";
+const APP_VERSION = "2025-12-29 10:12 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -208,7 +208,7 @@ const getDualTime = (homeTime, date, homeTZ, destTZ, relevance, localTZ) => {
 
   // Calculate dest time from home time
   const homeToDestOffset = getTZOffset(new Date(dateStr + 'T12:00:00'), homeTZ, destTZ);
-  const destTimeNum = homeTime + homeToDestOffset;
+  const destTimeNum = homeTime - homeToDestOffset;
   const destLabel = formatTimeNum(destTimeNum);
 
   // If we have a local airport timezone, calculate which column it matches
@@ -374,8 +374,17 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
         const normDepShift = getTZOffset(new Date(day.date), depTZ, homeTimeZone);
         const normArrShift = getTZOffset(new Date(day.date), arrTZ, homeTimeZone);
 
-        const depH = parseTime(s.depTime) + normDepShift;
-        const arrH = parseTime(s.arrTime) + normArrShift;
+        console.log('DEBUG TZ:', {
+          port: s.arrPort,
+          time: s.arrTime,
+          arrTZ,
+          homeTZ: homeTimeZone,
+          shift: normArrShift,
+          calcH: parseTime(s.arrTime) - normArrShift
+        });
+
+        const depH = parseTime(s.depTime) - normDepShift;
+        const arrH = parseTime(s.arrTime) - normArrShift;
 
         const depDateStr = parseSegDate(s.depDate);
         const arrDateStr = parseSegDate(s.arrDate);
@@ -617,8 +626,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
           const hotelTZ = destTimeZone; // Hotels are ALWAYS at destination
           const shift = getTZOffset(day.date, hotelTZ, homeTimeZone);
-          const startNum = (parseTime(h.checkInTime) || 14) + shift;
-          const endNum = (parseTime(h.checkOutTime) || 11) + shift;
+          const startNum = (parseTime(h.checkInTime) || 14) - shift;
+          const endNum = (parseTime(h.checkOutTime) || 11) - shift;
 
           // Normalized start/end
           const normStart = (startNum + 24) % 24;
@@ -719,8 +728,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
           const relevance = getEventRelevance('leg', l);
           const legTZ = relevance === 'home' ? homeTimeZone : destTimeZone;
           const shift = getTZOffset(day.date, legTZ, homeTimeZone);
-          const start = (parseTime(l.time) || 0) + shift;
-          const end = (parseTime(l.time) + (l.duration || 0) / 60) + shift;
+          const start = (parseTime(l.time) || 0) - shift;
+          const end = (parseTime(l.time) + (l.duration || 0) / 60) - shift;
 
           const normStart = (start + 24) % 24;
           const normEnd = (end + 24) % 24;
@@ -3382,37 +3391,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="location-grid-vertical">
-                  <div className="location-block">
-                    <div className="location-input-row">
-                      <span className="loc-icon"><Briefcase size={16} /></span>
-                      <input
-                        className="location-input"
-                        value={destCity}
-                        onChange={e => setDestCity(e.target.value)}
-                        placeholder="Destination City"
-                      />
-                    </div>
-                    <TimeZoneSelector
-                      value={destTimeZone}
-                      onChange={setDestTimeZone}
-                      homeValue={homeTimeZone}
-                    />
-                  </div>
-
-                  <div className="location-block home-block">
-                    <div className="location-input-row">
-                      <span className="loc-icon"><Home size={16} /></span>
-                      <input
-                        className="location-input"
-                        value={homeCity}
-                        onChange={e => setHomeCity(e.target.value)}
-                        placeholder="Home City"
-                      />
-                    </div>
-                    <TimeZoneSelector value={homeTimeZone} onChange={setHomeTimeZone} />
-                  </div>
-                </div>
+                {/* Location and timezone selectors removed - now auto-detected from airport codes */}
               </div>
 
 

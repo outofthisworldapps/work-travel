@@ -82,10 +82,19 @@ const getTZOffset = (date, tz1, tz2) => {
     } catch (e) { return 0; }
 };
 
-// Determine port's time zone
+// Import airport timezone lookup
+import { getAirportTimezone } from '../utils/airportTimezones';
+
+// Determine port's time zone using airport database first
 const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ) => {
     if (!port) return destTZ;
-    const p = port.toUpperCase();
+    const p = port.toUpperCase().trim();
+
+    // First try airport timezone database
+    const airportTZ = getAirportTimezone(p);
+    if (airportTZ) return airportTZ;
+
+    // Fallback to city name matching
     const hc = (homeCity || '').toUpperCase();
     const dc = (destCity || '').toUpperCase();
     if (hc.includes(p) || (p.length === 3 && hc.includes(p))) return homeTZ;
@@ -204,11 +213,13 @@ const ContinuousTimeline = ({
 
                 if (!depDate || !arrDate || depTime === null || arrTime === null) return;
 
-                // Get time zones for ports
+                // Get time zones for ports using airport database
                 const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
                 const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
 
-                // Convert to home time zone hours from trip start
+                // Convert from LOCAL AIRPORT TIME to HOME TIMELINE TIME
+                // The offset tells us: homeTime = localTime - offset
+                // If PHX is 2h behind NY: offset = -2, so homeTime = 12:35 - (-2) = 14:35 (2:35p)
                 const depShift = getTZOffset(depDate, depTZ, homeTimeZone);
                 const arrShift = getTZOffset(arrDate, arrTZ, homeTimeZone);
 
@@ -217,8 +228,9 @@ const ContinuousTimeline = ({
                 const depDayOffset = Math.round(differenceInMinutes(startOfDay(depDate), tripStart) / 1440);
                 const arrDayOffset = Math.round(differenceInMinutes(startOfDay(arrDate), tripStart) / 1440);
 
-                const depHoursFromStart = depDayOffset * 24 + depTime + depShift;
-                const arrHoursFromStart = arrDayOffset * 24 + arrTime + arrShift;
+                // Subtract offset to convert local airport time to home time
+                const depHoursFromStart = depDayOffset * 24 + depTime - depShift;
+                const arrHoursFromStart = arrDayOffset * 24 + arrTime - arrShift;
 
                 // Only include if within trip bounds (allow slight overflow for long flights)
                 if (arrHoursFromStart >= -24 && depHoursFromStart <= totalHours + 24) {
@@ -230,8 +242,15 @@ const ContinuousTimeline = ({
                         endHours: arrHoursFromStart,
                         depPort: s.depPort,
                         arrPort: s.arrPort,
-                        depTime: depTime + depShift,
-                        arrTime: arrTime + arrShift,
+                        // Store home timeline times (what the timeline uses for positioning)
+                        depTimeHome: depTime - depShift,
+                        arrTimeHome: arrTime - arrShift,
+                        // Store original local airport times for display (in white)
+                        localDepTime: s.depTime,
+                        localArrTime: s.arrTime,
+                        // Store timezones for reference
+                        depTZ,
+                        arrTZ,
                     });
                 }
             });
@@ -254,11 +273,11 @@ const ContinuousTimeline = ({
             const checkInTime = parseTime(h.checkInTime) || 14;
             const checkOutTime = parseTime(h.checkOutTime) || 11;
 
-            // Hotels are in dest time zone
+            // Hotels are in dest time zone - subtract offset to get home time
             const shift = getTZOffset(h.checkIn, destTimeZone, homeTimeZone);
 
-            const startHours = checkInDayOffset * 24 + checkInTime + shift;
-            const endHours = checkOutDayOffset * 24 + checkOutTime + shift;
+            const startHours = checkInDayOffset * 24 + checkInTime - shift;
+            const endHours = checkOutDayOffset * 24 + checkOutTime - shift;
 
             if (startHours < totalHours + 24 && endHours > -24) {
                 segments.push({
@@ -284,12 +303,13 @@ const ContinuousTimeline = ({
 
                 const isHome = l.from === 'Home' || l.to === 'Home';
                 const legTZ = isHome ? homeTimeZone : destTimeZone;
+                // Subtract offset to convert local time to home timeline time
                 const shift = getTZOffset(day.date, legTZ, homeTimeZone);
 
                 const startTime = parseTime(l.time) || 0;
                 const duration = (l.duration || 30) / 60;
 
-                const startHours = dayIdx * 24 + startTime + shift;
+                const startHours = dayIdx * 24 + startTime - shift;
                 const endHours = startHours + duration;
 
                 legs.push({
@@ -415,6 +435,10 @@ const ContinuousTimeline = ({
                         // Determine if this is outbound or return for time zone relevance
                         const isOutbound = seg.parentFlight.outbound && seg.parentFlight.outbound.find(s => s.id === seg.id);
 
+                        // Check if departure/arrival is at home or away timezone
+                        const depIsHome = seg.depTZ === homeTimeZone;
+                        const arrIsHome = seg.arrTZ === homeTimeZone;
+
                         return (
                             <div
                                 key={seg.id}
@@ -435,12 +459,29 @@ const ContinuousTimeline = ({
                                     display: 'flex', width: '100%', alignItems: 'center',
                                     justifyContent: 'center', position: 'relative', height: '100%'
                                 }}>
+                                    {/* Local times and airport codes in white in the middle */}
                                     <div className="tl-f-ports-stack" style={{
                                         position: 'absolute', left: '10px', display: 'flex',
-                                        flexDirection: 'column', justifyContent: 'center', gap: '1px'
+                                        flexDirection: 'column', justifyContent: 'center', gap: '2px'
                                     }}>
-                                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{seg.depPort}</div>
-                                        <div className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{seg.arrPort}</div>
+                                        <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span className="tl-f-local-time" style={{
+                                                fontSize: '0.65rem', fontWeight: 700, color: '#fff',
+                                                minWidth: '42px', textAlign: 'right', opacity: 0.95
+                                            }}>{seg.localDepTime || ''}</span>
+                                            <span className="tl-f-port" style={{
+                                                fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
+                                            }}>{seg.depPort}</span>
+                                        </div>
+                                        <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span className="tl-f-local-time" style={{
+                                                fontSize: '0.65rem', fontWeight: 700, color: '#fff',
+                                                minWidth: '42px', textAlign: 'right', opacity: 0.95
+                                            }}>{seg.localArrTime || ''}</span>
+                                            <span className="tl-f-port" style={{
+                                                fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
+                                            }}>{seg.arrPort}</span>
+                                        </div>
                                     </div>
 
                                     <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
@@ -457,42 +498,42 @@ const ContinuousTimeline = ({
                                     </div>
                                 </div>
 
-                                {/* Time markers - show relevant time zone more prominently */}
-                                {/* For outbound: dep is home (left), arr is dest (right) */}
-                                {/* For return: dep is dest (right), arr is home (left) */}
+                                {/* Left (Home TZ) time markers - bold if airport matches home TZ */}
                                 <div className="flight-time-marker dep" style={{
                                     position: 'absolute', top: 0, left: '-55px', fontSize: '0.55rem',
                                     fontWeight: 950, color: '#a5b4fc',
                                     transform: 'translateY(-50%)',
-                                    opacity: isOutbound ? 1 : 0.4
+                                    opacity: depIsHome ? 1 : 0.4
                                 }}>
-                                    {formatTimeNum(seg.depTime)}
+                                    {formatTimeNum(seg.depTimeHome % 24)}
                                 </div>
                                 <div className="flight-time-marker arr" style={{
                                     position: 'absolute', bottom: 0, left: '-55px', fontSize: '0.55rem',
                                     fontWeight: 950, color: '#a5b4fc',
                                     transform: 'translateY(50%)',
-                                    opacity: isOutbound ? 0.4 : 1
+                                    opacity: arrIsHome ? 1 : 0.4
                                 }}>
-                                    {formatTimeNum(seg.arrTime)}
+                                    {formatTimeNum(seg.arrTimeHome % 24)}
                                 </div>
+
+                                {/* Right (Away TZ) time markers - bold if airport matches dest TZ */}
                                 {isDifferentTZ && (
                                     <>
                                         <div className="flight-time-marker dep dest" style={{
                                             position: 'absolute', top: 0, right: '-55px', fontSize: '0.55rem',
                                             fontWeight: 950, color: '#f59e0b',
                                             transform: 'translateY(-50%)',
-                                            opacity: isOutbound ? 0.4 : 1
+                                            opacity: !depIsHome ? 1 : 0.4
                                         }}>
-                                            {formatTimeNum(seg.depTime + getTZOffset(tripStartDate, destTimeZone, homeTimeZone))}
+                                            {formatTimeNum((seg.depTimeHome + getTZOffset(tripStartDate, destTimeZone, homeTimeZone)) % 24)}
                                         </div>
                                         <div className="flight-time-marker arr dest" style={{
                                             position: 'absolute', bottom: 0, right: '-55px', fontSize: '0.55rem',
                                             fontWeight: 950, color: '#f59e0b',
                                             transform: 'translateY(50%)',
-                                            opacity: isOutbound ? 1 : 0.4
+                                            opacity: !arrIsHome ? 1 : 0.4
                                         }}>
-                                            {formatTimeNum(seg.arrTime + getTZOffset(tripStartDate, destTimeZone, homeTimeZone))}
+                                            {formatTimeNum((seg.arrTimeHome + getTZOffset(tripStartDate, destTimeZone, homeTimeZone)) % 24)}
                                         </div>
                                     </>
                                 )}
