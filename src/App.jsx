@@ -1690,14 +1690,10 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
   const tzContext = getTransportTimezoneContext(transport, flights);
   const tzEmoji = tzContext === 'home' ? '🏡' : '💼';
   const tzLabel = tzContext === 'home' ? 'Home TZ' : 'Away TZ';
-  const calculatedIsHome = tzContext === 'home';
 
-  // Update stored isHome if it differs from calculated value
-  React.useEffect(() => {
-    if (transport.isHome !== calculatedIsHome) {
-      onUpdate(transport.id, 'isHome', calculatedIsHome);
-    }
-  }, [calculatedIsHome, transport.id, transport.isHome, onUpdate]);
+  // NOTE: Removed auto-update effect for isHome - it was causing race conditions
+  // where the wrong value was calculated during initial render before flights loaded.
+  // The isHome value should be set when the transport is created, not auto-calculated.
 
   const isForeign = transport.currency !== 'USD';
   const rate = customRates[transport.currency] || 1;

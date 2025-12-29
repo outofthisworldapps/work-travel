@@ -334,8 +334,27 @@ const ContinuousTimeline = ({
         return transportation.map((t, idx) => {
             if (!t.date || !t.time) return null;
 
-            // Use stored isHome (which is calculated in the panel from flight times)
-            const isHome = t.isHome !== undefined ? t.isHome : true;
+            // Determine isHome: use stored value, or infer from from/to places
+            let isHome = t.isHome;
+            if (isHome === undefined) {
+                // If going to/from 'home', it's home timezone
+                // If going to/from 'airport', 'hotel', 'work' without 'home' involved, it's away
+                const fromHome = t.from === 'home';
+                const toHome = t.to === 'home';
+                const involvesHome = fromHome || toHome;
+                const involvesAway = ['airport', 'hotel', 'work'].includes(t.from) ||
+                    ['airport', 'hotel', 'work'].includes(t.to);
+
+                if (involvesHome && !involvesAway) {
+                    isHome = true;
+                } else if (involvesAway && !involvesHome) {
+                    isHome = false;
+                } else {
+                    // Mixed or unclear - default based on which endpoint is 'home'
+                    isHome = toHome || fromHome;
+                }
+            }
+
             const transportTZ = isHome ? homeTimeZone : destTimeZone;
             const shift = getTZOffset(t.date, transportTZ, homeTimeZone);
 
