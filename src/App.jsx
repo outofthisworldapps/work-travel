@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 11:47 EST";
+const APP_VERSION = "2025-12-29 12:03 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1381,11 +1381,11 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
 
 const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
   const handleStartChange = (date) => {
-    onUpdate(hotel.id, 'checkIn', date);
+    onUpdate(hotel.id, 'checkIn', new Date(date.toISOString().split('T')[0] + 'T00:00:00'));
   };
 
   const handleEndChange = (date) => {
-    onUpdate(hotel.id, 'checkOut', date);
+    onUpdate(hotel.id, 'checkOut', new Date(date.toISOString().split('T')[0] + 'T00:00:00'));
   };
 
   return (
@@ -1517,7 +1517,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
   const handleTypeChange = (e) => onUpdate(transport.id, 'type', e.target.value);
   const handleDateChange = (e) => {
     if (e.target.value) {
-      onUpdate(transport.id, 'date', new Date(e.target.value));
+      onUpdate(transport.id, 'date', new Date(e.target.value + 'T00:00:00'));
     }
   };
   const handleStartTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
@@ -3524,7 +3524,7 @@ function App() {
           fromEmoji: '🏡',
           toEmoji: '✈️',
           description: `To ${firstOutbound.depPort || 'Airport'}`,
-          date: depDate ? new Date(depDate) : new Date(),
+          date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
           time: leaveHomeTime,
           endTime: arriveAirportTime,
           duration: 60,
@@ -3549,7 +3549,7 @@ function App() {
           fromEmoji: '✈️',
           toEmoji: '🏨',
           description: `From ${firstArrival.arrPort || 'Airport'}`,
-          date: arrDate ? new Date(arrDate) : new Date(),
+          date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
           time: leaveAirportTime,
           endTime: arriveHotelTime,
           duration: 30,
@@ -3574,7 +3574,7 @@ function App() {
           fromEmoji: '🏨',
           toEmoji: '✈️',
           description: `To ${lastDeparture.depPort || 'Airport'}`,
-          date: depDate ? new Date(depDate) : new Date(),
+          date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
           time: leaveHotelTime,
           endTime: arriveAirportTime,
           duration: 30,
@@ -3599,7 +3599,7 @@ function App() {
           fromEmoji: '✈️',
           toEmoji: '🏡',
           description: `From ${lastReturn.arrPort || 'Airport'}`,
-          date: arrDate ? new Date(arrDate) : new Date(),
+          date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
           time: leaveAirportTime,
           endTime: arriveHomeTime,
           duration: 60,
