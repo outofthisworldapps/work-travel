@@ -33,7 +33,7 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 
-const APP_VERSION = "2025-12-28 21:07 EST";
+const APP_VERSION = "2025-12-28 22:21 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -947,7 +947,7 @@ const SortableTravelLeg = ({ leg, onUpdate, onDelete, onLinkToggle, isLockedStar
 // Updated FlightSegmentRow component
 // Simplified FlightSegmentRow with dropdown date selector
 // Simplified FlightSegmentRow with dropdown date selector
-const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDates }) => {
+const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDates, homeCity, destCity, homeTimeZone, destTimeZone }) => {
   const parseFrag = (dateStr) => {
     if (!dateStr) return null;
     try {
@@ -994,13 +994,23 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
     if (dateStr) {
       const updates = { depDate: dateStr };
 
-      // Auto-calculate arrival date based on times
+      // Auto-calculate arrival date based on times and time zones
       const date = parseFrag(dateStr);
       const depMins = parseTimeToMinutes(segment.depTime);
       const arrMins = parseTimeToMinutes(segment.arrTime);
 
-      if (depMins !== null && arrMins !== null) {
-        const daysToAdd = arrMins < depMins ? 1 : 0;
+      if (depMins !== null && arrMins !== null && date) {
+        const depTZ = getPortTZ(segment.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+        const arrTZ = getPortTZ(segment.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+
+        // Offset shift in minutes (arrTZ vs depTZ)
+        const shiftHours = getTZOffset(date, arrTZ, depTZ);
+        const shiftMins = shiftHours * 60;
+
+        // Effective arrival time in the same TZ as departure to check for midnight crossing
+        const effectiveArrMins = arrMins - shiftMins;
+
+        const daysToAdd = effectiveArrMins < depMins ? 1 : 0;
         const newArrDate = addDays(date, daysToAdd);
         updates.arrDate = safeFormat(newArrDate, 'yyyy-MM-dd');
       } else {
@@ -1051,7 +1061,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               className="f-inp f-date-select monospace-font"
               value={depDate && !isNaN(depDate.getTime()) ? format(depDate, 'yyyy-MM-dd') : ''}
               onChange={e => handleDepDateChange(e.target.value)}
-              style={{ fontFamily: 'monospace' }}
+              style={{ fontFamily: 'monospace', fontSize: '0.65rem' }}
             >
               <option value="">Select date</option>
               {tripDates && tripDates.map((date, idx) => {
@@ -1063,9 +1073,9 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
               })}
             </select>
           </div>
-          <div className="f-arr-date-display">
+          <div className="f-arr-date-display" style={{ marginTop: '2px' }}>
             {arrDate && !isNaN(arrDate.getTime()) ? (
-              <span className="arr-date-text">
+              <span className="arr-date-text" style={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
                 {format(arrDate, 'EEE MMM d')}
               </span>
             ) : (
@@ -1112,7 +1122,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
 };
 
 
-const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
+const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates, homeCity, destCity, homeTimeZone, destTimeZone }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: flight.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
 
@@ -1230,6 +1240,10 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
                 onDelete={() => deleteLeg('outbound', seg.id)}
                 isLast={idx === flight.outbound.length - 1}
                 tripDates={tripDates}
+                homeCity={homeCity}
+                destCity={destCity}
+                homeTimeZone={homeTimeZone}
+                destTimeZone={destTimeZone}
               />
             </React.Fragment>
           ))}
@@ -1253,6 +1267,10 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
                 onDelete={() => deleteLeg('returnSegments', seg.id)}
                 isLast={idx === flight.returnSegments.length - 1}
                 tripDates={tripDates}
+                homeCity={homeCity}
+                destCity={destCity}
+                homeTimeZone={homeTimeZone}
+                destTimeZone={destTimeZone}
               />
             </React.Fragment>
           ))}
@@ -1264,7 +1282,7 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates }) => {
 };
 
 
-const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHandler, tripDates }) => {
+const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHandler, tripDates, homeCity, destCity, homeTimeZone, destTimeZone }) => {
   return (
     <div className="flight-panel glass">
       <div className="f-header">
@@ -1278,6 +1296,10 @@ const FlightPanel = ({ flights, totalCost, onUpdate, onDelete, onAdd, dragEndHan
             onUpdate={(field, val) => onUpdate(f.id, field, val)}
             onDelete={() => onDelete(f.id)}
             tripDates={tripDates}
+            homeCity={homeCity}
+            destCity={destCity}
+            homeTimeZone={homeTimeZone}
+            destTimeZone={destTimeZone}
           />
         ))}
         {flights.length === 0 && <div className="no-travel" style={{ padding: '1rem' }}>No flights added</div>}
@@ -3382,6 +3404,10 @@ function App() {
               onAdd={addFlightLeg}
               dragEndHandler={handleFlightDragEnd}
               tripDates={days.map(d => d.date)}
+              homeCity={homeCity}
+              destCity={destCity}
+              homeTimeZone={homeTimeZone}
+              destTimeZone={destTimeZone}
             />
           </section>
 
@@ -3986,12 +4012,12 @@ function App() {
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
-        .f-seg-grid { display: grid; grid-template-columns: 75px 170px 60px 110px 32px; gap: 4px 6px; align-items: center; }
+        .f-seg-grid { display: grid; grid-template-columns: 75px 150px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
         .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
         .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
         .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
         .s-date { font-size: 0.65rem; width: 100% !important; }
-        .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: left !important; }
+        .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: right !important; }
         .s-port { width: 50px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
         .s-term { width: 32px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
@@ -4248,7 +4274,7 @@ function App() {
           .si-cal { margin-left: 2px !important; }
           
           .f-seg-grid { 
-            grid-template-columns: 60px 85px 50px 50px 22px !important;
+            grid-template-columns: 60px 85px 50px 1fr 22px !important;
             gap: 4px 4px !important;
           }
           .f-date-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
