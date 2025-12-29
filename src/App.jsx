@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 15:12 EST";
+const APP_VERSION = "2025-12-29 17:17 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2564,7 +2564,13 @@ function App() {
 
   const [days, setDays] = useState(() => {
     if (initialState.days) {
-      return initialState.days.map(d => ({ ...d, date: new Date(d.date) }));
+      // Clear legs if we have transportation array (avoids duplicates)
+      const hasTransportation = initialState.transportation && initialState.transportation.length > 0;
+      return initialState.days.map(d => ({
+        ...d,
+        date: new Date(d.date),
+        legs: hasTransportation ? [] : (d.legs || [])
+      }));
     }
     return [
       {
@@ -2831,12 +2837,15 @@ function App() {
 
         // Reconstruct days from mie and lodging arrays
         if (data.mie && data.lodging && data.mie.length === data.lodging.length) {
+          // Don't copy legs from legacy if we have transportation array (avoids duplicates)
+          const hasTransportation = data.transportation && data.transportation.length > 0;
+
           const reconstructedDays = data.mie.map((m, idx) => {
             const l = data.lodging[idx] || {};
             return {
               id: `day-${idx}`,
               date: new Date(m.date),
-              legs: data._legacyDays?.[idx]?.legs || [],
+              legs: hasTransportation ? [] : (data._legacyDays?.[idx]?.legs || []),
               mieBase: m.baseRate || 0,
               meals: m.meals || { B: true, L: true, D: true, I: true },
               location: m.location || '',
@@ -2853,8 +2862,13 @@ function App() {
           });
           setDays(reconstructedDays);
         } else if (data._legacyDays) {
-          // Fallback to legacy days if present
-          setDays(data._legacyDays.map(d => ({ ...d, date: new Date(d.date) })));
+          // Fallback to legacy days if present - also clear legs if transportation exists
+          const hasTransportation = data.transportation && data.transportation.length > 0;
+          setDays(data._legacyDays.map(d => ({
+            ...d,
+            date: new Date(d.date),
+            legs: hasTransportation ? [] : (d.legs || [])
+          })));
         }
 
         // Registration
@@ -3028,10 +3042,11 @@ function App() {
       lodging: lodging,
       registration: registration,
       currency: currency,
-      // Keep legacy 'days' for backward compatibility when loading
+      // Keep legacy 'days' for backward compatibility when loading (but clear legs since we have transportation)
       _legacyDays: days.map(d => ({
         ...d,
-        date: d.date?.toISOString() || d.date
+        date: d.date?.toISOString() || d.date,
+        legs: [] // Legs are now in transportation array
       }))
     };
 

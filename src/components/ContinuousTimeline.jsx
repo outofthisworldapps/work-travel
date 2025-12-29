@@ -22,10 +22,28 @@ const parseTime = (timeStr) => {
 
 // Format time number to display string (e.g., 20.5 -> "8:30p")
 const formatTimeNum = (num) => {
-    let h = Math.floor(num);
-    let m = Math.round((num % 1) * 60);
+    // Normalize to positive 0-24 range first
+    let normalized = num;
+    while (normalized < 0) { normalized += 24; }
+    while (normalized >= 24) { normalized -= 24; }
+
+    let h = Math.floor(normalized);
+    let m = Math.round((normalized - h) * 60);
+
+    // Handle minute overflow
+    if (m >= 60) {
+        m -= 60;
+        h += 1;
+    }
+    if (m < 0) {
+        m += 60;
+        h -= 1;
+    }
+
+    // Re-normalize hours
     while (h < 0) { h += 24; }
     while (h >= 24) { h -= 24; }
+
     const meridiem = h < 12 ? 'a' : 'p';
     const dispH = h % 12 || 12;
     return `${dispH}:${m.toString().padStart(2, '0')}${meridiem}`;
