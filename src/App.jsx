@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 12:03 EST";
+const APP_VERSION = "2025-12-29 14:43 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2615,8 +2615,71 @@ function App() {
 
   const loadData = useCallback((data) => {
     try {
-      if (data.days) {
-        saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+
+      // Check if this is version 2 (category-based) format
+      if (data.version === 2) {
+        // Load from new category-based format
+
+        // Trip metadata
+        if (data.trip) {
+          if (data.trip.name) setTripName(data.trip.name);
+          if (data.trip.website) setTripWebsite(data.trip.website);
+          if (data.trip.home?.city) setHomeCity(data.trip.home.city);
+          if (data.trip.home?.timeZone) setHomeTimeZone(data.trip.home.timeZone);
+          if (data.trip.destination?.city) setDestCity(data.trip.destination.city);
+          if (data.trip.destination?.timeZone) setDestTimeZone(data.trip.destination.timeZone);
+          if (data.trip.conferenceCenter) setConferenceCenter(data.trip.conferenceCenter);
+        }
+
+        // Reconstruct days from mie and lodging arrays
+        if (data.mie && data.lodging && data.mie.length === data.lodging.length) {
+          const reconstructedDays = data.mie.map((m, idx) => {
+            const l = data.lodging[idx] || {};
+            return {
+              id: `day-${idx}`,
+              date: new Date(m.date),
+              legs: data._legacyDays?.[idx]?.legs || [],
+              mieBase: m.baseRate || 0,
+              meals: m.meals || { B: true, L: true, D: true, I: true },
+              location: m.location || '',
+              isForeignMie: m.isForeign || false,
+              hotelRate: l.rate || 0,
+              hotelTax: l.tax || 0,
+              hotelCurrency: l.currency || 'USD',
+              maxLodging: l.maxLodging || 200,
+              overageCapPercent: l.overageCapPercent || 25,
+              isForeignHotel: l.isForeign || false,
+              hotelName: l.hotelName || '',
+              registrationFee: 0
+            };
+          });
+          setDays(reconstructedDays);
+        } else if (data._legacyDays) {
+          // Fallback to legacy days if present
+          setDays(data._legacyDays.map(d => ({ ...d, date: new Date(d.date) })));
+        }
+
+        // Registration
+        if (data.registration) {
+          if (data.registration.fee !== undefined) setRegistrationFee(data.registration.fee);
+          if (data.registration.currency) setRegistrationCurrency(data.registration.currency);
+        }
+
+        // Currency settings
+        if (data.currency) {
+          if (data.currency.altCurrency) setAltCurrency(data.currency.altCurrency);
+          if (data.currency.customRates) setCustomRates(data.currency.customRates);
+          if (data.currency.useAlt !== undefined) setUseAlt(data.currency.useAlt);
+        }
+
+        // Flights, hotels, transportation
+        if (data.flights) setFlights(data.flights);
+        if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
+        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: new Date(t.date) })));
+
+      } else if (data.days) {
+        // Legacy format (version 1 / unversioned)
         setDays(data.days.map(d => ({ ...d, date: new Date(d.date) })));
         if (data.tripName) setTripName(data.tripName);
         if (data.tripWebsite) setTripWebsite(data.tripWebsite);
@@ -2635,6 +2698,7 @@ function App() {
         if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: new Date(t.date) })));
       }
     } catch (err) {
+      console.error('Error loading data:', err);
       alert('Error loading data');
     }
   }, [days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, saveToHistory, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter]);
@@ -2697,11 +2761,84 @@ function App() {
   }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
   const saveToFile = () => {
-    const data = JSON.stringify({
-      days, tripName, tripWebsite, registrationFee, registrationCurrency,
-      altCurrency, customRates, useAlt, flights, hotels, homeCity,
-      homeTimeZone, destCity, destTimeZone, conferenceCenter, transportation
-    }, null, 2);
+    // Build category-based JSON structure
+    const tripMeta = {
+      name: tripName,
+      website: tripWebsite,
+      startDate: days[0]?.date?.toISOString() || null,
+      endDate: days[days.length - 1]?.date?.toISOString() || null,
+      totalDays: days.length,
+      home: {
+        city: homeCity,
+        timeZone: homeTimeZone
+      },
+      destination: {
+        city: destCity,
+        timeZone: destTimeZone
+      },
+      conferenceCenter: conferenceCenter
+    };
+
+    // M&IE per-day entries with dates
+    const mie = days.map(d => ({
+      date: d.date?.toISOString() || null,
+      location: d.location,
+      baseRate: d.mieBase,
+      meals: { ...d.meals },
+      isForeign: d.isForeignMie
+    }));
+
+    // Lodging per-day entries (for per diem calculations)
+    const lodging = days.map(d => ({
+      date: d.date?.toISOString() || null,
+      rate: d.hotelRate,
+      tax: d.hotelTax,
+      currency: d.hotelCurrency,
+      maxLodging: d.maxLodging,
+      overageCapPercent: d.overageCapPercent,
+      isForeign: d.isForeignHotel,
+      hotelName: d.hotelName
+    }));
+
+    // Registration info
+    const registration = {
+      fee: registrationFee,
+      currency: registrationCurrency
+    };
+
+    // Currency settings
+    const currency = {
+      altCurrency: altCurrency,
+      customRates: customRates,
+      useAlt: useAlt
+    };
+
+    const exportData = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      trip: tripMeta,
+      flights: flights,
+      hotels: hotels.map(h => ({
+        ...h,
+        checkIn: h.checkIn?.toISOString() || h.checkIn,
+        checkOut: h.checkOut?.toISOString() || h.checkOut
+      })),
+      transportation: transportation.map(t => ({
+        ...t,
+        date: t.date?.toISOString() || t.date
+      })),
+      mie: mie,
+      lodging: lodging,
+      registration: registration,
+      currency: currency,
+      // Keep legacy 'days' for backward compatibility when loading
+      _legacyDays: days.map(d => ({
+        ...d,
+        date: d.date?.toISOString() || d.date
+      }))
+    };
+
+    const data = JSON.stringify(exportData, null, 2);
 
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

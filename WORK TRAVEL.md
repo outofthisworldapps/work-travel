@@ -143,6 +143,41 @@
 - **Date Format**: EEE M/d/yy for dates (e.g., Wed 8/16/26).
 - **Domestic/Foreign Toggles**: Globe/Dollar icons for every money entry.
 
+## JSON Export Format (Version 2)
+The app exports data in a **category-based** structure rather than day-based, which better represents multi-day elements like flights and hotels that span across dates.
+
+### Top-Level Structure
+```json
+{
+  "version": 2,
+  "exportedAt": "2025-12-29T19:43:00.000Z",
+  "trip": { ... },
+  "flights": [ ... ],
+  "hotels": [ ... ],
+  "transportation": [ ... ],
+  "mie": [ ... ],
+  "lodging": [ ... ],
+  "registration": { ... },
+  "currency": { ... },
+  "_legacyDays": [ ... ]
+}
+```
+
+### Categories
+- **trip**: Trip metadata (name, website, dates, home/destination cities & timezones, conference center).
+- **flights**: Array of flight bookings with segments. Each segment has departure/arrival dates and times.
+- **hotels**: Array of hotel stays with check-in/check-out dates and times.
+- **transportation**: Array of ground transport entries (Uber, taxi, bus, train, walk) with dates and times.
+- **mie**: M&IE (Meals & Incidental Expenses) per day - includes date, location, base rate, and meal toggles.
+- **lodging**: Per diem lodging data per day - includes date, rate, tax, currency, and overage settings.
+- **registration**: Conference registration fee and currency.
+- **currency**: Currency settings (alternate currency, custom exchange rates, useAlt flag).
+- **_legacyDays**: Backward-compatible day array for loading older files.
+
+### Backward Compatibility
+- Files saved in the old day-based format (without `version: 2`) are still fully loadable.
+- When loading a version 2 file, the app reconstructs `days` from the `mie` and `lodging` arrays.
+
 ## Styling Guidelines
 - **Text Inputs**: Dark background (rgba(0,0,0,0.4)), gray text (#94a3b8), not white.
 - **Buttons**: Nice themed background (linear-gradient or subtle indigo-glass), accent color text/border, avoiding plain white backgrounds.
