@@ -437,8 +437,33 @@ const ContinuousTimeline = ({
                     ))}
                 </div>
 
-                {/* Left Time Column */}
-                <div className="timeline-col time-col left" style={{ width: '55px', position: 'relative' }} />
+                {/* Left Time Column - Home hours */}
+                <div className="timeline-col time-col left" style={{ width: '55px', position: 'relative' }}>
+                    {/* Hour labels for each day */}
+                    {Array.from({ length: totalDays + 1 }, (_, dayIdx) => (
+                        Array.from({ length: 23 }, (_, h) => {
+                            const hour = h + 1; // 1-23 (skip 0 which is midnight)
+                            const hoursFromStart = dayIdx * 24 + hour;
+                            if (hoursFromStart >= totalHours) return null;
+                            return (
+                                <div
+                                    key={`home-hour-${dayIdx}-${hour}`}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${getPosition(hoursFromStart)}%`,
+                                        right: '5px',
+                                        fontSize: '0.55rem',
+                                        color: 'rgba(99, 102, 241, 0.5)',
+                                        transform: 'translateY(-50%)',
+                                        fontFamily: 'monospace'
+                                    }}
+                                >
+                                    {hour}
+                                </div>
+                            );
+                        })
+                    ))}
+                </div>
 
                 {/* Main Timeline Grid */}
                 <div className="timeline-hours-container" style={{ flex: 1, position: 'relative' }}>
@@ -697,9 +722,40 @@ const ContinuousTimeline = ({
                     })}
                 </div>
 
-                {/* Right Time Column (if different TZ) */}
+                {/* Right Time Column - Dest hours (if different TZ) */}
                 {isDifferentTZ && (
-                    <div className="timeline-col time-col right" style={{ width: '55px', position: 'relative' }} />
+                    <div className="timeline-col time-col right" style={{ width: '55px', position: 'relative' }}>
+                        {/* Hour labels for dest timezone - positioned relative to dest midnights */}
+                        {Array.from({ length: totalDays + 2 }, (_, dayIdx) => {
+                            // Get the offset for this day
+                            const dayDate = addDays(tripStartDate, dayIdx);
+                            const offset = getTZOffset(dayDate, destTimeZone, homeTimeZone);
+
+                            return Array.from({ length: 23 }, (_, h) => {
+                                const hour = h + 1; // 1-23 (skip 0 which is midnight)
+                                // Dest midnight for dayIdx is at (dayIdx * 24 - offset) in home hours
+                                // Each dest hour is at that position + hour
+                                const hoursFromStart = dayIdx * 24 - offset + hour;
+                                if (hoursFromStart < 0 || hoursFromStart >= totalHours) return null;
+                                return (
+                                    <div
+                                        key={`dest-hour-${dayIdx}-${hour}`}
+                                        style={{
+                                            position: 'absolute',
+                                            top: `${getPosition(hoursFromStart)}%`,
+                                            left: '5px',
+                                            fontSize: '0.55rem',
+                                            color: 'rgba(245, 158, 11, 0.5)',
+                                            transform: 'translateY(-50%)',
+                                            fontFamily: 'monospace'
+                                        }}
+                                    >
+                                        {hour}
+                                    </div>
+                                );
+                            });
+                        })}
+                    </div>
                 )}
 
                 {/* Right Day Column - Dest Time Zone Dates */}
