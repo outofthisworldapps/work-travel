@@ -153,6 +153,7 @@ const ContinuousTimeline = ({
     days,
     flights,
     hotels,
+    transportation,
     showMIE,
     onEditEvent,
     onUpdateMeals,
@@ -329,6 +330,43 @@ const ContinuousTimeline = ({
 
         return legs;
     }, [days, tripStartDate, homeTimeZone, destTimeZone]);
+
+    // Process transportation items (from the new Transportation panel)
+    const transportationSegments = useMemo(() => {
+        if (!transportation || transportation.length === 0) return [];
+
+        return transportation.map((t, idx) => {
+            if (!t.date || !t.time) return null;
+
+            // Determine timezone based on isHome flag
+            const isHome = t.isHome !== undefined ? t.isHome : true;
+            const transportTZ = isHome ? homeTimeZone : destTimeZone;
+            const shift = getTZOffset(t.date, transportTZ, homeTimeZone);
+
+            // Calculate day offset from trip start
+            const tripStart = startOfDay(tripStartDate);
+            const transportDate = startOfDay(t.date);
+            const dayOffset = Math.round(differenceInMinutes(transportDate, tripStart) / 1440);
+
+            const startTime = parseTime(t.time) || 0;
+            const duration = (t.duration || 60) / 60;
+
+            const startHours = dayOffset * 24 + startTime - shift;
+            const endHours = startHours + duration;
+
+            return {
+                id: t.id || `t-${idx}`,
+                transport: t,
+                startHours,
+                endHours,
+                isHome,
+                fromEmoji: t.fromEmoji || '🏡',
+                toEmoji: t.toEmoji || '✈️',
+                description: t.description || '',
+                type: t.type || 'uber'
+            };
+        }).filter(Boolean);
+    }, [transportation, tripStartDate, homeTimeZone, destTimeZone]);
 
     // Get emoji for location
     const getEmoji = (loc, isAway = false) => {
@@ -617,6 +655,51 @@ const ContinuousTimeline = ({
                                 </div>
                                 <div className="car-icon-meta" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)' }}>
                                     {leg.type === 'uber' ? '🚘' : (leg.type === 'drive' ? '🚗' : '📍')}
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {/* Transportation Segments (from Transportation panel) */}
+                    {transportationSegments.map(seg => {
+                        const startPos = getPosition(seg.startHours);
+                        const endPos = getPosition(seg.endHours);
+                        const height = Math.max(endPos - startPos, 1);
+
+                        // Get transport type emoji
+                        const typeEmoji = seg.type === 'uber' ? '🚕' :
+                            seg.type === 'bus' ? '🚌' :
+                                seg.type === 'train' ? '🚆' :
+                                    seg.type === 'walk' ? '🚶' : '🚘';
+
+                        return (
+                            <div
+                                key={seg.id}
+                                className={`tl-event travel-event clickable ${seg.isHome ? 'home-side' : 'away-side'}`}
+                                onClick={() => onEditEvent({ type: 'transportation', id: seg.id })}
+                                style={{
+                                    position: 'absolute',
+                                    top: `${startPos}%`,
+                                    height: `${height}%`,
+                                    minHeight: '8px'
+                                }}
+                            >
+                                <div className={`tl-travel-meta ${seg.isHome ? 'home-side' : 'away-side'}`}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                        <span style={{ opacity: 0.8 }}>{seg.fromEmoji}</span>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
+                                            {formatTimeNum(seg.startHours % 24)}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                        <span style={{ opacity: 0.8 }}>{seg.toEmoji}</span>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
+                                            {formatTimeNum(seg.endHours % 24)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="car-icon-meta" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)' }}>
+                                    {typeEmoji}
                                 </div>
                             </div>
                         );

@@ -74,6 +74,32 @@
   - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before.
   - **Fix**: Check-in date should match the arrival day at the destination (unless the Early Arrival Rule applies).
 
+## Transportation Panel
+- **Purpose**: Manages all ground transportation to/from airports and other locations.
+- **Auto-population from Flights**: When flights are added, transportation trips are automatically generated:
+  - **Home → Airport**: Uber trip 4 hours before outbound departure (1 hour drive, arrive 3 hours before flight).
+  - **Airport → Hotel**: Uber trip 1 hour after outbound arrival (30 minute ride to hotel).
+  - **Hotel → Airport**: Uber trip 3.5 hours before return departure (30 minute ride, arrive 3 hours before flight).
+  - **Airport → Home**: Uber trip 1 hour after return arrival (1 hour drive home).
+- **Transport Type Selector**: Each trip has a dropdown with emoji icons:
+  - 🚕 Uber/Taxi
+  - 🚌 Bus
+  - 🚆 Train
+  - 🚶 Walk
+- **Trip Details**:
+  - Date selector (trip dates dropdown)
+  - Time input (local time)
+  - From/To emoji display (🏡 Home, 🏨 Hotel, ✈️ Airport, 💼 Work)
+- **Cost Entry**:
+  - Price input field
+  - Currency toggle button ($ for USD, 🌐 for foreign currency)
+  - When foreign currency is selected, shows USD equivalent conversion
+- **Reordering**: Drag handle (grip icon) on left side allows reordering trips
+- **Add/Delete**: ADD TRIP button at bottom, delete (trash) button on each row
+- **Timeline Integration**: Transportation items appear on the timeline:
+  - Home-side transport (indigo, left-aligned)
+  - Away-side transport (orange, right-aligned)
+
 ## Vertical Timeline (Continuous Graph)
 - **Single Continuous Timeline**: The timeline is rendered as one continuous vertical graph spanning the entire trip duration, NOT as separate day units.
 - **Multi-Day Spanning Elements**: 

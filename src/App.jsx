@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 11:13 EST";
+const APP_VERSION = "2025-12-29 11:29 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1488,6 +1488,175 @@ const HotelPanel = ({ hotels, onUpdate, onDelete, onAdd, tripDates }) => {
 };
 
 
+// Transportation types with emojis
+const TRANSPORT_TYPES = [
+  { value: 'uber', label: '🚕 Uber/Taxi', emoji: '🚕' },
+  { value: 'bus', label: '🚌 Bus', emoji: '🚌' },
+  { value: 'train', label: '🚆 Train', emoji: '🚆' },
+  { value: 'walk', label: '🚶 Walk', emoji: '🚶' },
+];
+
+// Sortable Transportation Row
+const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCurrency, customRates }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: transport.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 100 : 'auto'
+  };
+
+  const handleTypeChange = (e) => onUpdate(transport.id, 'type', e.target.value);
+  const handleDateChange = (e) => onUpdate(transport.id, 'date', new Date(e.target.value));
+  const handleTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
+  const handleCostChange = (e) => onUpdate(transport.id, 'cost', parseFloat(e.target.value) || 0);
+  const handleCurrencyToggle = () => {
+    onUpdate(transport.id, 'currency', transport.currency === 'USD' ? altCurrency : 'USD');
+  };
+
+  const typeObj = TRANSPORT_TYPES.find(t => t.value === transport.type) || TRANSPORT_TYPES[0];
+  const isForeign = transport.currency !== 'USD';
+  const rate = customRates[transport.currency] || 1;
+  const usdEquivalent = isForeign ? (transport.cost / rate) : transport.cost;
+
+  return (
+    <div ref={setNodeRef} style={style} className="transport-row">
+      <div className="t-grip" {...attributes} {...listeners}>
+        <GripVertical size={14} />
+      </div>
+
+      <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
+        {TRANSPORT_TYPES.map(t => (
+          <option key={t.value} value={t.value}>{t.label}</option>
+        ))}
+      </select>
+
+      <div className="t-route">
+        <span className="t-emoji">{transport.fromEmoji || '🏡'}</span>
+        <span className="t-arrow">→</span>
+        <span className="t-emoji">{transport.toEmoji || '✈️'}</span>
+        <span className="t-location-text">{transport.description || ''}</span>
+      </div>
+
+      <select
+        className="t-date-select"
+        value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
+        onChange={handleDateChange}
+      >
+        <option value="">Date</option>
+        {tripDates && tripDates.map((date, idx) => (
+          <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE M/d')}</option>
+        ))}
+      </select>
+
+      <input
+        className="t-time-input"
+        value={transport.time || ''}
+        onChange={handleTimeChange}
+        placeholder="9:00a"
+      />
+
+      <div className="t-cost-group">
+        <button
+          className={`t-currency-btn ${isForeign ? 'foreign' : 'domestic'}`}
+          onClick={handleCurrencyToggle}
+          title={isForeign ? `${altCurrency} → USD` : 'USD'}
+        >
+          {isForeign ? <Globe size={12} /> : <DollarSign size={12} />}
+        </button>
+        <input
+          type="number"
+          className="t-cost-input"
+          value={transport.cost || ''}
+          onChange={handleCostChange}
+          placeholder="0.00"
+          step="0.01"
+        />
+        {isForeign && (
+          <span className="t-usd-equiv">≈ ${usdEquivalent.toFixed(2)}</span>
+        )}
+      </div>
+
+      <button className="t-delete-btn" onClick={() => onDelete(transport.id)} title="Delete">
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+};
+
+// Transportation Panel
+const TransportationPanel = ({
+  transportation,
+  onUpdate,
+  onDelete,
+  onAdd,
+  onReorder,
+  tripDates,
+  altCurrency,
+  customRates
+}) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = transportation.findIndex(t => t.id === active.id);
+    const newIndex = transportation.findIndex(t => t.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onReorder(arrayMove(transportation, oldIndex, newIndex));
+    }
+  };
+
+  return (
+    <div className="transport-panel glass">
+      <div className="f-header">
+        <div className="f-title"><Car size={14} /> TRANSPORTATION</div>
+      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={transportation.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          <div className="t-list">
+            {transportation.map(t => (
+              <SortableTransportRow
+                key={t.id}
+                transport={t}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                tripDates={tripDates}
+                altCurrency={altCurrency}
+                customRates={customRates}
+              />
+            ))}
+            {transportation.length === 0 && (
+              <div className="no-travel" style={{ padding: '1rem' }}>No transportation added</div>
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
+      <button className="f-add-btn" onClick={onAdd}>
+        <Plus size={10} /> ADD TRIP
+      </button>
+    </div>
+  );
+};
+
+
 // --- Components ---
 
 // Vertically scrolling date range picker (Google Flights style)
@@ -2280,6 +2449,13 @@ function App() {
     return [];
   });
 
+  const [transportation, setTransportation] = useState(() => {
+    if (initialState.transportation) {
+      return initialState.transportation.map(t => ({ ...t, date: new Date(t.date) }));
+    }
+    return [];
+  });
+
   const flightTotal = useMemo(() => {
     return flights.reduce((sum, f) => sum + (f.cost || 0), 0);
   }, [flights]);
@@ -2404,13 +2580,14 @@ function App() {
         useAlt,
         flights,
         hotels,
-        conferenceCenter
+        conferenceCenter,
+        transportation
       };
       localStorage.setItem('work-travel-state', JSON.stringify(stateData));
     } catch (err) {
       console.error('Error saving to localStorage:', err);
     }
-  }, [days, tripName, tripWebsite, homeCity, homeTimeZone, destCity, destTimeZone, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, conferenceCenter]);
+  }, [days, tripName, tripWebsite, homeCity, homeTimeZone, destCity, destTimeZone, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, conferenceCenter, transportation]);
 
   const loadData = useCallback((data) => {
     try {
@@ -2431,6 +2608,7 @@ function App() {
         if (data.flights) setFlights(data.flights);
         if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
         if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
+        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: new Date(t.date) })));
       }
     } catch (err) {
       alert('Error loading data');
@@ -2498,7 +2676,7 @@ function App() {
     const data = JSON.stringify({
       days, tripName, tripWebsite, registrationFee, registrationCurrency,
       altCurrency, customRates, useAlt, flights, hotels, homeCity,
-      homeTimeZone, destCity, destTimeZone, conferenceCenter
+      homeTimeZone, destCity, destTimeZone, conferenceCenter, transportation
     }, null, 2);
 
     const blob = new Blob([data], { type: 'application/json' });
@@ -3256,6 +3434,181 @@ function App() {
     }
   }, [flights]);
 
+  // Auto-populate Transportation based on Flights
+  // Rules from WORK TRAVEL.md:
+  // - Get to airport 3 hours before flight (in local time zone)
+  // - Leave airport 1 hour after arrival
+  // - Home <-> Airport takes 1 hour
+  // - Hotel <-> Airport takes 30 minutes
+  React.useEffect(() => {
+    if (flights.length === 0) return;
+
+    const allSegments = flights.flatMap(f => [
+      ...(f.outbound || []).map(s => ({ ...s, isOutbound: true })),
+      ...(f.returnSegments || []).map(s => ({ ...s, isOutbound: false }))
+    ]).filter(s => s.depDate && s.depTime);
+
+    if (allSegments.length === 0) return;
+
+    // Helper to parse date and time
+    const parseFlightDateTime = (dateStr, timeStr) => {
+      if (!dateStr || !timeStr) return null;
+      const date = parseSegDate(dateStr);
+      if (!date) return null;
+      const time = parseTime(timeStr);
+      if (time === null) return null;
+      const d = new Date(date + 'T00:00:00');
+      d.setHours(Math.floor(time), Math.round((time % 1) * 60), 0, 0);
+      return d;
+    };
+
+    // Helper to subtract hours and get new time string
+    const subtractHours = (timeStr, hours) => {
+      const t = parseTime(timeStr);
+      if (t === null) return timeStr;
+      return formatTime(t - hours);
+    };
+
+    // Helper to add hours and get new time string
+    const addHoursToTime = (timeStr, hours) => {
+      const t = parseTime(timeStr);
+      if (t === null) return timeStr;
+      return formatTime(t + hours);
+    };
+
+    // Generate transportation items
+    const newTransport = [];
+
+    // Group segments by departure date
+    const firstOutbound = allSegments.find(s => s.isOutbound);
+    const lastReturn = [...allSegments].reverse().find(s => !s.isOutbound);
+    const firstArrival = allSegments.find(s => s.isOutbound && s.arrDate);
+    const lastDeparture = [...allSegments].reverse().find(s => !s.isOutbound && s.depDate);
+
+    // Outbound: Home -> Airport (arrive 3 hours before flight, 1 hour drive)
+    if (firstOutbound && firstOutbound.depDate && firstOutbound.depTime) {
+      const depTime = parseTime(firstOutbound.depTime);
+      if (depTime !== null) {
+        // Leave home 3+1=4 hours before flight
+        const leaveHomeTime = formatTime(depTime - 4);
+        const arriveAirportTime = formatTime(depTime - 3);
+        const depDate = parseSegDate(firstOutbound.depDate);
+
+        newTransport.push({
+          id: 't-out-home-airport',
+          type: 'uber',
+          fromEmoji: '🏡',
+          toEmoji: '✈️',
+          description: `To ${firstOutbound.depPort || 'Airport'}`,
+          date: depDate ? new Date(depDate) : new Date(),
+          time: leaveHomeTime,
+          endTime: arriveAirportTime,
+          duration: 60,
+          cost: 0,
+          currency: 'USD',
+          isHome: true
+        });
+      }
+    }
+
+    // First arrival at destination: Airport -> Hotel (1 hour after arrival, 30 min ride)
+    if (firstArrival && firstArrival.arrDate && firstArrival.arrTime) {
+      const arrTime = parseTime(firstArrival.arrTime);
+      if (arrTime !== null) {
+        const leaveAirportTime = formatTime(arrTime + 1);
+        const arriveHotelTime = formatTime(arrTime + 1.5);
+        const arrDate = parseSegDate(firstArrival.arrDate);
+
+        newTransport.push({
+          id: 't-out-airport-hotel',
+          type: 'uber',
+          fromEmoji: '✈️',
+          toEmoji: '🏨',
+          description: `From ${firstArrival.arrPort || 'Airport'}`,
+          date: arrDate ? new Date(arrDate) : new Date(),
+          time: leaveAirportTime,
+          endTime: arriveHotelTime,
+          duration: 30,
+          cost: 0,
+          currency: 'USD',
+          isHome: false
+        });
+      }
+    }
+
+    // Return: Hotel -> Airport (3 hours before return flight, 30 min ride)
+    if (lastDeparture && lastDeparture.depDate && lastDeparture.depTime) {
+      const depTime = parseTime(lastDeparture.depTime);
+      if (depTime !== null) {
+        const leaveHotelTime = formatTime(depTime - 3.5);
+        const arriveAirportTime = formatTime(depTime - 3);
+        const depDate = parseSegDate(lastDeparture.depDate);
+
+        newTransport.push({
+          id: 't-ret-hotel-airport',
+          type: 'uber',
+          fromEmoji: '🏨',
+          toEmoji: '✈️',
+          description: `To ${lastDeparture.depPort || 'Airport'}`,
+          date: depDate ? new Date(depDate) : new Date(),
+          time: leaveHotelTime,
+          endTime: arriveAirportTime,
+          duration: 30,
+          cost: 0,
+          currency: 'USD',
+          isHome: false
+        });
+      }
+    }
+
+    // Last arrival home: Airport -> Home (1 hour after arrival, 1 hour drive)
+    if (lastReturn && lastReturn.arrDate && lastReturn.arrTime) {
+      const arrTime = parseTime(lastReturn.arrTime);
+      if (arrTime !== null) {
+        const leaveAirportTime = formatTime(arrTime + 1);
+        const arriveHomeTime = formatTime(arrTime + 2);
+        const arrDate = parseSegDate(lastReturn.arrDate);
+
+        newTransport.push({
+          id: 't-ret-airport-home',
+          type: 'uber',
+          fromEmoji: '✈️',
+          toEmoji: '🏡',
+          description: `From ${lastReturn.arrPort || 'Airport'}`,
+          date: arrDate ? new Date(arrDate) : new Date(),
+          time: leaveAirportTime,
+          endTime: arriveHomeTime,
+          duration: 60,
+          cost: 0,
+          currency: 'USD',
+          isHome: true
+        });
+      }
+    }
+
+    // Only auto-populate if transportation is empty
+    setTransportation(prev => {
+      if (prev.length === 0 && newTransport.length > 0) {
+        return newTransport;
+      }
+      // Update existing auto-generated items but keep user-added ones
+      const userItems = prev.filter(t => !t.id.startsWith('t-out-') && !t.id.startsWith('t-ret-'));
+      const existingAutoIds = prev.filter(t => t.id.startsWith('t-out-') || t.id.startsWith('t-ret-')).map(t => t.id);
+
+      // If user has deleted an auto item, don't re-add it
+      // Only update times for existing auto items
+      if (existingAutoIds.length > 0 || userItems.length > 0) {
+        const updatedAuto = newTransport.filter(nt => existingAutoIds.includes(nt.id)).map(nt => {
+          const existing = prev.find(p => p.id === nt.id);
+          // Preserve user edits to cost/currency, update time/date from flights
+          return existing ? { ...nt, cost: existing.cost, currency: existing.currency } : nt;
+        });
+        return [...userItems, ...updatedAuto];
+      }
+      return prev;
+    });
+  }, [flights]);
+
 
   const totals = useMemo(() => {
     let registration = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);
@@ -3280,15 +3633,20 @@ function App() {
       return acc + convertCurrency(h.cost, h.currency || 'USD', 'USD', currentRates);
     }, 0);
 
+    // Transportation (from new Transportation panel)
+    const transportTotal = transportation.reduce((acc, t) => {
+      return acc + convertCurrency(t.cost || 0, t.currency || 'USD', 'USD', currentRates);
+    }, 0);
+
     return {
-      grand: registration + fl + travel + mieTotal + hotelTotal,
+      grand: registration + fl + travel + mieTotal + hotelTotal + transportTotal,
       registration,
       flights: fl,
-      travel,
+      travel: travel + transportTotal,
       mie: mieTotal,
       lodging: hotelTotal,
     };
-  }, [days, flights, hotels, registrationFee, registrationCurrency, currentRates]);
+  }, [days, flights, hotels, transportation, registrationFee, registrationCurrency, currentRates]);
 
   const isDifferentTZ = homeTimeZone !== destTimeZone;
 
@@ -3457,6 +3815,7 @@ function App() {
               days={days}
               flights={flights}
               hotels={hotels}
+              transportation={transportation}
               showMIE={showMIE}
               onEditEvent={(ev) => setEditingEvent(ev)}
               onUpdateMeals={(dayId, meal) => {
@@ -3501,6 +3860,15 @@ function App() {
                         {/* For now just a placeholder */}
                       </div>
                     )}
+                    {editingEvent.type === 'transportation' && (
+                      <div className="simple-edit-form">
+                        <p>Go to the <b>Transportation</b> section below to edit this trip ({editingEvent.id})</p>
+                        <button className="btn-primary" onClick={() => {
+                          document.querySelector('.transportation-section-panel').scrollIntoView({ behavior: 'smooth' });
+                          setEditingEvent(null);
+                        }}>GO TO TRANSPORTATION</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3530,6 +3898,31 @@ function App() {
               onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
               onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
               tripDates={days.map(d => d.date)}
+            />
+          </section>
+
+          <section className="transportation-section-panel">
+            <TransportationPanel
+              transportation={transportation}
+              onUpdate={(id, field, value) => setTransportation(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))}
+              onDelete={(id) => setTransportation(prev => prev.filter(t => t.id !== id))}
+              onAdd={() => setTransportation(prev => [...prev, {
+                id: generateId(),
+                type: 'uber',
+                fromEmoji: '🏡',
+                toEmoji: '✈️',
+                description: '',
+                date: days[0]?.date || new Date(),
+                time: '9:00a',
+                duration: 60,
+                cost: 0,
+                currency: 'USD',
+                isHome: true
+              }])}
+              onReorder={(newOrder) => setTransportation(newOrder)}
+              tripDates={days.map(d => d.date)}
+              altCurrency={altCurrency}
+              customRates={customRates}
             />
           </section>
 
@@ -4093,7 +4486,112 @@ function App() {
         .f-inp::placeholder { color: #475569; }
 
         /* Flight Panel & Groups */
-        .flight-panel, .hotel-panel { background: var(--glass); border: 1px solid var(--border); border-radius: 1.5rem; padding: 1.5rem; overflow: visible; }
+        .flight-panel, .hotel-panel, .transport-panel { background: var(--glass); border: 1px solid var(--border); border-radius: 1.5rem; padding: 1.5rem; overflow: visible; }
+        
+        /* Transportation Panel Styles */
+        .transport-panel .t-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .transport-row { 
+          display: flex; 
+          align-items: center; 
+          gap: 0.5rem; 
+          background: rgba(0,0,0,0.2); 
+          border: 1px solid rgba(255,255,255,0.05); 
+          border-radius: 0.75rem; 
+          padding: 0.6rem 0.75rem;
+        }
+        .t-grip { color: #475569; cursor: grab; display: flex; align-items: center; }
+        .t-grip:active { cursor: grabbing; }
+        .t-type-select { 
+          background: rgba(0,0,0,0.4); 
+          border: 1px solid rgba(255,255,255,0.15); 
+          border-radius: 6px; 
+          padding: 4px 8px; 
+          color: #fff; 
+          font-size: 0.7rem; 
+          max-width: 100px;
+        }
+        .t-route { 
+          display: flex; 
+          align-items: center; 
+          gap: 4px; 
+          flex: 1;
+          min-width: 0;
+        }
+        .t-emoji { font-size: 0.9rem; }
+        .t-arrow { color: #64748b; font-size: 0.75rem; }
+        .t-location-text { 
+          color: #94a3b8; 
+          font-size: 0.65rem; 
+          white-space: nowrap; 
+          overflow: hidden; 
+          text-overflow: ellipsis;
+        }
+        .t-date-select { 
+          background: rgba(0,0,0,0.4); 
+          border: 1px solid rgba(255,255,255,0.15); 
+          border-radius: 4px; 
+          padding: 3px 6px; 
+          color: #fff; 
+          font-size: 0.65rem;
+          font-family: 'JetBrains Mono', monospace;
+          max-width: 90px;
+        }
+        .t-time-input { 
+          width: 55px !important; 
+          font-size: 0.7rem; 
+          text-align: center; 
+          font-weight: 600;
+          background: rgba(0,0,0,0.4);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 4px;
+          padding: 3px 6px;
+          color: #fff;
+        }
+        .t-cost-group { 
+          display: flex; 
+          align-items: center; 
+          gap: 4px; 
+          background: rgba(0,0,0,0.3); 
+          border-radius: 6px; 
+          border: 1px solid rgba(255,255,255,0.08); 
+          padding: 2px 6px;
+        }
+        .t-currency-btn { 
+          background: transparent; 
+          border: none; 
+          color: #64748b; 
+          cursor: pointer; 
+          padding: 4px; 
+          display: flex; 
+          align-items: center;
+          transition: color 0.2s;
+        }
+        .t-currency-btn:hover { color: var(--accent); }
+        .t-currency-btn.foreign { color: var(--warning); }
+        .t-cost-input { 
+          background: transparent !important; 
+          border: none !important; 
+          width: 50px !important; 
+          color: var(--accent) !important; 
+          font-weight: 800 !important; 
+          text-align: right !important; 
+          font-size: 0.8rem !important;
+        }
+        .t-usd-equiv { 
+          font-size: 0.6rem; 
+          color: #64748b; 
+          white-space: nowrap;
+        }
+        .t-delete-btn { 
+          background: transparent; 
+          border: none; 
+          color: #64748b; 
+          cursor: pointer; 
+          padding: 4px; 
+          display: flex;
+          transition: color 0.2s;
+        }
+        .t-delete-btn:hover { color: var(--error); }
         .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
         .f-title { font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
         
@@ -4373,7 +4871,14 @@ function App() {
 
           
           /* Flight Row Mobile Fixes */
-          .flight-panel, .hotel-panel { padding: 0.6rem !important; }
+          .flight-panel, .hotel-panel, .transport-panel { padding: 0.6rem !important; }
+          .transport-row { flex-wrap: wrap; gap: 0.4rem !important; padding: 0.4rem !important; }
+          .t-route { order: 1; width: 100%; }
+          .t-type-select { order: 2; }
+          .t-date-select { order: 3; }
+          .t-time-input { order: 4; }
+          .t-cost-group { order: 5; }
+          .t-delete-btn { order: 6; }
           .flight-group { padding: 0.4rem !important; }
           .f-segment { padding: 0.4rem 0.2rem !important; }
           
