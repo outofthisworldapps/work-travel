@@ -251,8 +251,14 @@ const ContinuousTimeline = ({
                 const arrDayOffset = Math.round(differenceInMinutes(startOfDay(arrDate), tripStart) / 1440);
 
                 // Subtract offset to convert local airport time to home time
-                const depHoursFromStart = depDayOffset * 24 + depTime - depShift;
-                const arrHoursFromStart = arrDayOffset * 24 + arrTime - arrShift;
+                let depHoursFromStart = depDayOffset * 24 + depTime - depShift;
+                let arrHoursFromStart = arrDayOffset * 24 + arrTime - arrShift;
+
+                // Fix for overnight flights where arrival date is wrong in the data
+                // If arrival appears before departure, the arrival date should be +1 day
+                if (arrHoursFromStart < depHoursFromStart) {
+                    arrHoursFromStart += 24;
+                }
 
                 // Only include if within trip bounds (allow slight overflow for long flights)
                 if (arrHoursFromStart >= -24 && depHoursFromStart <= totalHours + 24) {
