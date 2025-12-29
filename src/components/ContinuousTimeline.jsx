@@ -376,6 +376,19 @@ const ContinuousTimeline = ({
             const endTime = parseTime(t.endTime) || (startTime + (t.duration || 60) / 60);
             const duration = endTime - startTime; // Actual duration from times
 
+            // Debug logging
+            if (t.type === 'uber' || t.type === 'taxi') {
+                console.log('Transport timing:', {
+                    id: t.id,
+                    time: t.time,
+                    endTime: t.endTime,
+                    duration: t.duration,
+                    startTime,
+                    calculatedEndTime: endTime,
+                    calculatedDuration: duration
+                });
+            }
+
             // Hours from trip start in home timezone (for positioning on timeline)
             const startHours = dayOffset * 24 + startTime - shift;
             const endHours = dayOffset * 24 + endTime - shift;
@@ -711,23 +724,21 @@ const ContinuousTimeline = ({
                                     transform: 'translate(-50%, -50%)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px'
+                                    gap: '6px'
                                 }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                            <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>{seg.fromEmoji}</span>
-                                            <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.55rem', fontWeight: 950 }}>
-                                                {formatTimeNum(seg.localStartTime)}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                            <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>{seg.toEmoji}</span>
-                                            <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.55rem', fontWeight: 950 }}>
-                                                {formatTimeNum(seg.localEndTime)}
-                                            </span>
-                                        </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                                        <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900 }}>
+                                            {formatTimeNum(seg.localStartTime)}
+                                        </span>
                                     </div>
-                                    <div style={{ fontSize: '1.1rem', marginLeft: '2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                                        <span style={{ fontSize: '0.65rem' }}>{seg.toEmoji}</span>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900 }}>
+                                            {formatTimeNum(seg.localEndTime)}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '1rem' }}>
                                         {typeEmoji}
                                     </div>
                                 </div>
