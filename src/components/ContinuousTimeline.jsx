@@ -301,7 +301,8 @@ const ContinuousTimeline = ({
             (day.legs || []).forEach((l, legIdx) => {
                 if (l.type === 'flight') return;
 
-                const isHome = l.from === 'Home' || l.to === 'Home';
+                // Use the isHome flag from auto-generated legs, or determine from location
+                const isHome = l.isHome !== undefined ? l.isHome : (l.from === 'Home' || l.to === 'Home');
                 const legTZ = isHome ? homeTimeZone : destTimeZone;
                 // Subtract offset to convert local time to home timeline time
                 const shift = getTZOffset(day.date, legTZ, homeTimeZone);

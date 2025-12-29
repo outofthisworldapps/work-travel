@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 10:12 EST";
+const APP_VERSION = "2025-12-29 11:13 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -3004,6 +3004,8 @@ function App() {
 
   // Auto-populate Travel Legs based on Flights
   React.useEffect(() => {
+    if (!days || days.length === 0 || !flights) return;
+
     let globalChanged = false;
     const nextDays = days.map((day, dIdx) => {
       const dayStr = safeFormat(day.date, 'yyyy-MM-dd');
@@ -3013,55 +3015,101 @@ function App() {
       flights.forEach((f) => {
         const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
         allSegments.forEach((seg, sIdx) => {
+          if (!seg.depPort || !seg.arrPort) return;
+
           const segDepDateStr = parseSegDate(seg.depDate);
           const segArrDateStr = parseSegDate(seg.arrDate);
+          if (!segDepDateStr || !segArrDateStr) return;
 
           const isOutbound = f.outbound && f.outbound.includes(seg);
           const isReturn = f.returnSegments && f.returnSegments.includes(seg);
 
+          // Get timezones for ports using airport database
           const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+          const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+
+          // Determine if departure/arrival is from/to home based on timezone
           let isDepHome = depPortTZ === homeTimeZone;
           if (isOutbound && sIdx === 0) isDepHome = true;
           if (isReturn && sIdx === allSegments.length - 1) isDepHome = false;
 
-          const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
           let isArrHome = arrPortTZ === homeTimeZone;
           if (isOutbound && sIdx === (f.outbound.length - 1)) isArrHome = false;
           if (isReturn && seg === f.returnSegments[f.returnSegments.length - 1]) isArrHome = true;
 
-          // Departure to airport
-          if (segDepDateStr === dayStr) {
-            const flTime = parseTime(seg.depTime);
-            let rideDur = isDepHome ? 1 : 0.5;
-            let waitAtAirport = 3;
-            const rideStartTimeNum = flTime ? (flTime - waitAtAirport - rideDur + 24) % 24 : 11;
+          // Parse flight times
+          const flDepTime = parseTime(seg.depTime);
+          const flArrTime = parseTime(seg.arrTime);
+          if (flDepTime === null || flArrTime === null) return;
+
+          // Calculate uber ride start time in the appropriate LOCAL airport time
+          // Departure: ride starts rideDur + waitAtAirport hours BEFORE flight
+          // The ride is in the departure port's timezone
+          const depRideDur = isDepHome ? 1 : 0.5;  // 1hr from home, 30min from hotel
+          const waitAtAirport = 3;  // WORK TRAVEL.md: Get to airport 3 hours before
+          const depRideStartLocal = (flDepTime - waitAtAirport - depRideDur + 24) % 24;
+
+          // Arrival: ride starts waitAfterArrival hours AFTER arrival
+          // The ride is in the arrival port's timezone
+          const arrRideDur = isArrHome ? 1 : 0.5;  // 1hr to home, 30min to hotel
+          const waitAfterArrival = 1;  // WORK TRAVEL.md: Leave airport 1 hour after arrival
+          const arrRideStartLocal = (flArrTime + waitAfterArrival) % 24;
+
+          // Convert departure local time to home timezone to determine the calendar day
+          // The ride START time determines which day it appears on
+          // Create a date at the local departure time, then convert to home TZ
+          const depDate = new Date(segDepDateStr + 'T12:00:00');
+          const depShift = getTZOffset(depDate, depPortTZ, homeTimeZone);
+          const depRideHomeTime = (depRideStartLocal - depShift + 24) % 24;
+          // If the home time goes past midnight, adjust the day
+          const depDayAdjust = depRideHomeTime < depRideStartLocal && depShift > 0 ? 1 :
+            depRideHomeTime > depRideStartLocal && depShift < 0 ? -1 : 0;
+          const depHomeDateStr = (() => {
+            const d = new Date(segDepDateStr + 'T12:00:00');
+            d.setDate(d.getDate() + depDayAdjust);
+            return format(d, 'yyyy-MM-dd');
+          })();
+
+          // Similarly for arrival
+          const arrDate = new Date(segArrDateStr + 'T12:00:00');
+          const arrShift = getTZOffset(arrDate, arrPortTZ, homeTimeZone);
+          const arrRideHomeTime = (arrRideStartLocal - arrShift + 24) % 24;
+          // If the home time goes past midnight, adjust the day
+          const arrDayAdjust = arrRideHomeTime < arrRideStartLocal && arrShift > 0 ? 1 :
+            arrRideHomeTime > arrRideStartLocal && arrShift < 0 ? -1 : 0;
+          const arrHomeDateStr = (() => {
+            const d = new Date(segArrDateStr + 'T12:00:00');
+            d.setDate(d.getDate() + arrDayAdjust);
+            return format(d, 'yyyy-MM-dd');
+          })();
+
+          // Add departure leg (ride to airport) on the appropriate home-timezone day
+          if (depHomeDateStr === dayStr) {
             neededAutoLegs.push({
               from: isDepHome ? 'Home' : 'Hotel',
               to: seg.depPort,
               type: 'uber',
-              time: formatTime(rideStartTimeNum),
-              duration: rideDur * 60,
+              time: formatTime(depRideStartLocal),  // Store in local airport time
+              duration: depRideDur * 60,
               amount: 45,
               currency: 'USD',
-              auto: true
+              auto: true,
+              isHome: isDepHome  // Flag for timezone handling
             });
           }
 
-          // Arrival from airport
-          if (segArrDateStr === dayStr) {
-            const flArrTime = parseTime(seg.arrTime);
-            let rideDur = isArrHome ? 1 : 0.5;
-            let waitAtAirport = 1;
-            const rideStartTimeNum = flArrTime ? (flArrTime + waitAtAirport) % 24 : 12;
+          // Add arrival leg (ride from airport) on the appropriate home-timezone day
+          if (arrHomeDateStr === dayStr) {
             neededAutoLegs.push({
               from: seg.arrPort,
               to: isArrHome ? 'Home' : 'Hotel',
               type: 'uber',
-              time: formatTime(rideStartTimeNum),
-              duration: rideDur * 60,
+              time: formatTime(arrRideStartLocal),  // Store in local airport time
+              duration: arrRideDur * 60,
               amount: 45,
               currency: 'USD',
-              auto: true
+              auto: true,
+              isHome: isArrHome  // Flag for timezone handling
             });
           }
         });
@@ -3099,7 +3147,7 @@ function App() {
       setDays(nextDays);
       saveToHistory(nextDays, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
     }
-  }, [flights, homeCity, destCity, homeTimeZone, destTimeZone]);
+  }, [flights, homeCity, destCity, homeTimeZone, destTimeZone, days.length]);
 
   // Ensure trip covers all flight segments
   React.useEffect(() => {
@@ -4076,7 +4124,7 @@ function App() {
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
-        .f-seg-grid { display: grid; grid-template-columns: 75px 150px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
+        .f-seg-grid { display: grid; grid-template-columns: 75px 170px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
         .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
         .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
         .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
@@ -4338,7 +4386,7 @@ function App() {
           .si-cal { margin-left: 2px !important; }
           
           .f-seg-grid { 
-            grid-template-columns: 60px 85px 50px 1fr 22px !important;
+            grid-template-columns: 60px 110px 50px 1fr 22px !important;
             gap: 4px 4px !important;
           }
           .f-date-col { display: flex !important; flex-direction: column !important; gap: 4px !important; }
