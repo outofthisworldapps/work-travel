@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 17:22 EST";
+const APP_VERSION = "2025-12-29 18:33 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1678,9 +1678,35 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
   };
   const handleFromChange = (e) => onUpdate(transport.id, 'from', e.target.value);
   const handleToChange = (e) => onUpdate(transport.id, 'to', e.target.value);
-  const handleStartTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
+  const handleStartTimeChange = (e) => {
+    const newStartTime = e.target.value;
+    onUpdate(transport.id, 'time', newStartTime);
+
+    // Recalculate endTime from new startTime + duration
+    if (transport.duration) {
+      const startTime = parseTime(newStartTime);
+      if (startTime !== null) {
+        const endHours = startTime + transport.duration / 60;
+        const endTimeStr = formatTimeNum(endHours);
+        onUpdate(transport.id, 'endTime', endTimeStr);
+      }
+    }
+  };
   const handleEndTimeChange = (e) => onUpdate(transport.id, 'endTime', e.target.value);
-  const handleDurationChange = (e) => onUpdate(transport.id, 'duration', parseFloat(e.target.value) || 0);
+  const handleDurationChange = (e) => {
+    const newDuration = parseFloat(e.target.value) || 0;
+    onUpdate(transport.id, 'duration', newDuration);
+
+    // Recalculate endTime from startTime + duration
+    if (transport.time) {
+      const startTime = parseTime(transport.time);
+      if (startTime !== null) {
+        const endHours = startTime + newDuration / 60;
+        const endTimeStr = formatTimeNum(endHours);
+        onUpdate(transport.id, 'endTime', endTimeStr);
+      }
+    }
+  };
   const handleCostChange = (e) => onUpdate(transport.id, 'cost', parseFloat(e.target.value) || 0);
   const handleCurrencyToggle = () => {
     onUpdate(transport.id, 'currency', transport.currency === 'USD' ? altCurrency : 'USD');

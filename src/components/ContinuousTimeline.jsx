@@ -376,19 +376,6 @@ const ContinuousTimeline = ({
             const endTime = parseTime(t.endTime) || (startTime + (t.duration || 60) / 60);
             const duration = endTime - startTime; // Actual duration from times
 
-            // Debug logging
-            if (t.type === 'uber' || t.type === 'taxi') {
-                console.log('Transport timing:', {
-                    id: t.id,
-                    time: t.time,
-                    endTime: t.endTime,
-                    duration: t.duration,
-                    startTime,
-                    calculatedEndTime: endTime,
-                    calculatedDuration: duration
-                });
-            }
-
             // Hours from trip start in home timezone (for positioning on timeline)
             const startHours = dayOffset * 24 + startTime - shift;
             const endHours = dayOffset * 24 + endTime - shift;
