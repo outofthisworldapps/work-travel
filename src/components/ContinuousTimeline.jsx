@@ -374,11 +374,11 @@ const ContinuousTimeline = ({
 
             const startTime = parseTime(t.time) || 0;
             const endTime = parseTime(t.endTime) || (startTime + (t.duration || 60) / 60);
-            const duration = (t.duration || 60) / 60;
+            const duration = endTime - startTime; // Actual duration from times
 
             // Hours from trip start in home timezone (for positioning on timeline)
             const startHours = dayOffset * 24 + startTime - shift;
-            const endHours = startHours + duration;
+            const endHours = dayOffset * 24 + endTime - shift;
 
             // Get emojis from from/to fields or legacy fromEmoji/toEmoji
             const fromEmoji = t.from ? getPlaceEmoji(t.from) : (t.fromEmoji || '🏡');
@@ -458,7 +458,7 @@ const ContinuousTimeline = ({
                                         position: 'absolute',
                                         top: `${getPosition(hoursFromStart)}%`,
                                         right: '5px',
-                                        fontSize: '0.5rem',
+                                        fontSize: '0.4rem',
                                         color: 'rgba(99, 102, 241, 0.5)',
                                         transform: 'translateY(-50%)',
                                         fontFamily: 'monospace'
@@ -710,24 +710,25 @@ const ContinuousTimeline = ({
                                     left: '50%',
                                     transform: 'translate(-50%, -50%)',
                                     display: 'flex',
-                                    flexDirection: 'column',
                                     alignItems: 'center',
-                                    gap: '2px'
+                                    gap: '4px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ opacity: 0.8 }}>{seg.fromEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(seg.localStartTime)}
-                                        </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                            <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>{seg.fromEmoji}</span>
+                                            <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.55rem', fontWeight: 950 }}>
+                                                {formatTimeNum(seg.localStartTime)}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                            <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>{seg.toEmoji}</span>
+                                            <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.55rem', fontWeight: 950 }}>
+                                                {formatTimeNum(seg.localEndTime)}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '1.1rem' }}>
+                                    <div style={{ fontSize: '1.1rem', marginLeft: '2px' }}>
                                         {typeEmoji}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ opacity: 0.8 }}>{seg.toEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(seg.localEndTime)}
-                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -757,7 +758,7 @@ const ContinuousTimeline = ({
                                             position: 'absolute',
                                             top: `${getPosition(hoursFromStart)}%`,
                                             left: '5px',
-                                            fontSize: '0.5rem',
+                                            fontSize: '0.4rem',
                                             color: 'rgba(245, 158, 11, 0.5)',
                                             transform: 'translateY(-50%)',
                                             fontFamily: 'monospace'
