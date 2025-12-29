@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 11:29 EST";
+const APP_VERSION = "2025-12-29 11:47 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1515,8 +1515,14 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
   };
 
   const handleTypeChange = (e) => onUpdate(transport.id, 'type', e.target.value);
-  const handleDateChange = (e) => onUpdate(transport.id, 'date', new Date(e.target.value));
-  const handleTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
+  const handleDateChange = (e) => {
+    if (e.target.value) {
+      onUpdate(transport.id, 'date', new Date(e.target.value));
+    }
+  };
+  const handleStartTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
+  const handleEndTimeChange = (e) => onUpdate(transport.id, 'endTime', e.target.value);
+  const handleDurationChange = (e) => onUpdate(transport.id, 'duration', parseFloat(e.target.value) || 0);
   const handleCostChange = (e) => onUpdate(transport.id, 'cost', parseFloat(e.target.value) || 0);
   const handleCurrencyToggle = () => {
     onUpdate(transport.id, 'currency', transport.currency === 'USD' ? altCurrency : 'USD');
@@ -1529,65 +1535,83 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
 
   return (
     <div ref={setNodeRef} style={style} className="transport-row">
-      <div className="t-grip" {...attributes} {...listeners}>
-        <GripVertical size={14} />
-      </div>
+      {/* Row 1: grip, selector, price, delete */}
+      <div className="t-row-1">
+        <div className="t-grip" {...attributes} {...listeners}>
+          <GripVertical size={14} />
+        </div>
 
-      <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
-        {TRANSPORT_TYPES.map(t => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
+        <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
+          {TRANSPORT_TYPES.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
 
-      <div className="t-route">
-        <span className="t-emoji">{transport.fromEmoji || '🏡'}</span>
-        <span className="t-arrow">→</span>
-        <span className="t-emoji">{transport.toEmoji || '✈️'}</span>
-        <span className="t-location-text">{transport.description || ''}</span>
-      </div>
+        <div className="t-cost-group">
+          <button
+            className={`t-currency-btn ${isForeign ? 'foreign' : 'domestic'}`}
+            onClick={handleCurrencyToggle}
+            title={isForeign ? `${altCurrency} → USD` : 'USD'}
+          >
+            {isForeign ? <Globe size={12} /> : <DollarSign size={12} />}
+          </button>
+          <input
+            type="number"
+            className="t-cost-input"
+            value={transport.cost || ''}
+            onChange={handleCostChange}
+            placeholder="0.00"
+            step="0.01"
+          />
+          {isForeign && (
+            <span className="t-usd-equiv">≈ ${usdEquivalent.toFixed(2)}</span>
+          )}
+        </div>
 
-      <select
-        className="t-date-select"
-        value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
-        onChange={handleDateChange}
-      >
-        <option value="">Date</option>
-        {tripDates && tripDates.map((date, idx) => (
-          <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE M/d')}</option>
-        ))}
-      </select>
-
-      <input
-        className="t-time-input"
-        value={transport.time || ''}
-        onChange={handleTimeChange}
-        placeholder="9:00a"
-      />
-
-      <div className="t-cost-group">
-        <button
-          className={`t-currency-btn ${isForeign ? 'foreign' : 'domestic'}`}
-          onClick={handleCurrencyToggle}
-          title={isForeign ? `${altCurrency} → USD` : 'USD'}
-        >
-          {isForeign ? <Globe size={12} /> : <DollarSign size={12} />}
+        <button className="t-delete-btn" onClick={() => onDelete(transport.id)} title="Delete">
+          <Trash2 size={14} />
         </button>
-        <input
-          type="number"
-          className="t-cost-input"
-          value={transport.cost || ''}
-          onChange={handleCostChange}
-          placeholder="0.00"
-          step="0.01"
-        />
-        {isForeign && (
-          <span className="t-usd-equiv">≈ ${usdEquivalent.toFixed(2)}</span>
-        )}
       </div>
 
-      <button className="t-delete-btn" onClick={() => onDelete(transport.id)} title="Delete">
-        <Trash2 size={14} />
-      </button>
+      {/* Row 2: date, start time, end time, duration */}
+      <div className="t-row-2">
+        <select
+          className="t-date-select"
+          value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
+          onChange={handleDateChange}
+        >
+          <option value="">Date</option>
+          {tripDates && tripDates.map((date, idx) => (
+            <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE M/d')}</option>
+          ))}
+        </select>
+
+        <input
+          className="t-time-input t-start-time"
+          value={transport.time || ''}
+          onChange={handleStartTimeChange}
+          placeholder="9:00a"
+        />
+
+        <input
+          className="t-time-input t-end-time"
+          value={transport.endTime || ''}
+          onChange={handleEndTimeChange}
+          placeholder="10:00a"
+        />
+
+        <div className="t-duration-group">
+          <input
+            type="number"
+            className="t-duration-input"
+            value={transport.duration || ''}
+            onChange={handleDurationChange}
+            placeholder="60"
+            step="5"
+          />
+          <span className="t-duration-label">min</span>
+        </div>
+      </div>
     </div>
   );
 };
@@ -4491,13 +4515,18 @@ function App() {
         /* Transportation Panel Styles */
         .transport-panel .t-list { display: flex; flex-direction: column; gap: 0.5rem; }
         .transport-row { 
-          display: flex; 
-          align-items: center; 
-          gap: 0.5rem; 
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
           background: rgba(0,0,0,0.2); 
           border: 1px solid rgba(255,255,255,0.05); 
           border-radius: 0.75rem; 
           padding: 0.6rem 0.75rem;
+        }
+        .t-row-1, .t-row-2 {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
         .t-grip { color: #475569; cursor: grab; display: flex; align-items: center; }
         .t-grip:active { cursor: grabbing; }
@@ -4508,23 +4537,7 @@ function App() {
           padding: 4px 8px; 
           color: #fff; 
           font-size: 0.7rem; 
-          max-width: 100px;
-        }
-        .t-route { 
-          display: flex; 
-          align-items: center; 
-          gap: 4px; 
           flex: 1;
-          min-width: 0;
-        }
-        .t-emoji { font-size: 0.9rem; }
-        .t-arrow { color: #64748b; font-size: 0.75rem; }
-        .t-location-text { 
-          color: #94a3b8; 
-          font-size: 0.65rem; 
-          white-space: nowrap; 
-          overflow: hidden; 
-          text-overflow: ellipsis;
         }
         .t-date-select { 
           background: rgba(0,0,0,0.4); 
@@ -4534,10 +4547,10 @@ function App() {
           color: #fff; 
           font-size: 0.65rem;
           font-family: 'JetBrains Mono', monospace;
-          max-width: 90px;
+          min-width: 90px;
         }
         .t-time-input { 
-          width: 55px !important; 
+          width: 60px !important; 
           font-size: 0.7rem; 
           text-align: center; 
           font-weight: 600;
@@ -4547,6 +4560,27 @@ function App() {
           padding: 3px 6px;
           color: #fff;
         }
+        .t-duration-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .t-duration-input {
+          width: 50px !important;
+          font-size: 0.7rem;
+          text-align: right;
+          font-weight: 600;
+          background: rgba(0,0,0,0.4);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 4px;
+          padding: 3px 6px;
+          color: #fff;
+        }
+        .t-duration-label {
+          font-size: 0.65rem;
+          color: #64748b;
+          font-weight: 700;
+        }
         .t-cost-group { 
           display: flex; 
           align-items: center; 
@@ -4555,6 +4589,7 @@ function App() {
           border-radius: 6px; 
           border: 1px solid rgba(255,255,255,0.08); 
           padding: 2px 6px;
+          flex: 1;
         }
         .t-currency-btn { 
           background: transparent; 
@@ -4571,7 +4606,7 @@ function App() {
         .t-cost-input { 
           background: transparent !important; 
           border: none !important; 
-          width: 50px !important; 
+          width: 60px !important; 
           color: var(--accent) !important; 
           font-weight: 800 !important; 
           text-align: right !important; 
@@ -4872,13 +4907,9 @@ function App() {
           
           /* Flight Row Mobile Fixes */
           .flight-panel, .hotel-panel, .transport-panel { padding: 0.6rem !important; }
-          .transport-row { flex-wrap: wrap; gap: 0.4rem !important; padding: 0.4rem !important; }
-          .t-route { order: 1; width: 100%; }
-          .t-type-select { order: 2; }
-          .t-date-select { order: 3; }
-          .t-time-input { order: 4; }
-          .t-cost-group { order: 5; }
-          .t-delete-btn { order: 6; }
+          .transport-row { gap: 0.4rem !important; padding: 0.4rem !important; }
+          .t-row-1 { gap: 0.4rem !important; }
+          .t-row-2 { gap: 0.4rem !important; flex-wrap: wrap; }
           .flight-group { padding: 0.4rem !important; }
           .f-segment { padding: 0.4rem 0.2rem !important; }
           
