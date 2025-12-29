@@ -458,7 +458,7 @@ const ContinuousTimeline = ({
                                         position: 'absolute',
                                         top: `${getPosition(hoursFromStart)}%`,
                                         right: '5px',
-                                        fontSize: '0.55rem',
+                                        fontSize: '0.5rem',
                                         color: 'rgba(99, 102, 241, 0.5)',
                                         transform: 'translateY(-50%)',
                                         fontFamily: 'monospace'
@@ -658,8 +658,7 @@ const ContinuousTimeline = ({
                                     borderLeft: '4px solid rgba(16, 185, 129, 0.7)',
                                     borderRadius: '8px',
                                     zIndex: 2,
-                                    background: 'linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85))',
-                                    minHeight: '24px'
+                                    background: 'linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85))'
                                 }}
                             >
                                 <div className="tl-hotel-name" style={{
@@ -702,26 +701,34 @@ const ContinuousTimeline = ({
                                 style={{
                                     position: 'absolute',
                                     top: `${startPos}%`,
-                                    height: `${height}%`,
-                                    minHeight: '8px'
+                                    height: `${height}%`
                                 }}
                             >
-                                <div className={`tl-travel-meta ${seg.isHome ? 'home-side' : 'away-side'}`}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <div className={`tl-travel-meta ${seg.isHome ? 'home-side' : 'away-side'}`} style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ opacity: 0.8 }}>{seg.fromEmoji}</span>
                                         <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
                                             {formatTimeNum(seg.localStartTime)}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                    <div style={{ fontSize: '1.1rem' }}>
+                                        {typeEmoji}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ opacity: 0.8 }}>{seg.toEmoji}</span>
                                         <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
                                             {formatTimeNum(seg.localEndTime)}
                                         </span>
                                     </div>
-                                </div>
-                                <div className="car-icon-meta" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)' }}>
-                                    {typeEmoji}
                                 </div>
                             </div>
                         );
@@ -750,7 +757,7 @@ const ContinuousTimeline = ({
                                             position: 'absolute',
                                             top: `${getPosition(hoursFromStart)}%`,
                                             left: '5px',
-                                            fontSize: '0.55rem',
+                                            fontSize: '0.5rem',
                                             color: 'rgba(245, 158, 11, 0.5)',
                                             transform: 'translateY(-50%)',
                                             fontFamily: 'monospace'
@@ -814,7 +821,7 @@ const ContinuousTimeline = ({
                                                     display: 'flex', justifyContent: 'center', alignItems: 'center',
                                                     padding: '2px 4px', background: day.meals[m] !== false ? '#6366f1' : 'rgba(0,0,0,0.2)',
                                                     border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', cursor: 'pointer',
-                                                    fontSize: '0.55rem', fontWeight: 950, color: day.meals[m] !== false ? '#fff' : '#64748b'
+                                                    fontSize: '0.5rem', fontWeight: 950, color: day.meals[m] !== false ? '#fff' : '#64748b'
                                                 }}
                                             >
                                                 {m}
