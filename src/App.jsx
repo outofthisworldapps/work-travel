@@ -34,9 +34,27 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 14:54 EST";
+const APP_VERSION = "2025-12-29 15:12 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// Parse a date string to a local Date at noon (avoids timezone shifting issues)
+const parseLocalDate = (dateInput) => {
+  if (!dateInput) return null;
+  const dateStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
+  // If it's an ISO string, extract the date part and create a local date at noon
+  if (dateStr.includes('T')) {
+    const datePart = dateStr.split('T')[0];
+    const [y, m, d] = datePart.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0);
+  }
+  // If it's just a date string like "2025-08-08"
+  if (dateStr.includes('-') && !dateStr.includes('T')) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0);
+  }
+  return new Date(dateStr);
+};
 
 const CUSTOM_TIME_ZONES = [
   { name: "Hawaii (HST) - Honolulu", tz: "Pacific/Honolulu", abbr: "HST", baseOffset: -5 },
@@ -1058,39 +1076,69 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
   const depDate = parseFrag(segment.depDate);
   const arrDate = parseFrag(segment.arrDate);
 
+  // Helper to recalculate arrival date based on dep date and times
+  const recalculateArrivalDate = (depDateStr, depTimeStr, arrTimeStr, depPort, arrPort) => {
+    const date = parseFrag(depDateStr);
+    const depMins = parseTimeToMinutes(depTimeStr);
+    const arrMins = parseTimeToMinutes(arrTimeStr);
+
+    if (depMins !== null && arrMins !== null && date) {
+      const depTZ = getPortTZ(depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+      const arrTZ = getPortTZ(arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+
+      // Offset shift in minutes (arrTZ vs depTZ)
+      const shiftHours = getTZOffset(date, arrTZ, depTZ);
+      const shiftMins = shiftHours * 60;
+
+      // Effective arrival time in the same TZ as departure to check for midnight crossing
+      const effectiveArrMins = arrMins - shiftMins;
+
+      const daysToAdd = effectiveArrMins < depMins ? 1 : 0;
+      const newArrDate = addDays(date, daysToAdd);
+      return safeFormat(newArrDate, 'yyyy-MM-dd');
+    }
+    return null;
+  };
+
   const handleDepDateChange = (dateStr) => {
     if (dateStr) {
+      const newArrDate = recalculateArrivalDate(dateStr, segment.depTime, segment.arrTime, segment.depPort, segment.arrPort);
       const updates = { depDate: dateStr };
-
-      // Auto-calculate arrival date based on times and time zones
-      const date = parseFrag(dateStr);
-      const depMins = parseTimeToMinutes(segment.depTime);
-      const arrMins = parseTimeToMinutes(segment.arrTime);
-
-      if (depMins !== null && arrMins !== null && date) {
-        const depTZ = getPortTZ(segment.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
-        const arrTZ = getPortTZ(segment.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
-
-        // Offset shift in minutes (arrTZ vs depTZ)
-        const shiftHours = getTZOffset(date, arrTZ, depTZ);
-        const shiftMins = shiftHours * 60;
-
-        // Effective arrival time in the same TZ as departure to check for midnight crossing
-        const effectiveArrMins = arrMins - shiftMins;
-
-        const daysToAdd = effectiveArrMins < depMins ? 1 : 0;
-        const newArrDate = addDays(date, daysToAdd);
-        updates.arrDate = safeFormat(newArrDate, 'yyyy-MM-dd');
+      if (newArrDate) {
+        updates.arrDate = newArrDate;
       } else {
         updates.arrDate = dateStr;
       }
-
       onUpdate(updates);
     }
   };
 
+  // Handler for departure time changes - recalculate arrival date
+  const handleDepTimeChange = (timeStr) => {
+    const updates = { depTime: timeStr };
+    if (segment.depDate && segment.arrTime) {
+      const newArrDate = recalculateArrivalDate(segment.depDate, timeStr, segment.arrTime, segment.depPort, segment.arrPort);
+      if (newArrDate) {
+        updates.arrDate = newArrDate;
+      }
+    }
+    onUpdate(updates);
+  };
+
+  // Handler for arrival time changes - recalculate arrival date
+  const handleArrTimeChange = (timeStr) => {
+    const updates = { arrTime: timeStr };
+    if (segment.depDate && segment.depTime) {
+      const newArrDate = recalculateArrivalDate(segment.depDate, segment.depTime, timeStr, segment.depPort, segment.arrPort);
+      if (newArrDate) {
+        updates.arrDate = newArrDate;
+      }
+    }
+    onUpdate(updates);
+  };
+
   // REMOVED: Auto-update effect that was causing the date flipping bug
-  // The auto-calculation now only happens when user explicitly changes dep date
+  // The auto-calculation now only happens when user explicitly changes dep date or times
 
   return (
     <div className="f-segment">
@@ -1156,13 +1204,13 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           <input
             className="f-inp s-time"
             value={segment.depTime || ''}
-            onChange={e => onUpdate('depTime', e.target.value)}
+            onChange={e => handleDepTimeChange(e.target.value)}
             placeholder=""
           />
           <input
             className="f-inp s-time"
             value={segment.arrTime || ''}
-            onChange={e => onUpdate('arrTime', e.target.value)}
+            onChange={e => handleArrTimeChange(e.target.value)}
             placeholder=""
           />
         </div>
@@ -1642,6 +1690,14 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
   const tzContext = getTransportTimezoneContext(transport, flights);
   const tzEmoji = tzContext === 'home' ? '🏡' : '💼';
   const tzLabel = tzContext === 'home' ? 'Home TZ' : 'Away TZ';
+  const calculatedIsHome = tzContext === 'home';
+
+  // Update stored isHome if it differs from calculated value
+  React.useEffect(() => {
+    if (transport.isHome !== calculatedIsHome) {
+      onUpdate(transport.id, 'isHome', calculatedIsHome);
+    }
+  }, [calculatedIsHome, transport.id, transport.isHome, onUpdate]);
 
   const isForeign = transport.currency !== 'USD';
   const rate = customRates[transport.currency] || 1;
@@ -2613,7 +2669,10 @@ function App() {
 
   const [transportation, setTransportation] = useState(() => {
     if (initialState.transportation) {
-      return initialState.transportation.map(t => ({ ...t, date: new Date(t.date) }));
+      return initialState.transportation.map(t => ({
+        ...t,
+        date: parseLocalDate(t.date) || new Date()
+      }));
     }
     return [];
   });
@@ -2814,7 +2873,7 @@ function App() {
         // Flights, hotels, transportation
         if (data.flights) setFlights(data.flights);
         if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
-        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: new Date(t.date) })));
+        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: parseLocalDate(t.date) || new Date() })));
 
       } else if (data.days) {
         // Legacy format (version 1 / unversioned)
@@ -2833,7 +2892,7 @@ function App() {
         if (data.flights) setFlights(data.flights);
         if (data.hotels) setHotels(data.hotels.map(h => ({ ...h, checkIn: new Date(h.checkIn), checkOut: new Date(h.checkOut) })));
         if (data.conferenceCenter) setConferenceCenter(data.conferenceCenter);
-        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: new Date(t.date) })));
+        if (data.transportation) setTransportation(data.transportation.map(t => ({ ...t, date: parseLocalDate(t.date) || new Date() })));
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -4813,8 +4872,9 @@ function App() {
           border-radius: 6px; 
           padding: 4px 8px; 
           color: #fff; 
-          font-size: 0.7rem; 
-          flex: 1;
+          font-size: 0.65rem;
+          width: 120px;
+          flex-shrink: 0;
         }
         .t-date-select { 
           background: rgba(0,0,0,0.4); 

@@ -294,13 +294,17 @@ const ContinuousTimeline = ({
         return segments;
     }, [hotels, tripStartDate, totalHours, destTimeZone, homeTimeZone]);
 
-    // Process travel legs from days
+    // Process travel legs from days (legacy system - exclude if in transportation array)
     const travelLegs = useMemo(() => {
         const legs = [];
+        // Get IDs from transportation array to avoid duplicates
+        const transportIds = new Set((transportation || []).map(t => t.id));
 
         days.forEach((day, dayIdx) => {
             (day.legs || []).forEach((l, legIdx) => {
                 if (l.type === 'flight') return;
+                // Skip if this leg ID is in the transportation array
+                if (transportIds.has(l.id)) return;
 
                 // Use the isHome flag from auto-generated legs, or determine from location
                 const isHome = l.isHome !== undefined ? l.isHome : (l.from === 'Home' || l.to === 'Home');
@@ -329,7 +333,18 @@ const ContinuousTimeline = ({
         });
 
         return legs;
-    }, [days, tripStartDate, homeTimeZone, destTimeZone]);
+    }, [days, tripStartDate, homeTimeZone, destTimeZone, transportation]);
+
+    // Map place values to emojis
+    const getPlaceEmoji = (place) => {
+        switch (place) {
+            case 'home': return '🏡';
+            case 'airport': return '✈️';
+            case 'hotel': return '🏨';
+            case 'work': return '💼';
+            default: return place || '📍';
+        }
+    };
 
     // Process transportation items (from the new Transportation panel)
     const transportationSegments = useMemo(() => {
@@ -338,7 +353,7 @@ const ContinuousTimeline = ({
         return transportation.map((t, idx) => {
             if (!t.date || !t.time) return null;
 
-            // Determine timezone based on isHome flag
+            // Use stored isHome (which is calculated in the panel from flight times)
             const isHome = t.isHome !== undefined ? t.isHome : true;
             const transportTZ = isHome ? homeTimeZone : destTimeZone;
             const shift = getTZOffset(t.date, transportTZ, homeTimeZone);
@@ -354,14 +369,18 @@ const ContinuousTimeline = ({
             const startHours = dayOffset * 24 + startTime - shift;
             const endHours = startHours + duration;
 
+            // Get emojis from from/to fields or legacy fromEmoji/toEmoji
+            const fromEmoji = t.from ? getPlaceEmoji(t.from) : (t.fromEmoji || '🏡');
+            const toEmoji = t.to ? getPlaceEmoji(t.to) : (t.toEmoji || '✈️');
+
             return {
                 id: t.id || `t-${idx}`,
                 transport: t,
                 startHours,
                 endHours,
                 isHome,
-                fromEmoji: t.fromEmoji || '🏡',
-                toEmoji: t.toEmoji || '✈️',
+                fromEmoji,
+                toEmoji,
                 description: t.description || '',
                 type: t.type || 'uber'
             };
