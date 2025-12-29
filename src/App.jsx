@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 14:43 EST";
+const APP_VERSION = "2025-12-29 14:54 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1496,8 +1496,115 @@ const TRANSPORT_TYPES = [
   { value: 'walk', label: '🚶 Walk', emoji: '🚶' },
 ];
 
-// Sortable Transportation Row
-const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCurrency, customRates }) => {
+// Place types with emojis for from/to selectors
+const PLACE_TYPES = [
+  { value: 'home', label: '🏡 Home', emoji: '🏡' },
+  { value: 'airport', label: '✈️ Airport', emoji: '✈️' },
+  { value: 'hotel', label: '🏨 Hotel', emoji: '🏨' },
+  { value: 'work', label: '💼 Work', emoji: '💼' },
+];
+// Helper to determine if a transport time is "home" or "away" based on flights
+const getTransportTimezoneContext = (transport, flights) => {
+  if (!transport.date || !transport.time || !flights || flights.length === 0) {
+    return transport.isHome ? 'home' : 'away';
+  }
+
+  // Parse the transport date/time
+  const transportDate = transport.date instanceof Date ? transport.date : new Date(transport.date);
+  if (isNaN(transportDate.getTime())) return transport.isHome ? 'home' : 'away';
+
+  // Get all outbound and return flight segments
+  let firstOutboundDep = null;
+  let lastOutboundArr = null;
+  let firstReturnDep = null;
+  let lastReturnArr = null;
+
+  flights.forEach(f => {
+    // Outbound segments
+    if (f.outbound && f.outbound.length > 0) {
+      const first = f.outbound[0];
+      const last = f.outbound[f.outbound.length - 1];
+      if (first.depDate && first.depTime) {
+        const dt = parseFlightDateTime(first.depDate, first.depTime);
+        if (!firstOutboundDep || dt < firstOutboundDep) firstOutboundDep = dt;
+      }
+      if (last.arrDate && last.arrTime) {
+        const dt = parseFlightDateTime(last.arrDate, last.arrTime);
+        if (!lastOutboundArr || dt > lastOutboundArr) lastOutboundArr = dt;
+      }
+    }
+    // Return segments
+    if (f.returnSegments && f.returnSegments.length > 0) {
+      const first = f.returnSegments[0];
+      const last = f.returnSegments[f.returnSegments.length - 1];
+      if (first.depDate && first.depTime) {
+        const dt = parseFlightDateTime(first.depDate, first.depTime);
+        if (!firstReturnDep || dt < firstReturnDep) firstReturnDep = dt;
+      }
+      if (last.arrDate && last.arrTime) {
+        const dt = parseFlightDateTime(last.arrDate, last.arrTime);
+        if (!lastReturnArr || dt > lastReturnArr) lastReturnArr = dt;
+      }
+    }
+  });
+
+  // Parse transport time to create a comparable datetime
+  const transportDateTime = parseFlightDateTime(format(transportDate, 'yyyy-MM-dd'), transport.time);
+  if (!transportDateTime) return transport.isHome ? 'home' : 'away';
+
+  // Logic:
+  // - If before first outbound departure → home
+  // - If after last outbound arrival AND before first return departure → away
+  // - If after last return arrival → home
+  // - Otherwise, check which segment we're closest to
+
+  if (firstOutboundDep && transportDateTime < firstOutboundDep) {
+    return 'home';
+  }
+  if (lastReturnArr && transportDateTime > lastReturnArr) {
+    return 'home';
+  }
+  if (lastOutboundArr && firstReturnDep && transportDateTime >= lastOutboundArr && transportDateTime <= firstReturnDep) {
+    return 'away';
+  }
+  if (lastOutboundArr && !firstReturnDep && transportDateTime >= lastOutboundArr) {
+    return 'away';
+  }
+
+  // Fallback to stored isHome value
+  return transport.isHome ? 'home' : 'away';
+};
+
+// Helper to parse flight date/time strings
+const parseFlightDateTime = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return null;
+  try {
+    // Parse the time string (e.g., "9:20a", "1:35p")
+    const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})\s*([aApP])?/);
+    if (!timeMatch) return null;
+
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+    const meridian = (timeMatch[3] || 'a').toLowerCase();
+
+    if (meridian === 'p' && hours !== 12) hours += 12;
+    if (meridian === 'a' && hours === 12) hours = 0;
+
+    // Parse the date
+    const dateParts = dateStr.split('-');
+    if (dateParts.length !== 3) return null;
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1;
+    const day = parseInt(dateParts[2]);
+
+    return new Date(year, month, day, hours, minutes);
+  } catch (e) {
+    return null;
+  }
+};
+
+// Sortable Transportation Row with 2-row layout and timezone awareness
+const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCurrency, customRates, flights }) => {
   const {
     attributes,
     listeners,
@@ -1514,12 +1621,15 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
     zIndex: isDragging ? 100 : 'auto'
   };
 
+  // Handlers
   const handleTypeChange = (e) => onUpdate(transport.id, 'type', e.target.value);
   const handleDateChange = (e) => {
     if (e.target.value) {
       onUpdate(transport.id, 'date', new Date(e.target.value + 'T00:00:00'));
     }
   };
+  const handleFromChange = (e) => onUpdate(transport.id, 'from', e.target.value);
+  const handleToChange = (e) => onUpdate(transport.id, 'to', e.target.value);
   const handleStartTimeChange = (e) => onUpdate(transport.id, 'time', e.target.value);
   const handleEndTimeChange = (e) => onUpdate(transport.id, 'endTime', e.target.value);
   const handleDurationChange = (e) => onUpdate(transport.id, 'duration', parseFloat(e.target.value) || 0);
@@ -1528,24 +1638,54 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
     onUpdate(transport.id, 'currency', transport.currency === 'USD' ? altCurrency : 'USD');
   };
 
-  const typeObj = TRANSPORT_TYPES.find(t => t.value === transport.type) || TRANSPORT_TYPES[0];
+  // Determine timezone context
+  const tzContext = getTransportTimezoneContext(transport, flights);
+  const tzEmoji = tzContext === 'home' ? '🏡' : '💼';
+  const tzLabel = tzContext === 'home' ? 'Home TZ' : 'Away TZ';
+
   const isForeign = transport.currency !== 'USD';
   const rate = customRates[transport.currency] || 1;
   const usdEquivalent = isForeign ? (transport.cost / rate) : transport.cost;
 
+  // Get current from/to values, default to fromEmoji/toEmoji for legacy data
+  const fromValue = transport.from || (transport.fromEmoji === '🏡' ? 'home' : transport.fromEmoji === '✈️' ? 'airport' : transport.fromEmoji === '🏨' ? 'hotel' : 'work');
+  const toValue = transport.to || (transport.toEmoji === '🏡' ? 'home' : transport.toEmoji === '✈️' ? 'airport' : transport.toEmoji === '🏨' ? 'hotel' : 'work');
+
   return (
     <div ref={setNodeRef} style={style} className="transport-row">
-      {/* Row 1: grip, selector, price, delete */}
+      {/* Row 1: grip, date, tz icon, from place, departure time, price, trash */}
       <div className="t-row-1">
         <div className="t-grip" {...attributes} {...listeners}>
           <GripVertical size={14} />
         </div>
 
-        <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
-          {TRANSPORT_TYPES.map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
+        <select
+          className="t-date-select"
+          value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
+          onChange={handleDateChange}
+        >
+          <option value="">Date</option>
+          {tripDates && tripDates.map((date, idx) => (
+            <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE M/d')}</option>
           ))}
         </select>
+
+        <span className={`t-tz-indicator ${tzContext}`} title={tzLabel}>
+          {tzEmoji}
+        </span>
+
+        <select className="t-place-select" value={fromValue} onChange={handleFromChange}>
+          {PLACE_TYPES.map(p => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+
+        <input
+          className="t-time-input"
+          value={transport.time || ''}
+          onChange={handleStartTimeChange}
+          placeholder="9:00a"
+        />
 
         <div className="t-cost-group">
           <button
@@ -1560,7 +1700,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
             className="t-cost-input"
             value={transport.cost || ''}
             onChange={handleCostChange}
-            placeholder="0.00"
+            placeholder="0"
             step="0.01"
           />
           {isForeign && (
@@ -1573,28 +1713,24 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
         </button>
       </div>
 
-      {/* Row 2: date, start time, end time, duration */}
+      {/* Row 2: spacer, type selector, to place, arrival time, duration */}
       <div className="t-row-2">
-        <select
-          className="t-date-select"
-          value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
-          onChange={handleDateChange}
-        >
-          <option value="">Date</option>
-          {tripDates && tripDates.map((date, idx) => (
-            <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE M/d')}</option>
+        <div className="t-row2-spacer"></div>
+
+        <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
+          {TRANSPORT_TYPES.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+
+        <select className="t-place-select" value={toValue} onChange={handleToChange}>
+          {PLACE_TYPES.map(p => (
+            <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
 
         <input
-          className="t-time-input t-start-time"
-          value={transport.time || ''}
-          onChange={handleStartTimeChange}
-          placeholder="9:00a"
-        />
-
-        <input
-          className="t-time-input t-end-time"
+          className="t-time-input"
           value={transport.endTime || ''}
           onChange={handleEndTimeChange}
           placeholder="10:00a"
@@ -1625,7 +1761,8 @@ const TransportationPanel = ({
   onReorder,
   tripDates,
   altCurrency,
-  customRates
+  customRates,
+  flights
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1665,6 +1802,7 @@ const TransportationPanel = ({
                 tripDates={tripDates}
                 altCurrency={altCurrency}
                 customRates={customRates}
+                flights={flights}
               />
             ))}
             {transportation.length === 0 && (
@@ -4070,11 +4208,12 @@ function App() {
               onAdd={() => setTransportation(prev => [...prev, {
                 id: generateId(),
                 type: 'uber',
-                fromEmoji: '🏡',
-                toEmoji: '✈️',
+                from: 'home',
+                to: 'airport',
                 description: '',
                 date: days[0]?.date || new Date(),
                 time: '9:00a',
+                endTime: '10:00a',
                 duration: 60,
                 cost: 0,
                 currency: 'USD',
@@ -4084,6 +4223,7 @@ function App() {
               tripDates={days.map(d => d.date)}
               altCurrency={altCurrency}
               customRates={customRates}
+              flights={flights}
             />
           </section>
 
@@ -4764,6 +4904,37 @@ function App() {
           transition: color 0.2s;
         }
         .t-delete-btn:hover { color: var(--error); }
+        
+        /* Timezone indicator */
+        .t-tz-indicator {
+          font-size: 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2px;
+          min-width: 24px;
+          border-radius: 4px;
+          background: rgba(0,0,0,0.2);
+        }
+        .t-tz-indicator.home { background: rgba(99, 102, 241, 0.2); }
+        .t-tz-indicator.away { background: rgba(251, 146, 60, 0.2); }
+        
+        /* Place selector */
+        .t-place-select {
+          background: rgba(0,0,0,0.4);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 4px;
+          padding: 3px 6px;
+          color: #fff;
+          font-size: 0.65rem;
+          min-width: 80px;
+        }
+        
+        /* Row 2 spacer for alignment */
+        .t-row2-spacer {
+          width: 14px;
+          flex-shrink: 0;
+        }
         .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
         .f-title { font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
         

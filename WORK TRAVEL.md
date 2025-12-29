@@ -81,15 +81,26 @@
   - **Airport → Hotel**: Uber trip 1 hour after outbound arrival (30 minute ride to hotel).
   - **Hotel → Airport**: Uber trip 3.5 hours before return departure (30 minute ride, arrive 3 hours before flight).
   - **Airport → Home**: Uber trip 1 hour after return arrival (1 hour drive home).
-- **Transport Type Selector**: Each trip has a dropdown with emoji icons:
+- **Two-Row Layout**: Each transportation entry uses a 2-row format:
+  - **Row 1**: Grab handle | Date | Timezone Icon | From Place | Departure Time | Price | Delete
+  - **Row 2**: (spacer) | Transport Type | To Place | Arrival Time | Duration
+- **Timezone Awareness**: 
+  - Each trip displays a timezone indicator icon (🏡 for home, 💼 for away).
+  - The timezone is automatically determined based on flight times:
+    - Before outbound departure → Home timezone (🏡)
+    - After outbound arrival and before return departure → Away timezone (💼)
+    - After return arrival → Home timezone (🏡)
+  - The indicator has a colored background (indigo for home, orange for away).
+- **Place Selectors**: From/To dropdowns with emoji icons:
+  - 🏡 Home
+  - ✈️ Airport
+  - 🏨 Hotel
+  - 💼 Work
+- **Transport Type Selector**: Dropdown with types:
   - 🚕 Uber/Taxi
   - 🚌 Bus
   - 🚆 Train
   - 🚶 Walk
-- **Trip Details**:
-  - Date selector (trip dates dropdown)
-  - Time input (local time)
-  - From/To emoji display (🏡 Home, 🏨 Hotel, ✈️ Airport, 💼 Work)
 - **Cost Entry**:
   - Price input field
   - Currency toggle button ($ for USD, 🌐 for foreign currency)
