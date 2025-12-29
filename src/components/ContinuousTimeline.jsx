@@ -710,22 +710,24 @@ const ContinuousTimeline = ({
                                     left: '50%',
                                     transform: 'translate(-50%, -50%)',
                                     display: 'flex',
+                                    flexDirection: 'row',
                                     alignItems: 'center',
-                                    gap: '3px'
+                                    justifyContent: 'center',
+                                    gap: '4px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900 }}>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900, width: 'auto' }}>
                                             {formatTimeNum(seg.localStartTime)}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem' }}>{seg.toEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900 }}>
+                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900, width: 'auto' }}>
                                             {formatTimeNum(seg.localEndTime)}
                                         </span>
                                     </div>
-                                    <div style={{ fontSize: '1rem' }}>
+                                    <div style={{ fontSize: '1rem', marginLeft: '2px' }}>
                                         {typeEmoji}
                                     </div>
                                 </div>

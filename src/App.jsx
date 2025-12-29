@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 18:42 EST";
+const APP_VERSION = "2025-12-29 18:46 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
