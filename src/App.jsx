@@ -34,7 +34,7 @@ import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-28 22:57 EST";
+const APP_VERSION = "2025-12-28 23:11 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -188,13 +188,10 @@ const getPosition = (time) => {
   return (time / 24) * 100;
 };
 
-const getDualTime = (homeTime, date, homeTZ, destTZ, relevance) => {
+const getDualTime = (homeTime, date, homeTZ, destTZ, relevance, localTZ) => {
   if (homeTime === null || isNaN(homeTime)) return null;
 
   const dateStr = format(date, 'yyyy-MM-dd');
-  // homeTime is already normalized to Home Time Zone.
-  const offset = getTZOffset(new Date(dateStr + 'T12:00:00'), homeTZ, destTZ); // Dest relative to Home
-  const destTimeNum = homeTime + offset;
 
   const formatTimeNum = (num) => {
     let h = Math.floor(num);
@@ -206,8 +203,21 @@ const getDualTime = (homeTime, date, homeTZ, destTZ, relevance) => {
     return `${dispH}:${m.toString().padStart(2, '0')}${meridiem}`;
   };
 
+  // homeTime is the time normalized to Home Time Zone
   const homeLabel = formatTimeNum(homeTime);
+
+  // Calculate dest time from home time
+  const homeToDestOffset = getTZOffset(new Date(dateStr + 'T12:00:00'), homeTZ, destTZ);
+  const destTimeNum = homeTime + homeToDestOffset;
   const destLabel = formatTimeNum(destTimeNum);
+
+  // If we have a local airport timezone, calculate which column it matches
+  let localMatchesHome = false;
+  let localMatchesDest = false;
+  if (localTZ) {
+    localMatchesHome = localTZ === homeTZ;
+    localMatchesDest = localTZ === destTZ;
+  }
 
   const dHome = new Date(dateStr + 'T00:00:00');
   const homeDateStr = format(dHome, 'MMM d');
@@ -224,15 +234,18 @@ const getDualTime = (homeTime, date, homeTZ, destTZ, relevance) => {
     destTime: destLabel,
     homeDate: homeDateStr,
     destDate: destDateStr,
-    relevance
+    relevance,
+    localMatchesHome,
+    localMatchesDest,
+    localTZ
   };
 };
 
 
 
 
-const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, side, className, style, inline }) => {
-  const dt = getDualTime(timeNum, date, homeTZ, destTZ, relevance);
+const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentTZ, side, className, style, inline, localTZ }) => {
+  const dt = getDualTime(timeNum, date, homeTZ, destTZ, relevance, localTZ);
   if (!dt) return null;
 
   const isHome = side === 'left';
@@ -240,7 +253,16 @@ const DualTimeMarker = ({ timeNum, date, homeTZ, destTZ, relevance, isDifferentT
   if (!isHome && !isDifferentTZ) return null;
 
   const label = isHome ? dt.homeTime : dt.destTime;
-  const isBold = isHome ? (dt.relevance === 'home') : (dt.relevance === 'dest');
+
+  // Bold if this column's timezone matches the local airport timezone
+  // Or fall back to relevance-based bolding
+  let isBold;
+  if (localTZ) {
+    isBold = isHome ? dt.localMatchesHome : dt.localMatchesDest;
+  } else {
+    isBold = isHome ? (dt.relevance === 'home') : (dt.relevance === 'dest');
+  }
+
   const colorClass = isHome ? 'home' : 'dest';
 
   if (inline) {
@@ -486,6 +508,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                     relevance={getEventRelevance('flight-dep', s)}
                     isDifferentTZ={isDifferentTZ}
                     side="left"
+                    localTZ={s.depTZ}
                     style={{ top: `${getPosition(startPos)}%`, zIndex: 12, left: '-60px' }}
                   />
                   <DualTimeMarker
@@ -496,6 +519,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                     relevance={getEventRelevance('flight-dep', s)}
                     isDifferentTZ={isDifferentTZ}
                     side="right"
+                    localTZ={s.depTZ}
                     style={{ top: `${getPosition(startPos)}%`, zIndex: 12, right: '-60px' }}
                   />
                 </>
@@ -511,6 +535,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                     isDifferentTZ={isDifferentTZ}
                     side="left"
                     className="arr"
+                    localTZ={s.arrTZ}
                     style={{ top: `${getPosition(endPos)}%`, zIndex: 12, left: '-60px' }}
                   />
                   <DualTimeMarker
@@ -522,6 +547,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                     isDifferentTZ={isDifferentTZ}
                     side="right"
                     className="arr"
+                    localTZ={s.arrTZ}
                     style={{ top: `${getPosition(endPos)}%`, zIndex: 12, right: '-60px' }}
                   />
                 </>
