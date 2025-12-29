@@ -345,8 +345,10 @@ const ContinuousTimeline = ({
             const dayOffset = Math.round(differenceInMinutes(transportDate, tripStart) / 1440);
 
             const startTime = parseTime(t.time) || 0;
+            const endTime = parseTime(t.endTime) || (startTime + (t.duration || 60) / 60);
             const duration = (t.duration || 60) / 60;
 
+            // Hours from trip start in home timezone (for positioning on timeline)
             const startHours = dayOffset * 24 + startTime - shift;
             const endHours = startHours + duration;
 
@@ -363,7 +365,10 @@ const ContinuousTimeline = ({
                 fromEmoji,
                 toEmoji,
                 description: t.description || '',
-                type: t.type || 'uber'
+                type: t.type || 'uber',
+                // Store original local times for display labels
+                localStartTime: startTime,
+                localEndTime: endTime
             };
         }).filter(Boolean);
     }, [transportation, tripStartDate, homeTimeZone, destTimeZone]);
@@ -652,13 +657,13 @@ const ContinuousTimeline = ({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ opacity: 0.8 }}>{seg.fromEmoji}</span>
                                         <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(seg.startHours % 24)}
+                                            {formatTimeNum(seg.localStartTime)}
                                         </span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ opacity: 0.8 }}>{seg.toEmoji}</span>
                                         <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.6rem', fontWeight: 950 }}>
-                                            {formatTimeNum(seg.endHours % 24)}
+                                            {formatTimeNum(seg.localEndTime)}
                                         </span>
                                     </div>
                                 </div>
