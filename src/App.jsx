@@ -33,7 +33,7 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 
-const APP_VERSION = "2025-12-28 22:21 EST";
+const APP_VERSION = "2025-12-28 22:39 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -108,14 +108,14 @@ const getTZOffset = (date, tz1, tz2) => {
   } catch (e) { return 0; }
 };
 
-const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ) => {
-  if (!port) return destTZ;
+const getPortTZ = (port, homeCity, destCity, homeTZ, destTZ, preferredTZ) => {
+  if (!port) return preferredTZ || destTZ;
   const p = port.toUpperCase();
   const hc = (homeCity || '').toUpperCase();
   const dc = (destCity || '').toUpperCase();
   if (hc.includes(p) || (p.length === 3 && hc.includes(p))) return homeTZ;
   if (dc.includes(p) || (p.length === 3 && dc.includes(p))) return destTZ;
-  return homeTZ;
+  return preferredTZ || homeTZ;
 };
 
 
@@ -332,47 +332,50 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   const dayFlights = [];
   flights.forEach(f => {
-    const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
-    allSegments.forEach(s => {
-      const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
-      const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+    ['outbound', 'returnSegments'].forEach(type => {
+      const segs = f[type] || [];
+      const isOutbound = type === 'outbound';
 
-      const normDepShift = getTZOffset(new Date(day.date), depTZ, homeTimeZone);
-      const normArrShift = getTZOffset(new Date(day.date), arrTZ, homeTimeZone);
+      segs.forEach(s => {
+        // depTZ: for outbound, usually home; for return, usually dest
+        const depTZ = getPortTZ(s.depPort, homeCity, destCity, homeTimeZone, destTimeZone, isOutbound ? homeTimeZone : destTimeZone);
+        // arrTZ: for outbound, usually dest; for return, usually home
+        const arrTZ = getPortTZ(s.arrPort, homeCity, destCity, homeTimeZone, destTimeZone, isOutbound ? destTimeZone : homeTimeZone);
 
-      const depH = parseTime(s.depTime) + normDepShift;
-      const arrH = parseTime(s.arrTime) + normArrShift;
+        const normDepShift = getTZOffset(new Date(day.date), depTZ, homeTimeZone);
+        const normArrShift = getTZOffset(new Date(day.date), arrTZ, homeTimeZone);
 
-      const depDateStr = parseSegDate(s.depDate);
-      const arrDateStr = parseSegDate(s.arrDate);
+        const depH = parseTime(s.depTime) + normDepShift;
+        const arrH = parseTime(s.arrTime) + normArrShift;
 
-      // Skip this segment if dates are invalid
-      if (!depDateStr || !arrDateStr) return;
+        const depDateStr = parseSegDate(s.depDate);
+        const arrDateStr = parseSegDate(s.arrDate);
 
-      // Calculate which day it sits on in Home Time
-      const d1 = new Date(depDateStr + 'T00:00:00');
-      const d2 = new Date(arrDateStr + 'T00:00:00');
+        if (!depDateStr || !arrDateStr) return;
 
-      // Skip if dates are still invalid
-      if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
+        const d1 = new Date(depDateStr + 'T00:00:00');
+        const d2 = new Date(arrDateStr + 'T00:00:00');
 
-      // Adjusted dep/arr dates based on shift
-      const homeDepDate = format(new Date(d1.getTime() + (depH < 0 ? -1 : (depH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
-      const homeArrDate = format(new Date(d2.getTime() + (arrH < 0 ? -1 : (arrH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
+        if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
 
-      const finalDepH = (depH + 24) % 24;
-      const finalArrH = (arrH + 24) % 24;
+        const homeDepDate = format(new Date(d1.getTime() + (depH < 0 ? -1 : (depH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
+        const homeArrDate = format(new Date(d2.getTime() + (arrH < 0 ? -1 : (arrH >= 24 ? 1 : 0)) * 86400000), 'yyyy-MM-dd');
 
-      if (homeDepDate === dayStr || homeArrDate === dayStr || (homeDepDate < dayStr && homeArrDate > dayStr)) {
-        dayFlights.push({
-          ...s,
-          parentFlight: f,
-          homeDepDate,
-          homeArrDate,
-          finalDepH,
-          finalArrH
-        });
-      }
+        const finalDepH = (depH + 24) % 24;
+        const finalArrH = (arrH + 24) % 24;
+
+        if (homeDepDate === dayStr || homeArrDate === dayStr || (homeDepDate < dayStr && homeArrDate > dayStr)) {
+          dayFlights.push({
+            ...s,
+            parentFlight: f,
+            segmentType: type,
+            homeDepDate,
+            homeArrDate,
+            finalDepH,
+            finalArrH
+          });
+        }
+      });
     });
   });
 
@@ -397,8 +400,9 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   // Helper to get relevance for an event
   const getEventRelevance = (type, data) => {
-    if (type === 'flight-dep') return 'home'; // Simplified: departure is usually from home or towards home
-    if (type === 'flight-arr') return 'dest';
+    const isOutbound = data.segmentType === 'outbound';
+    if (type === 'flight-dep') return isOutbound ? 'home' : 'dest';
+    if (type === 'flight-arr') return isOutbound ? 'dest' : 'home';
     if (type === 'hotel') return 'dest';
     if (type === 'leg') {
       if (data.from === 'Home' || data.to === 'Home') return 'home';
