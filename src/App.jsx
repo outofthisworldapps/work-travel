@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 13:39 EST";
+const APP_VERSION = "2025-12-30 13:47 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -1548,13 +1548,6 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
         />
 
         <div className="h-cost-group">
-          <button
-            className="h-cost-mode-toggle"
-            onClick={toggleCostMode}
-            title={`Cost mode: ${costMode === 'perNight' ? 'Per Night' : costMode === 'total' ? 'Total' : 'Per Day'}`}
-          >
-            {costMode === 'perNight' ? '/night' : costMode === 'total' ? 'total' : '/day'}
-          </button>
           <div className="f-cost-box">
             <button
               className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
@@ -1571,19 +1564,16 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
               placeholder="0"
             />
           </div>
+          <button
+            className="h-cost-mode-toggle"
+            onClick={toggleCostMode}
+            title={`Cost mode: ${costMode === 'perNight' ? 'Per Night' : costMode === 'total' ? 'Total' : 'Per Day'}`}
+          >
+            {costMode === 'perNight' ? '/night' : costMode === 'total' ? 'total' : '/day'}
+          </button>
         </div>
 
-        {/* Optional: Taxes & Fees */}
-        <div className="h-tax-group">
-          <label className="h-tax-label">Tax:</label>
-          <input
-            className="f-inp h-tax"
-            type="number"
-            value={hotel.tax || ''}
-            onChange={e => onUpdate(hotel.id, 'tax', parseFloat(e.target.value) || 0)}
-            placeholder="0"
-          />
-        </div>
+
       </div>
 
       {/* Row 3: Check-out Date / Time / Duration */}
@@ -4165,9 +4155,27 @@ function App() {
       });
     });
 
-    // Hotels
+    // Hotels - handle different cost modes
     const hotelTotal = hotels.reduce((acc, h) => {
-      return acc + convertCurrency(h.cost, h.currency || 'USD', 'USD', currentRates);
+      const costMode = h.costMode || 'perNight';
+      let totalCost = 0;
+
+      if (costMode === 'perNight') {
+        // Multiply cost by number of nights
+        const nights = h.checkIn && h.checkOut
+          ? differenceInCalendarDays(h.checkOut, h.checkIn)
+          : 0;
+        totalCost = (h.cost || 0) * nights;
+      } else if (costMode === 'total') {
+        // Use cost as total
+        totalCost = h.cost || 0;
+      } else if (costMode === 'perDay') {
+        // Sum up daily costs
+        const dailyCosts = h.dailyCosts || {};
+        totalCost = Object.values(dailyCosts).reduce((sum, dayCost) => sum + (dayCost || 0), 0);
+      }
+
+      return acc + convertCurrency(totalCost, h.currency || 'USD', 'USD', currentRates);
     }, 0);
 
     // Transportation (from new Transportation panel)
@@ -5543,31 +5551,6 @@ function App() {
           border-color: rgba(99, 102, 241, 0.3);
         }
         
-        .h-tax-group {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: rgba(0,0,0,0.2);
-          padding: 4px 6px;
-          border-radius: 6px;
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-        .h-tax-label {
-          font-size: 0.6rem;
-          font-weight: 800;
-          color: #64748b;
-          text-transform: uppercase;
-        }
-        .h-tax {
-          width: 50px !important;
-          background: transparent !important;
-          border: none !important;
-          color: var(--accent) !important;
-          font-weight: 800 !important;
-          text-align: right !important;
-          font-size: 0.75rem !important;
-          padding: 0 !important;
-        }
         
         /* Row 3: Check-out / Time / Duration */
         .h-row-3 { align-items: center; }
