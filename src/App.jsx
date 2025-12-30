@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:11 EST";
+const APP_VERSION = "2025-12-29 23:15 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5665,13 +5665,15 @@ function App() {
         
         @media (max-width: 768px) {
           .travel-app {
-            padding: 0.5rem 0.25rem;
+            padding: 0.5rem 0;
           }
           .one-column-layout {
-            gap: 1rem;
+            gap: 0.75rem;
           }
           .glass {
-            border-radius: 1rem;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
           }
           .trip-header-section,
           .date-range-section,
@@ -5680,10 +5682,18 @@ function App() {
           .transportation-section-panel,
           .mie-section-panel,
           .totals-section {
-            padding: 1rem 0.75rem;
+            padding: 1rem 0.5rem;
+          }
+          .mie-panel {
+            width: 100%;
+          }
+          .mie-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
           }
           .mie-table {
             font-size: 0.65rem;
+            width: 100%;
           }
           .mie-table th, .mie-table td {
             padding: 0.4rem 0.25rem;
@@ -5699,6 +5709,7 @@ function App() {
           .mie-legend {
             flex-wrap: wrap;
             gap: 0.75rem;
+            font-size: 0.65rem;
           }
         }
         `}</style>
