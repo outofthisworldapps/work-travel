@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 07:18 EST";
+const APP_VERSION = "2025-12-30 07:23 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -1776,9 +1776,6 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
           ))}
         </select>
 
-        <span className={`t-tz-indicator ${tzContext}`} title={tzLabel}>
-          {tzEmoji}
-        </span>
 
         <select className="t-place-select" value={fromValue} onChange={handleFromChange}>
           {PLACE_TYPES.map(p => (
@@ -5021,7 +5018,7 @@ function App() {
           padding: 4px 8px; 
           color: #fff; 
           font-size: 0.65rem;
-          width: 120px;
+          width: 90px;
           flex-shrink: 0;
         }
         .t-date-select { 
@@ -5032,7 +5029,7 @@ function App() {
           color: #fff; 
           font-size: 0.65rem;
           font-family: 'JetBrains Mono', monospace;
-          min-width: 90px;
+          width: 90px;
         }
         .t-time-input { 
           width: 60px !important; 
@@ -5074,7 +5071,6 @@ function App() {
           border-radius: 6px; 
           border: 1px solid rgba(255,255,255,0.08); 
           padding: 2px 6px;
-          flex: 1;
         }
         .t-currency-btn { 
           background: transparent; 
@@ -5091,7 +5087,7 @@ function App() {
         .t-cost-input { 
           background: transparent !important; 
           border: none !important; 
-          width: 60px !important; 
+          width: 45px !important; 
           color: var(--accent) !important; 
           font-weight: 800 !important; 
           text-align: right !important; 
@@ -5376,6 +5372,7 @@ function App() {
         .h-row-date { font-size: 0.75rem; color: var(--subtext); }
         .h-label { width: 65px; font-weight: 900; color: #475569; text-transform: uppercase; font-size: 0.6rem; }
         .h-time { width: 60px !important; }
+        .h-cost { width: 45px !important; }
 
         /* Missing styles for Travel Legs */
         .leg-amount-input-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 4px; color: var(--accent); outline: none; font-size: 0.75rem; width: 50px; font-weight: 900; text-align: right; }
