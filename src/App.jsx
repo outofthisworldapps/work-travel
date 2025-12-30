@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 13:24 EST";
+const APP_VERSION = "2025-12-30 13:31 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -1485,26 +1485,76 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
     onUpdate(hotel.id, 'checkOut', new Date(date.toISOString().split('T')[0] + 'T00:00:00'));
   };
 
+  // Calculate number of nights
+  const nights = hotel.checkIn && hotel.checkOut
+    ? differenceInCalendarDays(hotel.checkOut, hotel.checkIn)
+    : 0;
+
+  // Cost mode: 'perNight' (default), 'total', or 'perDay'
+  const costMode = hotel.costMode || 'perNight';
+
+  const toggleCostMode = () => {
+    const modes = ['perNight', 'total', 'perDay'];
+    const currentIndex = modes.indexOf(costMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    onUpdate(hotel.id, 'costMode', nextMode);
+  };
+
   return (
     <div className="hotel-row-item">
-      <div className="h-row-line h-row-top">
+      {/* Row 1: Name / City / Map Link / Delete */}
+      <div className="h-row-line h-row-1">
         <input
           className="f-inp h-name"
           value={hotel.name || ''}
           onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
           placeholder="Hotel Name"
         />
+        <input
+          className="f-inp h-city"
+          value={hotel.city || ''}
+          onChange={e => onUpdate(hotel.id, 'city', e.target.value)}
+          placeholder="City"
+        />
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name || '')}`}
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((hotel.name || '') + ' ' + (hotel.city || ''))}`}
           target="_blank"
           rel="noopener noreferrer"
           className="conf-map-link"
-          title="Open Hotel in Google Maps"
-          style={{ marginLeft: '4px', opacity: 0.6 }}
+          title="Open in Google Maps"
         >
           <MapPin size={12} />
         </a>
-        <div className="h-cost-actions">
+        <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
+      </div>
+
+      {/* Row 2: Check-in Date / Time / Cost */}
+      <div className="h-row-line h-row-2">
+        <select
+          className="f-inp f-date-select monospace-font h-date-select"
+          value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
+          onChange={e => handleStartChange(new Date(e.target.value))}
+        >
+          <option value="">Check-in</option>
+          {tripDates && tripDates.map((date, idx) => (
+            <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+          ))}
+        </select>
+        <input
+          className="f-inp s-time h-time"
+          value={hotel.checkInTime || ''}
+          onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)}
+          placeholder="2:00p"
+        />
+
+        <div className="h-cost-group">
+          <button
+            className="h-cost-mode-toggle"
+            onClick={toggleCostMode}
+            title={`Cost mode: ${costMode === 'perNight' ? 'Per Night' : costMode === 'total' ? 'Total' : 'Per Day'}`}
+          >
+            {costMode === 'perNight' ? '/night' : costMode === 'total' ? 'total' : '/day'}
+          </button>
           <div className="f-cost-box">
             <button
               className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
@@ -1521,40 +1571,87 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
               placeholder="0"
             />
           </div>
-          <button className="f-seg-del" onClick={() => onDelete(hotel.id)}><Trash2 size={10} /></button>
+        </div>
+
+        {/* Optional: Taxes & Fees */}
+        <div className="h-tax-group">
+          <label className="h-tax-label">Tax:</label>
+          <input
+            className="f-inp h-tax"
+            type="number"
+            value={hotel.tax || ''}
+            onChange={e => onUpdate(hotel.id, 'tax', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+          />
         </div>
       </div>
 
-      <div className="h-row-line h-row-dates-range" style={{ flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-          <select
-            className="f-inp f-date-select monospace-font"
-            value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
-            onChange={e => handleStartChange(new Date(e.target.value))}
-            style={{ fontFamily: 'monospace', width: '100%' }}
-          >
-            <option value="">Check-in Date</option>
-            {tripDates && tripDates.map((date, idx) => (
-              <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
-            ))}
-          </select>
-          <input className="f-inp s-time h-time" value={hotel.checkInTime || ''} onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)} placeholder="2:00p" />
-        </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-          <select
-            className="f-inp f-date-select monospace-font"
-            value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
-            onChange={e => handleEndChange(new Date(e.target.value))}
-            style={{ fontFamily: 'monospace', width: '100%' }}
-          >
-            <option value="">Check-out Date</option>
-            {tripDates && tripDates.map((date, idx) => (
-              <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
-            ))}
-          </select>
-          <input className="f-inp s-time h-time" value={hotel.checkOutTime || ''} onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)} placeholder="11:00a" />
+      {/* Row 3: Check-out Date / Time / Duration */}
+      <div className="h-row-line h-row-3">
+        <select
+          className="f-inp f-date-select monospace-font h-date-select"
+          value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
+          onChange={e => handleEndChange(new Date(e.target.value))}
+        >
+          <option value="">Check-out</option>
+          {tripDates && tripDates.map((date, idx) => (
+            <option key={idx} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE MMM d')}</option>
+          ))}
+        </select>
+        <input
+          className="f-inp s-time h-time"
+          value={hotel.checkOutTime || ''}
+          onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)}
+          placeholder="11:00a"
+        />
+
+        <div className="h-duration-display">
+          {nights > 0 && (
+            <span className="h-nights-badge">
+              {nights} {nights === 1 ? 'night' : 'nights'}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Expanded per-day breakdown if costMode is 'perDay' */}
+      {costMode === 'perDay' && nights > 0 && (
+        <div className="h-perday-breakdown">
+          <div className="h-perday-header">Nightly Rates:</div>
+          {Array.from({ length: nights }, (_, i) => {
+            const date = addDays(hotel.checkIn, i);
+            const dateStr = format(date, 'EEE MMM d');
+            const dayKey = `day${i}`;
+            const dayCost = (hotel.dailyCosts && hotel.dailyCosts[dayKey]) || 0;
+
+            return (
+              <div key={i} className="h-perday-row">
+                <span className="h-perday-date">{dateStr}</span>
+                <div className="f-cost-box h-perday-cost-box">
+                  <button
+                    className={`currency-toggle-mini ${hotel.isForeign ? 'active' : ''}`}
+                    onClick={() => onUpdate(hotel.id, 'isForeign', !hotel.isForeign)}
+                    title="Toggle Foreign/Domestic"
+                  >
+                    {hotel.isForeign ? <Globe size={9} /> : <span className="unit-mini">$</span>}
+                  </button>
+                  <input
+                    className="f-inp h-perday-input"
+                    type="number"
+                    value={dayCost || ''}
+                    onChange={e => {
+                      const newDailyCosts = { ...(hotel.dailyCosts || {}) };
+                      newDailyCosts[dayKey] = parseFloat(e.target.value) || 0;
+                      onUpdate(hotel.id, 'dailyCosts', newDailyCosts);
+                    }}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div >
   );
 };
@@ -5174,13 +5271,13 @@ function App() {
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
-        .f-seg-grid { display: grid; grid-template-columns: 75px 170px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
+        .f-seg-grid { display: grid; grid-template-columns: 75px 120px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
         .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
         .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
         .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
         .s-date { font-size: 0.65rem; width: 100% !important; }
         .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: right !important; }
-        .s-port { width: 50px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: left !important; font-size: 0.75rem; padding: 2px 4px !important; }
+        .s-port { width: 38px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: center !important; font-size: 0.75rem; padding: 2px 2px !important; }
         .s-term { width: 32px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
         .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
@@ -5229,7 +5326,9 @@ function App() {
           justify-content: space-between; 
           align-items: center; 
           margin-bottom: 0.5rem; 
-          padding-bottom: 4px;
+          padding-bottom: 6px;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          padding-top: 0.75rem;
         }
         .f-add-seg-inline {
           background: rgba(99, 102, 241, 0.1);
@@ -5256,8 +5355,8 @@ function App() {
         /* Narrower cost input */
         .g-cost { background: transparent !important; border: none !important; width: 50px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; font-size: 0.9rem !important; }
         
-        /* Narrower date selector */
-        .f-date-select { width: 100% !important; font-size: 0.7rem; font-weight: 600; cursor: pointer; max-width: 140px; }
+        /* More compact date selector */
+        .f-date-select { width: 100% !important; font-size: 0.65rem; font-weight: 600; cursor: pointer; max-width: 110px; }
         
         .g-air { width: 90px !important; }
 
@@ -5405,16 +5504,140 @@ function App() {
 
 
 
-        /* Hotel Row Fixes */
+        /* Hotel Row Styling - New 3-Row Layout */
         .hotel-row-item { background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.03); overflow: visible; }
         .h-row-line { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-        .h-row-top { justify-content: space-between; }
-        .h-name { flex: 1; max-width: 200px; font-weight: 800; }
+        
+        /* Row 1: Name / City / Map / Delete */
+        .h-row-1 { justify-content: flex-start; }
+        .h-name { flex: 1; max-width: 180px; font-weight: 800; }
+        .h-city { flex: 1; max-width: 120px; font-weight: 600; opacity: 0.8; }
+        
+        /* Row 2: Check-in / Time / Cost Mode / Cost / Tax */
+        .h-row-2 { align-items: center; flex-wrap: wrap; }
+        .h-date-select { max-width: 110px !important; font-size: 0.65rem; }
+        .h-time { width: 60px !important; }
+        .h-cost { width: 50px !important; box-sizing: border-box; }
+        
+        .h-cost-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .h-cost-mode-toggle {
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 4px;
+          color: #64748b;
+          font-size: 0.6rem;
+          font-weight: 800;
+          padding: 4px 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-transform: lowercase;
+        }
+        .h-cost-mode-toggle:hover {
+          background: rgba(99, 102, 241, 0.2);
+          color: var(--accent);
+          border-color: rgba(99, 102, 241, 0.3);
+        }
+        
+        .h-tax-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(0,0,0,0.2);
+          padding: 4px 6px;
+          border-radius: 6px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .h-tax-label {
+          font-size: 0.6rem;
+          font-weight: 800;
+          color: #64748b;
+          text-transform: uppercase;
+        }
+        .h-tax {
+          width: 50px !important;
+          background: transparent !important;
+          border: none !important;
+          color: var(--accent) !important;
+          font-weight: 800 !important;
+          text-align: right !important;
+          font-size: 0.75rem !important;
+          padding: 0 !important;
+        }
+        
+        /* Row 3: Check-out / Time / Duration */
+        .h-row-3 { align-items: center; }
+        .h-duration-display {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          padding-left: 0.5rem;
+        }
+        .h-nights-badge {
+          background: rgba(99, 102, 241, 0.15);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          color: #818cf8;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 0.65rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        
+        /* Per-Day Breakdown (when costMode is 'perDay') */
+        .h-perday-breakdown {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid rgba(255,255,255,0.08);\n        }
+        .h-perday-header {
+          font-size: 0.65rem;
+          font-weight: 900;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.5rem;
+        }
+        .h-perday-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 8px;
+          background: rgba(0,0,0,0.15);
+          border-radius: 6px;
+          margin-bottom: 4px;
+          border: 1px solid rgba(255,255,255,0.03);
+        }
+        .h-perday-row:hover {
+          background: rgba(99, 102, 241, 0.08);
+          border-color: rgba(99, 102, 241, 0.15);
+        }
+        .h-perday-date {
+          font-size: 0.7rem;
+          font-family: 'JetBrains Mono', monospace;
+          color: #94a3b8;
+          font-weight: 600;
+        }
+        .h-perday-cost-box {
+          min-width: 80px;
+        }
+        .h-perday-input {
+          width: 50px !important;
+          background: transparent !important;
+          border: none !important;
+          color: var(--accent) !important;
+          font-weight: 900 !important;
+          text-align: right !important;
+          font-size: 0.75rem !important;
+        }
+        
         .h-cost-actions { display: flex; align-items: center; gap: 0.5rem; }
         .h-row-date { font-size: 0.75rem; color: var(--subtext); }
         .h-label { width: 65px; font-weight: 900; color: #475569; text-transform: uppercase; font-size: 0.6rem; }
-        .h-time { width: 60px !important; }
-        .h-cost { width: 40px !important; box-sizing: border-box; }
 
         /* Missing styles for Travel Legs */
         .leg-amount-input-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 4px; color: var(--accent); outline: none; font-size: 0.75rem; width: 50px; font-weight: 900; text-align: right; }

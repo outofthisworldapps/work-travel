@@ -63,19 +63,34 @@
 - **Layovers**: Displayed between segments with time duration.
 
 ## Hotels Panel
-- **Hotel Entry**: 
-  - Hotel name with cost (total for stay) and $ / Globe toggle.
-  - **Compact Trip Date Range Picker**:
-    - Shows only the week(s) of the trip (not the full year).
-    - 🗓️ icon opens compact calendar showing only trip dates.
-    - First click = check-in date, second click = check-out date.
-    - Display shows: `Sun JAN 4 – Thu JAN 8 (5 days)`.
-    - Can also click individual dates as fallback.
-  - Check-in and check-out times displayed on same row after dates.
-- **Currency Toggle**: Individual toggle for domestic/foreign rate context.
-- **Default Stay Logic**: STAY includes arrival night to departure day.
-  - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before.
-  - **Fix**: Check-in date should match the arrival day at the destination (unless the Early Arrival Rule applies).
+- **3-Row Layout for Each Hotel**:
+  - **Row 1** (Identification):
+    - Hotel name input
+    - City input (for maps and reference)
+    - Google Maps link (combines hotel name + city)
+    - Delete button (trash icon)
+  - **Row 2** (Check-in & Cost):
+    - Check-in date selector (narrower dropdown, matching flights)
+    - Check-in time input (e.g., "2:00p")
+    - **Cost Mode Toggle** button (cycles between: `/night`, `total`, `/day`)
+    - Cost input with $ / Globe currency toggle
+    - **Optional Tax field**: Shows "Tax:" label with input for taxes & fees
+  - **Row 3** (Check-out & Duration):
+    - Check-out date selector (narrower dropdown, matching flights)
+    - Check-out time input (e.g., "11:00a")
+    - **Duration badge**: Auto-displays "X nights" based on check-in/check-out dates
+- **Cost Entry Modes**:
+  - **Per Night** (default): Single cost entry represents cost per night
+  - **Total**: Single cost entry represents total cost for entire stay
+  - **Per Day**: Expands into M&IE-style breakdown showing each night individually with separate cost inputs
+    - Displays "Nightly Rates:" header
+    - One row per night with date (e.g., "Mon Aug 17") and cost input with currency toggle
+    - Similar styling to M&IE table rows for consistency
+- **Date Selectors**: Narrower compact dropdowns (110px max-width) matching the flights panel style for a cohesive appearance
+- **Currency Toggle**: Individual toggle for domestic/foreign rate context ($ or 🌐)
+- **Default Stay Logic**: STAY includes arrival night to departure day
+  - **Early Arrival Rule**: If the scheduled hotel arrival (airport arrival + 1.5h) is before 5:00 AM, the stay automatically includes the night before
+  - **Fix**: Check-in date should match the arrival day at the destination (unless the Early Arrival Rule applies)
 
 ## Transportation Panel
 - **Purpose**: Manages all ground transportation to/from airports and other locations.
