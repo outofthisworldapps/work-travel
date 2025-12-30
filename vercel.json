@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/__/auth/:path*",
+            "destination": "https://work-travel-expenses.firebaseapp.com/__/auth/:path*"
+        }
+    ]
+}

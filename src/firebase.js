@@ -8,7 +8,9 @@ import { getFirestore } from "firebase/firestore";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
     apiKey: "AIzaSyAbN9T0Jr0hujoMGfs0h2m5Bf-B9PVCnhw",
-    authDomain: "work-travel-expenses.firebaseapp.com",
+    authDomain: (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app'))
+        ? window.location.hostname
+        : "work-travel-expenses.firebaseapp.com",
     projectId: "work-travel-expenses",
     storageBucket: "work-travel-expenses.firebasestorage.app",
     messagingSenderId: "249344389548",
