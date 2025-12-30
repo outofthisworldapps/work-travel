@@ -115,6 +115,30 @@
   - Home-side transport (indigo, left-aligned)
   - Away-side transport (orange, right-aligned)
 
+## M&IE Panel
+- **Purpose**: Displays day-by-day Meals & Incidental Expenses breakdown.
+- **Location**: Positioned after TRANSPORTATION panel and before GRAND TOTAL.
+- **Day-by-Day Table**: One row for each day of the trip with the following columns:
+  - **Date**: Trip date (e.g., "Mon Aug 17")
+  - **City, State, Country**: Destination location for per diem lookup
+  - **Max Lodging**: Maximum lodging rate from per diem tables
+  - **M&IE**: Base meals and incidentals rate from per diem tables
+  - **%**: 100% for full days, 75% for first/last day of travel
+  - **M&IE × %**: Adjusted M&IE amount after percentage applied
+  - **B**: Breakfast cost (click to toggle deduction)
+  - **L**: Lunch cost (click to toggle deduction)
+  - **D**: Dinner cost (click to toggle deduction)
+  - **I**: Incidentals cost (click to toggle deduction)
+- **Per Diem Lookup**: Uses CSV tables in `src/data/` for:
+  - `US_Per_Diem_FY2026.csv`: Domestic US rates by state/city with seasonal variations
+  - `Foreign_Per_Diem_January2026PD.csv`: Foreign rates by country/city with seasonal variations
+- **Meal Deductions**: Click B/L/D/I to toggle meals that were provided (deducted from per diem)
+- **Visual Indicators**:
+  - First/last travel days highlighted with 75% rate
+  - Active meals show in purple chips
+  - Deducted meals show strikethrough
+- **Totals Row**: Shows sum of Max Lodging, M&IE, and adjusted M&IE
+
 ## Vertical Timeline (Continuous Graph)
 - **Single Continuous Timeline**: The timeline is rendered as one continuous vertical graph spanning the entire trip duration, NOT as separate day units.
 - **Multi-Day Spanning Elements**: 
@@ -122,7 +146,6 @@
   - An overnight flight departing at 11pm and arriving at 6am the next day appears as one seamless block.
   - Hotels spanning 3 nights appear as one continuous block from check-in to check-out.
 - **Timeline Scale**: Height is calculated based on total trip hours (24 hours per day × number of days).
-- **M&IE Toggle**: Functional toggle button located at the top right of the Timeline section header. Shows per-day M&IE totals in a column on the right.
 - **Midnight Lines**:
   - **Home Midnight**: Solid indigo line extending from the left edge (past the home time column) all the way into the timeline grid.
   - **Destination Midnight**: Dashed orange line extending from the timeline grid all the way to the right edge (past the destination time column).

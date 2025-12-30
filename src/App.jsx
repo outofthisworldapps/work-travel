@@ -32,9 +32,10 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
+import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
 
-const APP_VERSION = "2025-12-29 18:56 EST";
+const APP_VERSION = "2025-12-29 21:37 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -4178,16 +4179,13 @@ function App() {
           <section className="timeline-section-panel glass">
             <div className="timeline-header-row">
               <div className="section-title"><Calendar size={16} /> TIMELINE</div>
-              <button className={`mie-toggle-btn ${showMIE ? 'active' : ''}`} onClick={() => setShowMIE(!showMIE)}>
-                {showMIE ? <Utensils size={14} /> : <CreditCard size={14} />} M&IE
-              </button>
             </div>
             <ContinuousTimeline
               days={days}
               flights={flights}
               hotels={hotels}
               transportation={transportation}
-              showMIE={showMIE}
+              showMIE={false}
               onEditEvent={(ev) => setEditingEvent(ev)}
               onUpdateMeals={(dayId, meal) => {
                 setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
@@ -4296,6 +4294,19 @@ function App() {
               altCurrency={altCurrency}
               customRates={customRates}
               flights={flights}
+            />
+          </section>
+
+          <section className="mie-section-panel">
+            <MIEPanel
+              days={days}
+              destCity={destCity}
+              destState=""
+              destCountry=""
+              isForeign={useAlt}
+              onUpdateMeals={(dayId, meal) => {
+                setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+              }}
             />
           </section>
 
@@ -5323,6 +5334,186 @@ function App() {
           .s-date { font-size: 0.6rem !important; }
           
           .f-route-display { grid-template-columns: 1fr auto 1fr; gap: 0.5rem; }
+        }
+
+        /* M&IE Panel Styles */
+        .mie-section-panel {
+          margin-bottom: 1.5rem;
+        }
+        .mie-panel {
+          padding: 1.5rem;
+        }
+        .mie-panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+        }
+        .mie-total-badge {
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          padding: 0.5rem 1rem;
+          border-radius: 99px;
+          font-weight: 800;
+          font-size: 0.9rem;
+          color: white;
+        }
+        .mie-table-wrapper {
+          overflow-x: auto;
+          margin-bottom: 1rem;
+        }
+        .mie-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.75rem;
+        }
+        .mie-table thead {
+          background: rgba(0,0,0,0.3);
+        }
+        .mie-table th {
+          padding: 0.75rem 0.5rem;
+          text-align: center;
+          font-weight: 800;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #a5b4fc;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .mie-table td {
+          padding: 0.5rem;
+          text-align: center;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          font-weight: 600;
+        }
+        .mie-table tbody tr:hover {
+          background: rgba(99, 102, 241, 0.1);
+        }
+        .mie-row-travel-day {
+          background: rgba(245, 158, 11, 0.08);
+        }
+        .mie-row-travel-day:hover {
+          background: rgba(245, 158, 11, 0.15) !important;
+        }
+        .mie-col-date {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.7rem;
+          text-align: left !important;
+          white-space: nowrap;
+        }
+        .mie-col-location {
+          text-align: left !important;
+          font-size: 0.7rem;
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .mie-col-lodging, .mie-col-mie, .mie-col-adjusted {
+          font-family: 'JetBrains Mono', monospace;
+          color: #a5b4fc;
+        }
+        .mie-col-pct {
+          font-weight: 800;
+        }
+        .mie-col-pct.highlight {
+          color: #f59e0b;
+        }
+        .mie-col-meal {
+          padding: 0.25rem !important;
+        }
+        .meal-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px 6px;
+          border-radius: 4px;
+          font-size: 0.65rem;
+          font-weight: 700;
+          font-family: 'JetBrains Mono', monospace;
+          cursor: pointer;
+          transition: all 0.2s;
+          min-width: 28px;
+        }
+        .meal-chip.active {
+          background: #6366f1;
+          color: white;
+        }
+        .meal-chip.inactive {
+          background: rgba(0,0,0,0.3);
+          color: #64748b;
+          text-decoration: line-through;
+        }
+        .meal-chip:hover {
+          transform: scale(1.1);
+        }
+        .mie-totals-row {
+          background: rgba(0,0,0,0.4) !important;
+          font-weight: 900;
+        }
+        .mie-totals-row td {
+          border-top: 2px solid rgba(99, 102, 241, 0.3);
+          padding: 0.75rem 0.5rem;
+        }
+        .mie-totals-label {
+          text-align: right !important;
+          padding-right: 1rem !important;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #a5b4fc;
+        }
+        .mie-legend {
+          display: flex;
+          gap: 1.5rem;
+          align-items: center;
+          justify-content: center;
+          padding: 0.75rem;
+          background: rgba(0,0,0,0.2);
+          border-radius: 8px;
+          font-size: 0.65rem;
+          color: #94a3b8;
+        }
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .legend-color {
+          width: 12px;
+          height: 12px;
+          border-radius: 3px;
+        }
+        .legend-color.travel-day {
+          background: rgba(245, 158, 11, 0.3);
+          border: 1px solid #f59e0b;
+        }
+        .legend-color.full-day {
+          background: rgba(99, 102, 241, 0.3);
+          border: 1px solid #6366f1;
+        }
+        .legend-tip {
+          font-style: italic;
+          color: #64748b;
+        }
+        
+        @media (max-width: 768px) {
+          .mie-table {
+            font-size: 0.65rem;
+          }
+          .mie-table th, .mie-table td {
+            padding: 0.4rem 0.25rem;
+          }
+          .mie-col-location {
+            max-width: 80px;
+          }
+          .meal-chip {
+            min-width: 22px;
+            padding: 2px 4px;
+            font-size: 0.55rem;
+          }
+          .mie-legend {
+            flex-wrap: wrap;
+            gap: 0.75rem;
+          }
         }
         `}</style>
       </div >
