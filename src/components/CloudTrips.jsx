@@ -6,7 +6,7 @@ import { Save, Download, Trash2, Cloud, RotateCw, LogIn, LogOut, User as UserIco
 import { format } from 'date-fns';
 
 const CloudTrips = ({ currentTripData, onLoadTrip, onSaveSuccess }) => {
-    const { user, login, logout } = useAuth();
+    const { user, login, logout, authDebug } = useAuth();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -117,19 +117,54 @@ const CloudTrips = ({ currentTripData, onLoadTrip, onSaveSuccess }) => {
         return format(date, 'MMM d, yyyy HH:mm');
     };
 
+    const [authStatus, setAuthStatus] = useState('');
+    const [authError, setAuthError] = useState('');
+
+    const handleLogin = async () => {
+        setAuthStatus('Starting login...');
+        setAuthError('');
+        try {
+            await login();
+            setAuthStatus('Login initiated');
+        } catch (err) {
+            setAuthError(`Error: ${err.code || err.message}`);
+            setAuthStatus('');
+        }
+    };
+
     if (!user) {
         return (
             <div className="cloud-trips-panel glass" style={{ padding: '2rem', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
                 <Cloud size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
                 <h3>Cloud Sync</h3>
                 <p style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '1.5rem' }}>Log in to sync your trips across all devices.</p>
+
+                {authStatus && (
+                    <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '8px 12px', borderRadius: '6px', marginBottom: '1rem', fontSize: '0.8rem', color: '#818cf8' }}>
+                        {authStatus}
+                    </div>
+                )}
+
+                {authError && (
+                    <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '8px 12px', borderRadius: '6px', marginBottom: '1rem', fontSize: '0.8rem', color: '#f87171' }}>
+                        {authError}
+                    </div>
+                )}
+
                 <button
-                    onClick={login}
+                    onClick={handleLogin}
                     className="btn-primary"
                     style={{ margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     <LogIn size={18} /> Sign In with Google
                 </button>
+
+                <p style={{ opacity: 0.4, fontSize: '0.7rem', marginTop: '1rem' }}>
+                    Debug: {navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'} detected
+                </p>
+                <p style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '4px' }}>
+                    Auth: {authDebug}
+                </p>
             </div>
         );
     }

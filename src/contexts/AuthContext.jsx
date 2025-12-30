@@ -6,57 +6,90 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// Detect mobile browser
+const isMobileBrowser = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [authDebug, setAuthDebug] = useState('Initializing...');
 
     useEffect(() => {
-        // Handle redirect result (for mobile fallback)
+        setAuthDebug('Checking for redirect result...');
+
+        // Handle redirect result (for mobile)
         getRedirectResult(auth)
             .then((result) => {
                 if (result?.user) {
-                    console.log("Redirect login successful:", result.user.displayName);
+                    setAuthDebug(`Redirect success: ${result.user.displayName}`);
                     setUser(result.user);
+                } else {
+                    setAuthDebug('No redirect result');
                 }
             })
             .catch((error) => {
-                console.error("Redirect login error:", error);
+                setAuthDebug(`Redirect error: ${error.code}`);
             });
 
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            console.log("Auth state changed:", currentUser?.displayName || "null");
+            if (currentUser) {
+                setAuthDebug(`Logged in: ${currentUser.displayName}`);
+            } else {
+                setAuthDebug('Not logged in');
+            }
             setUser(currentUser);
             setLoading(false);
         });
         return unsubscribe;
     }, []);
 
-    // Hybrid login: try popup first, fallback to redirect if blocked
+    // Mobile-first login: use redirect on mobile, popup on desktop
     const login = async () => {
-        try {
-            // Try popup first (works better on desktop)
-            const result = await signInWithPopup(auth, googleProvider);
-            console.log("Popup login successful:", result.user.displayName);
-        } catch (error) {
-            console.log("Popup failed, trying redirect:", error.code);
-            // If popup blocked or failed, try redirect
-            if (error.code === 'auth/popup-blocked' ||
-                error.code === 'auth/popup-closed-by-user' ||
-                error.code === 'auth/cancelled-popup-request') {
-                signInWithRedirect(auth, googleProvider);
-            } else {
-                console.error("Login error:", error);
+        const isMobile = isMobileBrowser();
+        setAuthDebug(`Login starting (${isMobile ? 'mobile' : 'desktop'})...`);
+
+        if (isMobile) {
+            // Mobile: use redirect directly (popups often fail)
+            setAuthDebug('Using redirect for mobile...');
+            try {
+                await signInWithRedirect(auth, googleProvider);
+            } catch (error) {
+                setAuthDebug(`Redirect failed: ${error.code}`);
+                throw error;
+            }
+        } else {
+            // Desktop: try popup first
+            try {
+                setAuthDebug('Trying popup...');
+                const result = await signInWithPopup(auth, googleProvider);
+                setAuthDebug(`Popup success: ${result.user.displayName}`);
+            } catch (error) {
+                setAuthDebug(`Popup failed: ${error.code}, trying redirect...`);
+                // If popup blocked, try redirect
+                if (error.code === 'auth/popup-blocked' ||
+                    error.code === 'auth/popup-closed-by-user' ||
+                    error.code === 'auth/cancelled-popup-request') {
+                    await signInWithRedirect(auth, googleProvider);
+                } else {
+                    throw error;
+                }
             }
         }
     };
 
-    const logout = () => signOut(auth);
+    const logout = () => {
+        setAuthDebug('Logging out...');
+        return signOut(auth);
+    };
 
     const value = {
         user,
         login,
         logout,
-        loading
+        loading,
+        authDebug
     };
 
     return (
