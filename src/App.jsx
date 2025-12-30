@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 22:10 EST";
+const APP_VERSION = "2025-12-29 22:28 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5595,29 +5595,44 @@ function App() {
           opacity: 0.7;
         }
         
-        /* Refresh button */
-        .mie-header-controls {
+        /* Inline refresh button next to Location header */
+        .mie-col-location {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 6px;
         }
-        .refresh-locations-btn {
-          display: flex;
+        .refresh-locations-btn-inline {
+          display: inline-flex;
           align-items: center;
-          gap: 4px;
-          background: rgba(99, 102, 241, 0.2);
-          border: 1px solid rgba(99, 102, 241, 0.4);
+          justify-content: center;
+          background: rgba(99, 102, 241, 0.3);
+          border: none;
           color: #a5b4fc;
-          padding: 0.4rem 0.8rem;
-          border-radius: 6px;
-          font-size: 0.65rem;
-          font-weight: 700;
+          padding: 3px;
+          border-radius: 4px;
           cursor: pointer;
           transition: all 0.2s;
         }
-        .refresh-locations-btn:hover {
-          background: rgba(99, 102, 241, 0.4);
-          border-color: #6366f1;
+        .refresh-locations-btn-inline:hover {
+          background: rgba(99, 102, 241, 0.6);
+          transform: rotate(180deg);
+        }
+        
+        /* First city vs inherited cities */
+        .location-input.first-city {
+          color: #fff;
+          font-weight: 600;
+          font-style: normal;
+        }
+        .location-input.inherited {
+          color: #64748b;
+          font-style: italic;
+          font-weight: 400;
+        }
+        .location-input.inherited:focus {
+          color: #fff;
+          font-style: normal;
+          font-weight: 600;
         }
         
         @media (max-width: 768px) {

@@ -5,7 +5,7 @@
  * Shows: Date | City, State, Country | Max Lodging | M&IE | % | M&IE × % | B | L | D | I
  */
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Utensils, RefreshCw } from 'lucide-react';
 import { getMealBreakdown, calculateDayMIE, getPerDiemForLocation, US_PER_DIEM } from '../utils/perDiemLookup';
@@ -15,10 +15,9 @@ import { formatCurrency } from '../utils/calculations';
 const CITY_LIST = Object.keys(US_PER_DIEM);
 
 // Autocomplete input component
-const AutocompleteInput = ({ value, onChange, placeholder, onClear }) => {
+const AutocompleteInput = ({ value, onChange, placeholder, onClear, isInherited, isFirst }) => {
     const [inputValue, setInputValue] = useState(value || '');
     const [suggestion, setSuggestion] = useState('');
-    const inputRef = useRef(null);
 
     // Update input when external value changes
     useEffect(() => {
@@ -60,7 +59,6 @@ const AutocompleteInput = ({ value, onChange, placeholder, onClear }) => {
     };
 
     const handleBlur = () => {
-        // Clear suggestion on blur
         setSuggestion('');
     };
 
@@ -68,9 +66,8 @@ const AutocompleteInput = ({ value, onChange, placeholder, onClear }) => {
         <div className="autocomplete-wrapper">
             <div className="autocomplete-input-container">
                 <input
-                    ref={inputRef}
                     type="text"
-                    className="location-input"
+                    className={`location-input ${isInherited && !isFirst ? 'inherited' : ''} ${isFirst ? 'first-city' : ''}`}
                     value={inputValue}
                     placeholder={placeholder}
                     onChange={handleChange}
@@ -92,7 +89,7 @@ const AutocompleteInput = ({ value, onChange, placeholder, onClear }) => {
                         setSuggestion('');
                         onClear();
                     }}
-                    title="Clear to use destination city"
+                    title="Clear location"
                 >×</span>
             )}
         </div>
@@ -109,11 +106,50 @@ const MIEPanel = ({
 }) => {
     const totalDays = days.length;
 
+    // Calculate effective location for each day (cascading from above)
+    const getEffectiveLocations = () => {
+        const locations = [];
+        let lastExplicitLocation = destCity || '';
+
+        for (let i = 0; i < days.length; i++) {
+            const day = days[i];
+            if (day.location) {
+                // Explicitly set location
+                lastExplicitLocation = day.location;
+                locations.push({ value: day.location, isInherited: false });
+            } else {
+                // Inherited from previous day or destCity
+                locations.push({ value: lastExplicitLocation, isInherited: true });
+            }
+        }
+        return locations;
+    };
+
+    const effectiveLocations = useMemo(getEffectiveLocations, [days, destCity]);
+
+    // Handle location change - also update all days below
+    const handleLocationChange = (dayIndex, dayId, newLocation) => {
+        if (onUpdateLocation) {
+            // Update this day
+            onUpdateLocation(dayId, newLocation);
+
+            // If setting a new location, clear all days below so they inherit
+            if (newLocation) {
+                const daysBelow = days.slice(dayIndex + 1);
+                daysBelow.forEach(d => {
+                    if (!d.location) {
+                        // Already inherited, will cascade automatically
+                    }
+                });
+            }
+        }
+    };
+
     // Calculate per diem rates and totals for each day
     const dayData = useMemo(() => {
         return days.map((day, idx) => {
-            // Use day.location if set, otherwise use destCity
-            const location = day.location || destCity || '';
+            // Use effective location (cascaded)
+            const location = effectiveLocations[idx]?.value || '';
 
             // Look up per diem rates
             const perDiem = getPerDiemForLocation(location, day.date);
@@ -134,6 +170,8 @@ const MIEPanel = ({
                 day,
                 idx,
                 location: perDiem.city || location,
+                displayLocation: effectiveLocations[idx]?.value || '',
+                isInherited: effectiveLocations[idx]?.isInherited,
                 lodging: perDiem.lodging,
                 mie: perDiem.mie,
                 adjustedMie,
@@ -142,7 +180,7 @@ const MIEPanel = ({
                 breakdown: adjustedBreakdown
             };
         });
-    }, [days, destCity, totalDays, isForeign]);
+    }, [days, effectiveLocations, totalDays, isForeign]);
 
     // Calculate totals
     const totals = useMemo(() => {
@@ -163,19 +201,8 @@ const MIEPanel = ({
         <div className="mie-panel glass">
             <div className="mie-panel-header">
                 <div className="f-title"><Utensils size={14} /> M&IE PER DIEM</div>
-                <div className="mie-header-controls">
-                    {onRefreshLocations && (
-                        <button
-                            className="refresh-locations-btn"
-                            onClick={onRefreshLocations}
-                            title="Update all locations from flight destination"
-                        >
-                            <RefreshCw size={12} /> Refresh from Flights
-                        </button>
-                    )}
-                    <div className="mie-total-badge">
-                        Total: {formatCurrency(totals.totalAdjustedMIE, 'USD')}
-                    </div>
+                <div className="mie-total-badge">
+                    Total: {formatCurrency(totals.totalAdjustedMIE, 'USD')}
                 </div>
             </div>
 
@@ -184,7 +211,18 @@ const MIEPanel = ({
                     <thead>
                         <tr>
                             <th className="mie-col-date">Date</th>
-                            <th className="mie-col-location">Location</th>
+                            <th className="mie-col-location">
+                                <span>Location</span>
+                                {onRefreshLocations && (
+                                    <button
+                                        className="refresh-locations-btn-inline"
+                                        onClick={onRefreshLocations}
+                                        title="Refresh locations from flight destination"
+                                    >
+                                        <RefreshCw size={10} />
+                                    </button>
+                                )}
+                            </th>
                             <th className="mie-col-lodging">Max Lodging</th>
                             <th className="mie-col-mie">M&IE</th>
                             <th className="mie-col-pct">%</th>
@@ -196,17 +234,19 @@ const MIEPanel = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {dayData.map(({ day, idx, location, lodging, mie, adjustedMie, percent, isFirstOrLast, breakdown }) => (
+                        {dayData.map(({ day, idx, displayLocation, isInherited, lodging, mie, adjustedMie, percent, isFirstOrLast, breakdown }) => (
                             <tr key={day.id} className={isFirstOrLast ? 'mie-row-travel-day' : ''}>
                                 <td className="mie-col-date">
                                     {day.date ? format(day.date, 'EEE MMM d') : '—'}
                                 </td>
                                 <td className="mie-col-location">
                                     <AutocompleteInput
-                                        value={day.location || ''}
-                                        placeholder={destCity || 'Enter city...'}
-                                        onChange={(value) => onUpdateLocation && onUpdateLocation(day.id, value)}
+                                        value={day.location || (isInherited ? displayLocation : '')}
+                                        placeholder={idx === 0 ? (destCity || 'Enter city...') : 'Inherits from above'}
+                                        onChange={(value) => handleLocationChange(idx, day.id, value)}
                                         onClear={() => onUpdateLocation && onUpdateLocation(day.id, '')}
+                                        isInherited={isInherited && !day.location}
+                                        isFirst={idx === 0}
                                     />
                                 </td>
                                 <td className="mie-col-lodging">
@@ -280,7 +320,7 @@ const MIEPanel = ({
                 <span className="legend-item">
                     <span className="legend-color full-day"></span> 100% Full Day
                 </span>
-                <span className="legend-tip">Tab/Enter to autocomplete • Click B/L/D/I to toggle deductions</span>
+                <span className="legend-tip">Tab/Enter to autocomplete • Cities cascade down</span>
             </div>
         </div>
     );
