@@ -258,7 +258,7 @@ const MIEPanel = ({
                                     </button>
                                 )}
                             </th>
-                            <th className="mie-col-lodging">Lodging</th>
+                            <th className="mie-col-lodging">Hotel</th>
                             <th className="mie-col-mie">M&IE</th>
                             <th className="mie-col-meal">B</th>
                             <th className="mie-col-meal">L</th>
@@ -283,13 +283,17 @@ const MIEPanel = ({
                                     />
                                 </td>
                                 <td className="mie-col-lodging">
-                                    <EditableRate
-                                        value={day.lodging !== undefined ? day.lodging : (lodgingInherited ? lodging : lodging)}
-                                        placeholder={idx === 0 ? '$' : '—'}
-                                        onChange={(val) => onUpdateLodging && onUpdateLodging(day.id, val)}
-                                        isInherited={lodgingInherited && day.lodging === undefined}
-                                        isFirst={idx === 0}
-                                    />
+                                    {(day.lodging !== undefined ? day.lodging : lodging) !== null ? (
+                                        <span>${(day.lodging !== undefined ? day.lodging : lodging).toFixed(0)}</span>
+                                    ) : (
+                                        <EditableRate
+                                            value={null}
+                                            placeholder="$"
+                                            onChange={(val) => onUpdateLodging && onUpdateLodging(day.id, val)}
+                                            isInherited={false}
+                                            isFirst={idx === 0}
+                                        />
+                                    )}
                                 </td>
                                 <td className={`mie-col-mie ${isFirstOrLast ? 'travel-day-rate' : ''}`}>
                                     {adjustedMie !== null ? `$${Math.round(adjustedMie)}` : '—'}
@@ -336,7 +340,7 @@ const MIEPanel = ({
                     <tfoot>
                         <tr className="mie-totals-row">
                             <td colSpan="2" className="mie-totals-label">TOTALS</td>
-                            <td className="mie-col-lodging">{totals.totalLodging ? `$${Math.round(totals.totalLodging)}` : '—'}</td>
+                            <td className="mie-col-lodging">${Math.round(totals.totalLodging)}</td>
                             <td className="mie-col-mie">${Math.round(totals.totalAdjustedMIE)}</td>
                             <td colSpan="4"></td>
                         </tr>

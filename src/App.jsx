@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:15 EST";
+const APP_VERSION = "2025-12-29 23:21 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5678,14 +5678,23 @@ function App() {
           .trip-header-section,
           .date-range-section,
           .flights-section,
-          .hotels-section,
+          .hotels-section {
+            padding: 1rem 0.5rem;
+          }
           .transportation-section-panel,
-          .mie-section-panel,
+          .mie-section-panel {
+            padding: 0;
+          }
+          .transportation-section-panel .glass,
+          .mie-section-panel .glass {
+            padding: 1rem 0.5rem;
+          }
           .totals-section {
             padding: 1rem 0.5rem;
           }
           .mie-panel {
             width: 100%;
+            padding: 0;
           }
           .mie-table-wrapper {
             overflow-x: auto;
@@ -5698,8 +5707,21 @@ function App() {
           .mie-table th, .mie-table td {
             padding: 0.4rem 0.25rem;
           }
+          .mie-col-date {
+            font-size: 0.6rem;
+            min-width: 60px;
+          }
           .mie-col-location {
-            max-width: 80px;
+            max-width: 95px;
+            min-width: 95px;
+          }
+          .mie-col-lodging {
+            text-align: right;
+            padding-right: 0.5rem !important;
+          }
+          .mie-col-lodging span {
+            display: inline-block;
+            text-align: right;
           }
           .meal-chip {
             min-width: 22px;
