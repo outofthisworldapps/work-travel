@@ -6,8 +6,10 @@ import {
   Download, RefreshCcw, DollarSign, MapPin,
   Bus, Info, Calendar, Home, GripVertical, X,
   Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase,
-  Undo2, Redo2, FolderOpen, Save
+  Undo2, Redo2, FolderOpen, Save, Cloud, LogIn, LogOut, User
 } from 'lucide-react';
+import { useAuth } from './contexts/AuthContext';
+import CloudTrips from './components/CloudTrips';
 import { format, addDays, addMonths, differenceInDays, differenceInCalendarDays, parse, startOfMonth, isSameDay, isAfter, isBefore, setYear, setMonth, setDate } from 'date-fns';
 import {
   DndContext,
@@ -36,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:26 EST";
+const APP_VERSION = "2025-12-29 23:41 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2976,7 +2978,10 @@ function App() {
     };
   }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
-  const saveToFile = () => {
+  const { user, login, logout } = useAuth();
+  const [showCloudPanel, setShowCloudPanel] = useState(false);
+
+  const getTripData = () => {
     // Build category-based JSON structure
     const tripMeta = {
       name: tripName,
@@ -3029,7 +3034,7 @@ function App() {
       useAlt: useAlt
     };
 
-    const exportData = {
+    return {
       version: 2,
       exportedAt: new Date().toISOString(),
       trip: tripMeta,
@@ -3047,1400 +3052,1482 @@ function App() {
       lodging: lodging,
       registration: registration,
       currency: currency
-      // NOTE: _legacyDays removed - legacy format no longer supported
+    };
+  };
+
+  const saveToFile = () => {
+    const saveToFile = () => {
+      const exportData = getTripData();
+
+      const data = JSON.stringify(exportData, null, 2);
+
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `travel_${tripName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd-HHmmss')}.json`;
+      link.click();
     };
 
-    const data = JSON.stringify(exportData, null, 2);
-
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `travel_${tripName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd-HHmmss')}.json`;
-    link.click();
-  };
-
-  const loadFromFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        loadData(data);
-      } catch (err) {
-        alert('Error loading file');
-      }
+    const loadFromFile = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          loadData(data);
+        } catch (err) {
+          alert('Error loading file');
+        }
+      };
+      reader.readAsText(file);
     };
-    reader.readAsText(file);
-  };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+    const sensors = useSensors(
+      useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+      useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
 
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-  };
+    const handleDragStart = (event) => {
+      setActiveId(event.active.id);
+    };
 
-  const handleDragOver = (event) => {
-    const { active, over } = event;
-    if (!over) return;
+    const handleDragOver = (event) => {
+      const { active, over } = event;
+      if (!over) return;
 
-    const activeContainer = findContainer(active.id);
-    const overContainer = findContainer(over.id);
+      const activeContainer = findContainer(active.id);
+      const overContainer = findContainer(over.id);
 
-    if (!activeContainer || !overContainer || activeContainer === overContainer) {
-      return;
-    }
-
-    setDays((prev) => {
-      const activeIdx = prev.findIndex(d => d.id === activeContainer);
-      const overIdx = prev.findIndex(d => d.id === overContainer);
-
-      const activeItems = [...(prev[activeIdx].legs || [])];
-      const overItems = [...(prev[overIdx].legs || [])];
-
-      const activeItemIdx = activeItems.findIndex(l => l.id === active.id);
-      const overItemIdx = overItems.findIndex(l => l.id === over.id);
-
-      let newIndex;
-      if (overItems.some(l => l.id === over.id)) {
-        newIndex = overItemIdx;
-      } else {
-        newIndex = overItems.length;
+      if (!activeContainer || !overContainer || activeContainer === overContainer) {
+        return;
       }
 
-      // Constraints for locked legs
-      if (overIdx === 0 && newIndex === 0) {
-        newIndex = 1;
+      setDays((prev) => {
+        const activeIdx = prev.findIndex(d => d.id === activeContainer);
+        const overIdx = prev.findIndex(d => d.id === overContainer);
+
+        const activeItems = [...(prev[activeIdx].legs || [])];
+        const overItems = [...(prev[overIdx].legs || [])];
+
+        const activeItemIdx = activeItems.findIndex(l => l.id === active.id);
+        const overItemIdx = overItems.findIndex(l => l.id === over.id);
+
+        let newIndex;
+        if (overItems.some(l => l.id === over.id)) {
+          newIndex = overItemIdx;
+        } else {
+          newIndex = overItems.length;
+        }
+
+        // Constraints for locked legs
+        if (overIdx === 0 && newIndex === 0) {
+          newIndex = 1;
+        }
+        if (overIdx === prev.length - 1 && newIndex >= overItems.length && overItems.length > 0) {
+          newIndex = Math.max(0, overItems.length - 1);
+        }
+
+        const [item] = activeItems.splice(activeItemIdx, 1);
+        overItems.splice(newIndex, 0, item);
+
+        const newDays = [...prev];
+        newDays[activeIdx] = { ...prev[activeIdx], legs: activeItems };
+        newDays[overIdx] = { ...prev[overIdx], legs: overItems };
+        return newDays;
+      });
+    };
+
+    const findContainer = (id) => {
+      if (days.some(d => d.id === id)) return id;
+      for (const d of days) {
+        if ((d.legs || []).some(l => l.id === id)) return d.id;
       }
-      if (overIdx === prev.length - 1 && newIndex >= overItems.length && overItems.length > 0) {
-        newIndex = Math.max(0, overItems.length - 1);
+      return null;
+    };
+
+    const handleDragEnd = (event) => {
+      const { active, over } = event;
+      if (!over) {
+        setActiveId(null);
+        return;
       }
 
-      const [item] = activeItems.splice(activeItemIdx, 1);
-      overItems.splice(newIndex, 0, item);
+      const activeContainer = findContainer(active.id);
+      const overContainer = findContainer(over.id);
 
-      const newDays = [...prev];
-      newDays[activeIdx] = { ...prev[activeIdx], legs: activeItems };
-      newDays[overIdx] = { ...prev[overIdx], legs: overItems };
-      return newDays;
-    });
-  };
+      if (activeContainer && overContainer && activeContainer === overContainer) {
+        const dayIdx = days.findIndex(d => d.id === activeContainer);
+        const oldIndex = (days[dayIdx].legs || []).findIndex(l => l.id === active.id);
+        let newIndex = (days[dayIdx].legs || []).findIndex(l => l.id === over.id);
 
-  const findContainer = (id) => {
-    if (days.some(d => d.id === id)) return id;
-    for (const d of days) {
-      if ((d.legs || []).some(l => l.id === id)) return d.id;
-    }
-    return null;
-  };
+        // Constraints for locked legs within the same day
+        if (dayIdx === 0 && newIndex === 0) newIndex = 1;
+        if (dayIdx === days.length - 1 && newIndex === (days[dayIdx].legs || []).length - 1) {
+          newIndex = (days[dayIdx].legs || []).length - 2;
+        }
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    if (!over) {
+        if (oldIndex !== newIndex && newIndex >= 0) {
+          setDays((prev) => {
+            const newDays = [...prev];
+            const updatedLegs = arrayMove(newDays[dayIdx].legs || [], oldIndex, newIndex);
+            newDays[dayIdx] = { ...prev[dayIdx], legs: updatedLegs };
+            return newDays;
+          });
+        }
+      }
+
       setActiveId(null);
-      return;
-    }
-
-    const activeContainer = findContainer(active.id);
-    const overContainer = findContainer(over.id);
-
-    if (activeContainer && overContainer && activeContainer === overContainer) {
-      const dayIdx = days.findIndex(d => d.id === activeContainer);
-      const oldIndex = (days[dayIdx].legs || []).findIndex(l => l.id === active.id);
-      let newIndex = (days[dayIdx].legs || []).findIndex(l => l.id === over.id);
-
-      // Constraints for locked legs within the same day
-      if (dayIdx === 0 && newIndex === 0) newIndex = 1;
-      if (dayIdx === days.length - 1 && newIndex === (days[dayIdx].legs || []).length - 1) {
-        newIndex = (days[dayIdx].legs || []).length - 2;
-      }
-
-      if (oldIndex !== newIndex && newIndex >= 0) {
-        setDays((prev) => {
-          const newDays = [...prev];
-          const updatedLegs = arrayMove(newDays[dayIdx].legs || [], oldIndex, newIndex);
-          newDays[dayIdx] = { ...prev[dayIdx], legs: updatedLegs };
-          return newDays;
-        });
-      }
-    }
-
-    setActiveId(null);
-  };
-
-  const addLeg = (dayIdx) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setDays(prev => {
-      const newDays = [...prev];
-      const day = newDays[dayIdx];
-      const lastLeg = (day.legs || [])[(day.legs || []).length - 1];
-      const newLeg = {
-        id: generateId(),
-        from: lastLeg?.to || 'Hotel',
-        to: 'Site',
-        type: 'uber',
-        amount: 0,
-        currency: 'USD',
-        isForeign: false
-      };
-      newDays[dayIdx] = { ...day, legs: [...(day.legs || []), newLeg] };
-      return newDays;
-    });
-  };
-
-  const addDay = () => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setDays(prev => {
-      const lastDay = prev[prev.length - 1];
-      const newDate = addDays(lastDay?.date || new Date(), 1);
-      const newDay = {
-        ...lastDay,
-        id: generateId(),
-        date: newDate,
-        // NOTE: legs field removed - transportation uses separate array
-        registrationFee: 0,
-        hotelRate: lastDay?.hotelRate || 0,
-        hotelTax: lastDay?.hotelTax || 0,
-        hotelCurrency: lastDay?.hotelCurrency || 'USD',
-        hotelName: lastDay?.hotelName || '',
-      };
-      return [...prev, newDay];
-    });
-  };
-
-  const syncLocationField = (location, field, value) => {
-    setDays(prev => prev.map(d => {
-      if (d.location === location) {
-        return { ...d, [field]: value };
-      }
-      return d;
-    }));
-  };
-
-  const toggleLink = (legId) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setDays(prev => {
-      const newDays = JSON.parse(JSON.stringify(prev));
-      let targetLeg = null;
-      newDays.forEach(d => (d.legs || []).forEach(l => { if (l.id === legId) targetLeg = l }));
-
-      if (targetLeg.mirrorId) {
-        const currentMid = targetLeg.mirrorId;
-        newDays.forEach(d => (d.legs || []).forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
-      }
-      return newDays;
-    });
-  };
-
-  const updateLeg = useCallback((dayId, legId, field, value) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setDays((prev) => {
-      const newDays = JSON.parse(JSON.stringify(prev));
-      const day = newDays.find(d => d.id === dayId);
-      const leg = day?.legs.find(l => l.id === legId);
-      if (!leg) return prev;
-
-      leg[field] = value;
-
-      // Handle Flight Sync back to main panel
-      if (leg.type === 'flight' && (field === 'from' || field === 'to')) {
-        if (value.includes(' – ') && value.includes('(')) {
-          const match = flights.find(f => {
-            const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
-            const first = allSegs[0];
-            const last = allSegs[allSegs.length - 1];
-            return `${first?.depPort} – ${last?.arrPort} (${f.airline})` === value;
-          });
-          if (match) {
-            const allSegs = [...(match.outbound || []), ...(match.returnSegments || [])];
-            const first = allSegs[0];
-            const last = allSegs[allSegs.length - 1];
-            leg.from = first?.depPort || '';
-            leg.to = last?.arrPort || '';
-            leg.amount = match.cost || 0;
-            if (allSegs.length > 1) {
-              leg.layover = allSegs.slice(0, -1).map(s => s.arrPort).join(', ');
-            } else {
-              leg.layover = '';
-            }
-
-            if (leg.mirrorId) {
-              newDays.forEach(d => (d.legs || []).forEach(m => {
-                if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
-                  m.from = leg.to;
-                  m.to = leg.from;
-                  m.amount = 0;
-                  m.layover = leg.layover;
-                }
-              }));
-            }
-          }
-        } else {
-          const otherField = field === 'from' ? 'to' : 'from';
-          if (leg[otherField]) {
-            setFlights(prevFlights => {
-              const exists = prevFlights.find(f => {
-                const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
-                const first = allSegs[0];
-                const last = allSegs[allSegs.length - 1];
-                return first?.depPort === leg.from && last?.arrPort === leg.to;
-              });
-              if (!exists) {
-                return [...prevFlights, {
-                  id: generateId(),
-                  airline: 'Manual',
-                  confirmation: '',
-                  cost: 0,
-                  outbound: [{
-                    id: generateId(),
-                    airlineCode: '',
-                    flightNumber: '',
-                    depDate: format(day.date, 'yyyy-MM-dd'),
-                    depTime: '',
-                    depPort: leg.from,
-                    arrDate: format(day.date, 'yyyy-MM-dd'),
-                    arrTime: '',
-                    arrPort: leg.to
-                  }],
-                  returnSegments: []
-                }];
-              }
-              return prevFlights;
-            });
-          }
-        }
-      }
-
-      if (field === 'isForeign') {
-        leg.currency = value ? altCurrency : 'USD';
-      }
-
-      if (leg.mirrorId) {
-        newDays.forEach(d => (d.legs || []).forEach(m => {
-          if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
-            if (field === 'from') m.to = value;
-            if (field === 'to') m.from = value;
-            if (field === 'type' || field === 'amount' || field === 'currency' || field === 'isForeign') m[field] = value;
-          }
-        }));
-      }
-
-      const lIdx = (day.legs || []).findIndex(l => l.id === legId);
-      if (field === 'to' && (day.legs || [])[lIdx + 1]) {
-        (day.legs || [])[lIdx + 1].from = value;
-      }
-      if (field === 'from' && (day.legs || [])[lIdx - 1]) {
-        (day.legs || [])[lIdx - 1].to = value;
-      }
-
-      return newDays;
-    });
-  }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory, hotels]);
-
-  const handleStartDateChange = (newStart) => {
-    if (!newStart || isNaN(newStart.getTime())) return;
-    const oldStart = (days && days[0]) ? days[0].date : null;
-    if (!oldStart || isNaN(oldStart.getTime())) return;
-
-    const diff = differenceInCalendarDays(newStart, oldStart);
-    if (diff === 0 || isNaN(diff)) return;
-
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-
-    const updateSegDate = (dateStr) => {
-      if (!dateStr) return '';
-      try {
-        let d = null;
-        if (dateStr.includes('-')) {
-          d = parse(dateStr, 'yyyy-MM-dd', new Date());
-        } else if (dateStr.includes('/')) {
-          const parts = dateStr.split('/');
-          let y = parseInt(parts[2]);
-          if (y < 100) y += 2000;
-          d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
-        } else {
-          const year = oldStart.getFullYear();
-          d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
-          if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
-        }
-        if (!d || isNaN(d.getTime())) return dateStr;
-
-        const shifted = addDays(d, diff);
-        return format(shifted, 'yyyy-MM-dd');
-      } catch (e) { return dateStr; }
     };
 
-    // Update Days
-    setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
+    const addLeg = (dayIdx) => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setDays(prev => {
+        const newDays = [...prev];
+        const day = newDays[dayIdx];
+        const lastLeg = (day.legs || [])[(day.legs || []).length - 1];
+        const newLeg = {
+          id: generateId(),
+          from: lastLeg?.to || 'Hotel',
+          to: 'Site',
+          type: 'uber',
+          amount: 0,
+          currency: 'USD',
+          isForeign: false
+        };
+        newDays[dayIdx] = { ...day, legs: [...(day.legs || []), newLeg] };
+        return newDays;
+      });
+    };
 
-    // Update Hotels
-    setHotels(prev => prev.map(h => ({
-      ...h,
-      checkIn: addDays(h.checkIn, diff),
-      checkOut: addDays(h.checkOut, diff)
-    })));
+    const addDay = () => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setDays(prev => {
+        const lastDay = prev[prev.length - 1];
+        const newDate = addDays(lastDay?.date || new Date(), 1);
+        const newDay = {
+          ...lastDay,
+          id: generateId(),
+          date: newDate,
+          // NOTE: legs field removed - transportation uses separate array
+          registrationFee: 0,
+          hotelRate: lastDay?.hotelRate || 0,
+          hotelTax: lastDay?.hotelTax || 0,
+          hotelCurrency: lastDay?.hotelCurrency || 'USD',
+          hotelName: lastDay?.hotelName || '',
+        };
+        return [...prev, newDay];
+      });
+    };
 
-    // Update Flights
-    setFlights(prev => prev.map(f => ({
-      ...f,
-      outbound: (f.outbound || []).map(s => ({
-        ...s,
-        depDate: updateSegDate(s.depDate),
-        arrDate: updateSegDate(s.arrDate)
-      })),
-      returnSegments: (f.returnSegments || []).map(s => ({
-        ...s,
-        depDate: updateSegDate(s.depDate),
-        arrDate: updateSegDate(s.arrDate)
-      }))
-    })));
-
-    // Shift hotels
-    setHotels(prev => (prev || []).map(h => ({
-      ...h,
-      checkIn: addDays(h.checkIn, diff),
-      checkOut: addDays(h.checkOut, diff)
-    })));
-  };
-
-  const handleEndDateChange = (newEnd) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    const newCount = differenceInCalendarDays(newEnd, days[0].date) + 1;
-    if (newCount <= 0) return;
-
-    setDays(prev => {
-      if (newCount > prev.length) {
-        let last = prev[prev.length - 1];
-        let added = [];
-        for (let i = 1; i <= newCount - prev.length; i++) {
-          added.push({
-            ...last,
-            id: generateId(),
-            date: addDays(last.date, i),
-            // NOTE: legs field removed - transportation uses separate array
-            registrationFee: 0
-          });
+    const syncLocationField = (location, field, value) => {
+      setDays(prev => prev.map(d => {
+        if (d.location === location) {
+          return { ...d, [field]: value };
         }
-        return [...prev, ...added];
-      } else {
-        return prev.slice(0, newCount);
-      }
-    });
-  };
+        return d;
+      }));
+    };
 
-  const addFlightLeg = () => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setFlights(prev => {
+    const toggleLink = (legId) => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setDays(prev => {
+        const newDays = JSON.parse(JSON.stringify(prev));
+        let targetLeg = null;
+        newDays.forEach(d => (d.legs || []).forEach(l => { if (l.id === legId) targetLeg = l }));
 
-      const outboundDate = days[0] ? format(days[0].date, 'yyyy-MM-dd') : '';
-      const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'yyyy-MM-dd') : '';
+        if (targetLeg.mirrorId) {
+          const currentMid = targetLeg.mirrorId;
+          newDays.forEach(d => (d.legs || []).forEach(l => { if (l.mirrorId === currentMid) l.mirrorId = null }));
+        }
+        return newDays;
+      });
+    };
 
-      const newFlight = {
-        id: generateId(),
-        airline: '',
-        confirmation: '',
-        cost: 0,
-        outbound: [
-          {
-            id: generateId(),
-            airlineCode: '',
-            flightNumber: '',
-            seat: '',
-            depDate: outboundDate,
-            depTime: '10:00a',
-            depPort: '',
-            arrDate: outboundDate,
-            arrTime: '2:00p',
-            arrPort: ''
+    const updateLeg = useCallback((dayId, legId, field, value) => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setDays((prev) => {
+        const newDays = JSON.parse(JSON.stringify(prev));
+        const day = newDays.find(d => d.id === dayId);
+        const leg = day?.legs.find(l => l.id === legId);
+        if (!leg) return prev;
+
+        leg[field] = value;
+
+        // Handle Flight Sync back to main panel
+        if (leg.type === 'flight' && (field === 'from' || field === 'to')) {
+          if (value.includes(' – ') && value.includes('(')) {
+            const match = flights.find(f => {
+              const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+              const first = allSegs[0];
+              const last = allSegs[allSegs.length - 1];
+              return `${first?.depPort} – ${last?.arrPort} (${f.airline})` === value;
+            });
+            if (match) {
+              const allSegs = [...(match.outbound || []), ...(match.returnSegments || [])];
+              const first = allSegs[0];
+              const last = allSegs[allSegs.length - 1];
+              leg.from = first?.depPort || '';
+              leg.to = last?.arrPort || '';
+              leg.amount = match.cost || 0;
+              if (allSegs.length > 1) {
+                leg.layover = allSegs.slice(0, -1).map(s => s.arrPort).join(', ');
+              } else {
+                leg.layover = '';
+              }
+
+              if (leg.mirrorId) {
+                newDays.forEach(d => (d.legs || []).forEach(m => {
+                  if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
+                    m.from = leg.to;
+                    m.to = leg.from;
+                    m.amount = 0;
+                    m.layover = leg.layover;
+                  }
+                }));
+              }
+            }
+          } else {
+            const otherField = field === 'from' ? 'to' : 'from';
+            if (leg[otherField]) {
+              setFlights(prevFlights => {
+                const exists = prevFlights.find(f => {
+                  const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+                  const first = allSegs[0];
+                  const last = allSegs[allSegs.length - 1];
+                  return first?.depPort === leg.from && last?.arrPort === leg.to;
+                });
+                if (!exists) {
+                  return [...prevFlights, {
+                    id: generateId(),
+                    airline: 'Manual',
+                    confirmation: '',
+                    cost: 0,
+                    outbound: [{
+                      id: generateId(),
+                      airlineCode: '',
+                      flightNumber: '',
+                      depDate: format(day.date, 'yyyy-MM-dd'),
+                      depTime: '',
+                      depPort: leg.from,
+                      arrDate: format(day.date, 'yyyy-MM-dd'),
+                      arrTime: '',
+                      arrPort: leg.to
+                    }],
+                    returnSegments: []
+                  }];
+                }
+                return prevFlights;
+              });
+            }
           }
-        ],
-        returnSegments: [
-          {
-            id: generateId(),
-            airlineCode: '',
-            flightNumber: '',
-            seat: '',
-            depDate: returnDate,
-            depTime: '4:00p',
-            depPort: '',
-            arrDate: returnDate,
-            arrTime: '8:00p',
-            arrPort: ''
+        }
+
+        if (field === 'isForeign') {
+          leg.currency = value ? altCurrency : 'USD';
+        }
+
+        if (leg.mirrorId) {
+          newDays.forEach(d => (d.legs || []).forEach(m => {
+            if (m.mirrorId === leg.mirrorId && m.id !== leg.id) {
+              if (field === 'from') m.to = value;
+              if (field === 'to') m.from = value;
+              if (field === 'type' || field === 'amount' || field === 'currency' || field === 'isForeign') m[field] = value;
+            }
+          }));
+        }
+
+        const lIdx = (day.legs || []).findIndex(l => l.id === legId);
+        if (field === 'to' && (day.legs || [])[lIdx + 1]) {
+          (day.legs || [])[lIdx + 1].from = value;
+        }
+        if (field === 'from' && (day.legs || [])[lIdx - 1]) {
+          (day.legs || [])[lIdx - 1].to = value;
+        }
+
+        return newDays;
+      });
+    }, [tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, saveToHistory, hotels]);
+
+    const handleStartDateChange = (newStart) => {
+      if (!newStart || isNaN(newStart.getTime())) return;
+      const oldStart = (days && days[0]) ? days[0].date : null;
+      if (!oldStart || isNaN(oldStart.getTime())) return;
+
+      const diff = differenceInCalendarDays(newStart, oldStart);
+      if (diff === 0 || isNaN(diff)) return;
+
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+
+      const updateSegDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+          let d = null;
+          if (dateStr.includes('-')) {
+            d = parse(dateStr, 'yyyy-MM-dd', new Date());
+          } else if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            let y = parseInt(parts[2]);
+            if (y < 100) y += 2000;
+            d = new Date(y, parseInt(parts[0]) - 1, parseInt(parts[1]), 12, 0, 0);
+          } else {
+            const year = oldStart.getFullYear();
+            d = parse(dateStr, 'EEE MMM d', new Date(year, 0, 1));
+            if (isNaN(d.getTime())) d = new Date(dateStr + ', ' + year);
           }
-        ]
+          if (!d || isNaN(d.getTime())) return dateStr;
+
+          const shifted = addDays(d, diff);
+          return format(shifted, 'yyyy-MM-dd');
+        } catch (e) { return dateStr; }
       };
 
-      // Auto-update hotel dates when flights are added
-      setHotels(hPrev => {
-        if (hPrev.length === 0) return hPrev;
-        return hPrev.map((h, idx) => {
-          if (idx === 0) {
-            return { ...h, checkIn: days[0].date, checkOut: days[days.length - 1].date };
+      // Update Days
+      setDays(prev => prev.map(d => ({ ...d, date: addDays(d.date, diff) })));
+
+      // Update Hotels
+      setHotels(prev => prev.map(h => ({
+        ...h,
+        checkIn: addDays(h.checkIn, diff),
+        checkOut: addDays(h.checkOut, diff)
+      })));
+
+      // Update Flights
+      setFlights(prev => prev.map(f => ({
+        ...f,
+        outbound: (f.outbound || []).map(s => ({
+          ...s,
+          depDate: updateSegDate(s.depDate),
+          arrDate: updateSegDate(s.arrDate)
+        })),
+        returnSegments: (f.returnSegments || []).map(s => ({
+          ...s,
+          depDate: updateSegDate(s.depDate),
+          arrDate: updateSegDate(s.arrDate)
+        }))
+      })));
+
+      // Shift hotels
+      setHotels(prev => (prev || []).map(h => ({
+        ...h,
+        checkIn: addDays(h.checkIn, diff),
+        checkOut: addDays(h.checkOut, diff)
+      })));
+    };
+
+    const handleEndDateChange = (newEnd) => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      const newCount = differenceInCalendarDays(newEnd, days[0].date) + 1;
+      if (newCount <= 0) return;
+
+      setDays(prev => {
+        if (newCount > prev.length) {
+          let last = prev[prev.length - 1];
+          let added = [];
+          for (let i = 1; i <= newCount - prev.length; i++) {
+            added.push({
+              ...last,
+              id: generateId(),
+              date: addDays(last.date, i),
+              // NOTE: legs field removed - transportation uses separate array
+              registrationFee: 0
+            });
           }
-          return h;
-        });
-      });
-
-      return [...prev, newFlight];
-    });
-  };
-
-
-
-  const deleteFlight = (id) => {
-    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    setFlights(prev => prev.filter(f => f.id !== id));
-  };
-
-  const updateFlight = (id, updatesOrField, value) => {
-    setFlights(prev => {
-      return prev.map(f => {
-        if (f.id !== id) return f;
-
-        // Support both (field, value) and (updatesObject) patterns
-        let updates = {};
-        if (typeof updatesOrField === 'string') {
-          updates[updatesOrField] = value;
+          return [...prev, ...added];
         } else {
-          updates = updatesOrField;
+          return prev.slice(0, newCount);
         }
-
-        let newF = { ...f, ...updates };
-
-        // Only deep-clone and mirror for segment array updates
-        if (updates.outbound || updates.returnSegments) {
-          // Clone the updated arrays
-          const out = (newF.outbound || []).map(s => ({ ...s }));
-          const ret = (newF.returnSegments || []).map(s => ({ ...s }));
-
-          // Only run mirroring logic if both legs exist
-          if (out.length > 0 && ret.length > 0) {
-            const sOut = out[0];
-            const sRet = ret[ret.length - 1];
-
-            const mirror = (src, tgt) => {
-              if (!src) return tgt;
-              if (!tgt || src.startsWith(tgt) || tgt.startsWith(src)) return src;
-              return tgt;
-            };
-
-            sRet.arrPort = mirror(sOut.depPort, sRet.arrPort);
-            ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
-          }
-
-          newF.outbound = out;
-          newF.returnSegments = ret;
-        }
-        return newF;
       });
-    });
-  };
+    };
 
+    const addFlightLeg = () => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setFlights(prev => {
 
-  const handleFlightDragEnd = (event) => {
-    const { active, over } = event;
-    if (active.id !== over?.id) {
-      setFlights((items) => {
-        const oldIndex = items.findIndex(i => i.id === active.id);
-        const newIndex = items.findIndex(i => i.id === over.id);
-        const next = arrayMove(items, oldIndex, newIndex);
-        return next;
+        const outboundDate = days[0] ? format(days[0].date, 'yyyy-MM-dd') : '';
+        const returnDate = days[days.length - 1] ? format(days[days.length - 1].date, 'yyyy-MM-dd') : '';
+
+        const newFlight = {
+          id: generateId(),
+          airline: '',
+          confirmation: '',
+          cost: 0,
+          outbound: [
+            {
+              id: generateId(),
+              airlineCode: '',
+              flightNumber: '',
+              seat: '',
+              depDate: outboundDate,
+              depTime: '10:00a',
+              depPort: '',
+              arrDate: outboundDate,
+              arrTime: '2:00p',
+              arrPort: ''
+            }
+          ],
+          returnSegments: [
+            {
+              id: generateId(),
+              airlineCode: '',
+              flightNumber: '',
+              seat: '',
+              depDate: returnDate,
+              depTime: '4:00p',
+              depPort: '',
+              arrDate: returnDate,
+              arrTime: '8:00p',
+              arrPort: ''
+            }
+          ]
+        };
+
+        // Auto-update hotel dates when flights are added
+        setHotels(hPrev => {
+          if (hPrev.length === 0) return hPrev;
+          return hPrev.map((h, idx) => {
+            if (idx === 0) {
+              return { ...h, checkIn: days[0].date, checkOut: days[days.length - 1].date };
+            }
+            return h;
+          });
+        });
+
+        return [...prev, newFlight];
       });
-    }
-  };
+    };
 
-  // Auto-populate Travel Legs based on Flights
-  React.useEffect(() => {
-    if (!days || days.length === 0 || !flights) return;
 
-    let globalChanged = false;
-    const nextDays = days.map((day, dIdx) => {
-      const dayStr = safeFormat(day.date, 'yyyy-MM-dd');
-      let currentNonAutoLegs = (day.legs || []).filter(l => !l.auto);
-      const neededAutoLegs = [];
 
-      flights.forEach((f) => {
-        const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
-        allSegments.forEach((seg, sIdx) => {
-          if (!seg.depPort || !seg.arrPort) return;
+    const deleteFlight = (id) => {
+      saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+      setFlights(prev => prev.filter(f => f.id !== id));
+    };
 
-          const segDepDateStr = parseSegDate(seg.depDate);
-          const segArrDateStr = parseSegDate(seg.arrDate);
-          if (!segDepDateStr || !segArrDateStr) return;
+    const updateFlight = (id, updatesOrField, value) => {
+      setFlights(prev => {
+        return prev.map(f => {
+          if (f.id !== id) return f;
 
-          const isOutbound = f.outbound && f.outbound.includes(seg);
-          const isReturn = f.returnSegments && f.returnSegments.includes(seg);
-
-          // Get timezones for ports using airport database
-          const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
-          const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
-
-          // Determine if departure/arrival is from/to home based on timezone
-          let isDepHome = depPortTZ === homeTimeZone;
-          if (isOutbound && sIdx === 0) isDepHome = true;
-          if (isReturn && sIdx === allSegments.length - 1) isDepHome = false;
-
-          let isArrHome = arrPortTZ === homeTimeZone;
-          if (isOutbound && sIdx === (f.outbound.length - 1)) isArrHome = false;
-          if (isReturn && seg === f.returnSegments[f.returnSegments.length - 1]) isArrHome = true;
-
-          // Parse flight times
-          const flDepTime = parseTime(seg.depTime);
-          const flArrTime = parseTime(seg.arrTime);
-          if (flDepTime === null || flArrTime === null) return;
-
-          // Calculate uber ride start time in the appropriate LOCAL airport time
-          // Departure: ride starts rideDur + waitAtAirport hours BEFORE flight
-          // The ride is in the departure port's timezone
-          const depRideDur = isDepHome ? 1 : 0.5;  // 1hr from home, 30min from hotel
-          const waitAtAirport = 3;  // WORK TRAVEL.md: Get to airport 3 hours before
-          const depRideStartLocal = (flDepTime - waitAtAirport - depRideDur + 24) % 24;
-
-          // Arrival: ride starts waitAfterArrival hours AFTER arrival
-          // The ride is in the arrival port's timezone
-          const arrRideDur = isArrHome ? 1 : 0.5;  // 1hr to home, 30min to hotel
-          const waitAfterArrival = 1;  // WORK TRAVEL.md: Leave airport 1 hour after arrival
-          const arrRideStartLocal = (flArrTime + waitAfterArrival) % 24;
-
-          // Convert departure local time to home timezone to determine the calendar day
-          // The ride START time determines which day it appears on
-          // Create a date at the local departure time, then convert to home TZ
-          const depDate = new Date(segDepDateStr + 'T12:00:00');
-          const depShift = getTZOffset(depDate, depPortTZ, homeTimeZone);
-          const depRideHomeTime = (depRideStartLocal - depShift + 24) % 24;
-          // If the home time goes past midnight, adjust the day
-          const depDayAdjust = depRideHomeTime < depRideStartLocal && depShift > 0 ? 1 :
-            depRideHomeTime > depRideStartLocal && depShift < 0 ? -1 : 0;
-          const depHomeDateStr = (() => {
-            const d = new Date(segDepDateStr + 'T12:00:00');
-            d.setDate(d.getDate() + depDayAdjust);
-            return format(d, 'yyyy-MM-dd');
-          })();
-
-          // Similarly for arrival
-          const arrDate = new Date(segArrDateStr + 'T12:00:00');
-          const arrShift = getTZOffset(arrDate, arrPortTZ, homeTimeZone);
-          const arrRideHomeTime = (arrRideStartLocal - arrShift + 24) % 24;
-          // If the home time goes past midnight, adjust the day
-          const arrDayAdjust = arrRideHomeTime < arrRideStartLocal && arrShift > 0 ? 1 :
-            arrRideHomeTime > arrRideStartLocal && arrShift < 0 ? -1 : 0;
-          const arrHomeDateStr = (() => {
-            const d = new Date(segArrDateStr + 'T12:00:00');
-            d.setDate(d.getDate() + arrDayAdjust);
-            return format(d, 'yyyy-MM-dd');
-          })();
-
-          // Add departure leg (ride to airport) on the appropriate home-timezone day
-          if (depHomeDateStr === dayStr) {
-            neededAutoLegs.push({
-              from: isDepHome ? 'Home' : 'Hotel',
-              to: seg.depPort,
-              type: 'uber',
-              time: formatTime(depRideStartLocal),  // Store in local airport time
-              duration: depRideDur * 60,
-              amount: 45,
-              currency: 'USD',
-              auto: true,
-              isHome: isDepHome  // Flag for timezone handling
-            });
+          // Support both (field, value) and (updatesObject) patterns
+          let updates = {};
+          if (typeof updatesOrField === 'string') {
+            updates[updatesOrField] = value;
+          } else {
+            updates = updatesOrField;
           }
 
-          // Add arrival leg (ride from airport) on the appropriate home-timezone day
-          if (arrHomeDateStr === dayStr) {
-            neededAutoLegs.push({
-              from: seg.arrPort,
-              to: isArrHome ? 'Home' : 'Hotel',
-              type: 'uber',
-              time: formatTime(arrRideStartLocal),  // Store in local airport time
-              duration: arrRideDur * 60,
-              amount: 45,
-              currency: 'USD',
-              auto: true,
-              isHome: isArrHome  // Flag for timezone handling
-            });
+          let newF = { ...f, ...updates };
+
+          // Only deep-clone and mirror for segment array updates
+          if (updates.outbound || updates.returnSegments) {
+            // Clone the updated arrays
+            const out = (newF.outbound || []).map(s => ({ ...s }));
+            const ret = (newF.returnSegments || []).map(s => ({ ...s }));
+
+            // Only run mirroring logic if both legs exist
+            if (out.length > 0 && ret.length > 0) {
+              const sOut = out[0];
+              const sRet = ret[ret.length - 1];
+
+              const mirror = (src, tgt) => {
+                if (!src) return tgt;
+                if (!tgt || src.startsWith(tgt) || tgt.startsWith(src)) return src;
+                return tgt;
+              };
+
+              sRet.arrPort = mirror(sOut.depPort, sRet.arrPort);
+              ret[0].depPort = mirror(out[out.length - 1].arrPort, ret[0].depPort);
+            }
+
+            newF.outbound = out;
+            newF.returnSegments = ret;
           }
+          return newF;
         });
       });
+    };
 
-      // Match needed with existing to preserve IDs
-      let dayChanged = false;
-      const existingAutoLegs = (day.legs || []).filter(l => l.auto);
-      const finalLegs = [...currentNonAutoLegs];
 
-      neededAutoLegs.forEach(needed => {
-        const foundIdx = existingAutoLegs.findIndex(ex => ex.from === needed.from && ex.to === needed.to);
-        if (foundIdx >= 0) {
-          const matched = existingAutoLegs.splice(foundIdx, 1)[0];
-          if (matched.time !== needed.time || matched.duration !== needed.duration || matched.from !== needed.from || matched.to !== needed.to) {
+    const handleFlightDragEnd = (event) => {
+      const { active, over } = event;
+      if (active.id !== over?.id) {
+        setFlights((items) => {
+          const oldIndex = items.findIndex(i => i.id === active.id);
+          const newIndex = items.findIndex(i => i.id === over.id);
+          const next = arrayMove(items, oldIndex, newIndex);
+          return next;
+        });
+      }
+    };
+
+    // Auto-populate Travel Legs based on Flights
+    React.useEffect(() => {
+      if (!days || days.length === 0 || !flights) return;
+
+      let globalChanged = false;
+      const nextDays = days.map((day, dIdx) => {
+        const dayStr = safeFormat(day.date, 'yyyy-MM-dd');
+        let currentNonAutoLegs = (day.legs || []).filter(l => !l.auto);
+        const neededAutoLegs = [];
+
+        flights.forEach((f) => {
+          const allSegments = [...(f.outbound || []), ...(f.returnSegments || [])];
+          allSegments.forEach((seg, sIdx) => {
+            if (!seg.depPort || !seg.arrPort) return;
+
+            const segDepDateStr = parseSegDate(seg.depDate);
+            const segArrDateStr = parseSegDate(seg.arrDate);
+            if (!segDepDateStr || !segArrDateStr) return;
+
+            const isOutbound = f.outbound && f.outbound.includes(seg);
+            const isReturn = f.returnSegments && f.returnSegments.includes(seg);
+
+            // Get timezones for ports using airport database
+            const depPortTZ = getPortTZ(seg.depPort, homeCity, destCity, homeTimeZone, destTimeZone);
+            const arrPortTZ = getPortTZ(seg.arrPort, homeCity, destCity, homeTimeZone, destTimeZone);
+
+            // Determine if departure/arrival is from/to home based on timezone
+            let isDepHome = depPortTZ === homeTimeZone;
+            if (isOutbound && sIdx === 0) isDepHome = true;
+            if (isReturn && sIdx === allSegments.length - 1) isDepHome = false;
+
+            let isArrHome = arrPortTZ === homeTimeZone;
+            if (isOutbound && sIdx === (f.outbound.length - 1)) isArrHome = false;
+            if (isReturn && seg === f.returnSegments[f.returnSegments.length - 1]) isArrHome = true;
+
+            // Parse flight times
+            const flDepTime = parseTime(seg.depTime);
+            const flArrTime = parseTime(seg.arrTime);
+            if (flDepTime === null || flArrTime === null) return;
+
+            // Calculate uber ride start time in the appropriate LOCAL airport time
+            // Departure: ride starts rideDur + waitAtAirport hours BEFORE flight
+            // The ride is in the departure port's timezone
+            const depRideDur = isDepHome ? 1 : 0.5;  // 1hr from home, 30min from hotel
+            const waitAtAirport = 3;  // WORK TRAVEL.md: Get to airport 3 hours before
+            const depRideStartLocal = (flDepTime - waitAtAirport - depRideDur + 24) % 24;
+
+            // Arrival: ride starts waitAfterArrival hours AFTER arrival
+            // The ride is in the arrival port's timezone
+            const arrRideDur = isArrHome ? 1 : 0.5;  // 1hr to home, 30min to hotel
+            const waitAfterArrival = 1;  // WORK TRAVEL.md: Leave airport 1 hour after arrival
+            const arrRideStartLocal = (flArrTime + waitAfterArrival) % 24;
+
+            // Convert departure local time to home timezone to determine the calendar day
+            // The ride START time determines which day it appears on
+            // Create a date at the local departure time, then convert to home TZ
+            const depDate = new Date(segDepDateStr + 'T12:00:00');
+            const depShift = getTZOffset(depDate, depPortTZ, homeTimeZone);
+            const depRideHomeTime = (depRideStartLocal - depShift + 24) % 24;
+            // If the home time goes past midnight, adjust the day
+            const depDayAdjust = depRideHomeTime < depRideStartLocal && depShift > 0 ? 1 :
+              depRideHomeTime > depRideStartLocal && depShift < 0 ? -1 : 0;
+            const depHomeDateStr = (() => {
+              const d = new Date(segDepDateStr + 'T12:00:00');
+              d.setDate(d.getDate() + depDayAdjust);
+              return format(d, 'yyyy-MM-dd');
+            })();
+
+            // Similarly for arrival
+            const arrDate = new Date(segArrDateStr + 'T12:00:00');
+            const arrShift = getTZOffset(arrDate, arrPortTZ, homeTimeZone);
+            const arrRideHomeTime = (arrRideStartLocal - arrShift + 24) % 24;
+            // If the home time goes past midnight, adjust the day
+            const arrDayAdjust = arrRideHomeTime < arrRideStartLocal && arrShift > 0 ? 1 :
+              arrRideHomeTime > arrRideStartLocal && arrShift < 0 ? -1 : 0;
+            const arrHomeDateStr = (() => {
+              const d = new Date(segArrDateStr + 'T12:00:00');
+              d.setDate(d.getDate() + arrDayAdjust);
+              return format(d, 'yyyy-MM-dd');
+            })();
+
+            // Add departure leg (ride to airport) on the appropriate home-timezone day
+            if (depHomeDateStr === dayStr) {
+              neededAutoLegs.push({
+                from: isDepHome ? 'Home' : 'Hotel',
+                to: seg.depPort,
+                type: 'uber',
+                time: formatTime(depRideStartLocal),  // Store in local airport time
+                duration: depRideDur * 60,
+                amount: 45,
+                currency: 'USD',
+                auto: true,
+                isHome: isDepHome  // Flag for timezone handling
+              });
+            }
+
+            // Add arrival leg (ride from airport) on the appropriate home-timezone day
+            if (arrHomeDateStr === dayStr) {
+              neededAutoLegs.push({
+                from: seg.arrPort,
+                to: isArrHome ? 'Home' : 'Hotel',
+                type: 'uber',
+                time: formatTime(arrRideStartLocal),  // Store in local airport time
+                duration: arrRideDur * 60,
+                amount: 45,
+                currency: 'USD',
+                auto: true,
+                isHome: isArrHome  // Flag for timezone handling
+              });
+            }
+          });
+        });
+
+        // Match needed with existing to preserve IDs
+        let dayChanged = false;
+        const existingAutoLegs = (day.legs || []).filter(l => l.auto);
+        const finalLegs = [...currentNonAutoLegs];
+
+        neededAutoLegs.forEach(needed => {
+          const foundIdx = existingAutoLegs.findIndex(ex => ex.from === needed.from && ex.to === needed.to);
+          if (foundIdx >= 0) {
+            const matched = existingAutoLegs.splice(foundIdx, 1)[0];
+            if (matched.time !== needed.time || matched.duration !== needed.duration || matched.from !== needed.from || matched.to !== needed.to) {
+              dayChanged = true;
+            }
+            finalLegs.push({ ...matched, ...needed });
+          } else {
+            finalLegs.push({ id: generateId(), ...needed });
             dayChanged = true;
           }
-          finalLegs.push({ ...matched, ...needed });
-        } else {
-          finalLegs.push({ id: generateId(), ...needed });
-          dayChanged = true;
+        });
+
+        if (existingAutoLegs.length > 0) dayChanged = true;
+
+        if (dayChanged) {
+          globalChanged = true;
+          return { ...day, legs: finalLegs };
         }
+        return day;
       });
 
-      if (existingAutoLegs.length > 0) dayChanged = true;
-
-      if (dayChanged) {
-        globalChanged = true;
-        return { ...day, legs: finalLegs };
+      if (globalChanged) {
+        setDays(nextDays);
+        saveToHistory(nextDays, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
       }
-      return day;
-    });
+    }, [flights, homeCity, destCity, homeTimeZone, destTimeZone, days.length]);
 
-    if (globalChanged) {
-      setDays(nextDays);
-      saveToHistory(nextDays, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
-    }
-  }, [flights, homeCity, destCity, homeTimeZone, destTimeZone, days.length]);
+    // Ensure trip covers all flight segments
+    React.useEffect(() => {
+      if (days.length === 0) return;
+      let maxDateStr = format(days[days.length - 1].date, 'yyyy-MM-dd');
+      let needsUpdate = false;
+      let newEnd = days[days.length - 1].date;
 
-  // Ensure trip covers all flight segments
-  React.useEffect(() => {
-    if (days.length === 0) return;
-    let maxDateStr = format(days[days.length - 1].date, 'yyyy-MM-dd');
-    let needsUpdate = false;
-    let newEnd = days[days.length - 1].date;
-
-    flights.forEach(f => {
-      const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
-      allSegs.forEach(s => {
-        const arrDateStr = parseSegDate(s.arrDate);
-        if (arrDateStr && arrDateStr > maxDateStr) {
-          needsUpdate = true;
-          maxDateStr = arrDateStr;
-          newEnd = parse(arrDateStr, 'yyyy-MM-dd', new Date());
-        }
+      flights.forEach(f => {
+        const allSegs = [...(f.outbound || []), ...(f.returnSegments || [])];
+        allSegs.forEach(s => {
+          const arrDateStr = parseSegDate(s.arrDate);
+          if (arrDateStr && arrDateStr > maxDateStr) {
+            needsUpdate = true;
+            maxDateStr = arrDateStr;
+            newEnd = parse(arrDateStr, 'yyyy-MM-dd', new Date());
+          }
+        });
       });
-    });
 
-    if (needsUpdate) {
-      handleEndDateChange(newEnd);
-    }
-  }, [flights, days.length]);
-
-
-  // Auto-populate Hotels based on Flights
-  React.useEffect(() => {
-    let arrivalDate = null;
-    let departureDate = null;
-    let hotelName = 'Stayberry Inn';
-
-    const segments = flights.flatMap(f => [...(f.outbound || []), ...(f.returnSegments || [])]);
-    if (segments.length === 0) return;
-
-    const sorted = segments.map(s => {
-      const dep = parseSegDate(s.depDate);
-      const arr = parseSegDate(s.arrDate);
-      return { dep, arr, ...s };
-    })
-      .filter(s => s.dep && s.arr) // Filter out segments with null dates
-      .sort((a, b) => a.arr.localeCompare(b.arr));
-
-    const firstArrSeg = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
-    const lastDepSeg = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
-
-    if (firstArrSeg && lastDepSeg && firstArrSeg.arr && lastDepSeg.dep) {
-      arrivalDate = parse(firstArrSeg.arr, 'yyyy-MM-dd', new Date());
-      departureDate = parse(lastDepSeg.dep, 'yyyy-MM-dd', new Date());
-    }
+      if (needsUpdate) {
+        handleEndDateChange(newEnd);
+      }
+    }, [flights, days.length]);
 
 
-    if (arrivalDate && departureDate) {
-      setHotels(prev => {
-        if (prev.length === 0) {
-          return [{
-            id: 'h-auto',
-            name: hotelName,
-            checkIn: arrivalDate,
-            checkInTime: '2:00p',
-            checkOut: departureDate,
-            checkOutTime: '11:00a',
-            cost: 185 * Math.max(1, differenceInDays(departureDate, arrivalDate)),
-            currency: 'USD'
-          }];
+    // Auto-populate Hotels based on Flights
+    React.useEffect(() => {
+      let arrivalDate = null;
+      let departureDate = null;
+      let hotelName = 'Stayberry Inn';
+
+      const segments = flights.flatMap(f => [...(f.outbound || []), ...(f.returnSegments || [])]);
+      if (segments.length === 0) return;
+
+      const sorted = segments.map(s => {
+        const dep = parseSegDate(s.depDate);
+        const arr = parseSegDate(s.arrDate);
+        return { dep, arr, ...s };
+      })
+        .filter(s => s.dep && s.arr) // Filter out segments with null dates
+        .sort((a, b) => a.arr.localeCompare(b.arr));
+
+      const firstArrSeg = sorted.find(s => s.arrPort && s.arrPort.toLowerCase() !== 'home');
+      const lastDepSeg = [...sorted].reverse().find(s => s.depPort && s.depPort.toLowerCase() !== 'home');
+
+      if (firstArrSeg && lastDepSeg && firstArrSeg.arr && lastDepSeg.dep) {
+        arrivalDate = parse(firstArrSeg.arr, 'yyyy-MM-dd', new Date());
+        departureDate = parse(lastDepSeg.dep, 'yyyy-MM-dd', new Date());
+      }
+
+
+      if (arrivalDate && departureDate) {
+        setHotels(prev => {
+          if (prev.length === 0) {
+            return [{
+              id: 'h-auto',
+              name: hotelName,
+              checkIn: arrivalDate,
+              checkInTime: '2:00p',
+              checkOut: departureDate,
+              checkOutTime: '11:00a',
+              cost: 185 * Math.max(1, differenceInDays(departureDate, arrivalDate)),
+              currency: 'USD'
+            }];
+          }
+          return prev;
+        });
+      }
+
+      setDays(prevDays => {
+        const updatedDays = autoPopulateHotels(flights, prevDays, {
+          rate: prevDays.find(d => d.hotelRate > 0)?.hotelRate || 185,
+          tax: prevDays.find(d => d.hotelTax > 0)?.hotelTax || 25,
+          currency: prevDays.find(d => d.hotelCurrency)?.hotelCurrency || 'USD'
+        });
+        if (JSON.stringify(updatedDays) !== JSON.stringify(prevDays)) {
+          return updatedDays;
+        }
+        return prevDays;
+      });
+    }, [flights, days]);
+
+    // Auto-detect time zones and destination city from airports
+    React.useEffect(() => {
+      if (flights.length === 0) return;
+
+      // Find first outbound departure airport for home timezone
+      const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
+      if (firstOutbound && firstOutbound.outbound[0]?.depPort) {
+        const homeAirportTZ = getAirportTimezone(firstOutbound.outbound[0].depPort);
+        if (homeAirportTZ && homeAirportTZ !== homeTimeZone) {
+          setHomeTimeZone(homeAirportTZ);
+        }
+      }
+
+      // Find last arrival airport of outbound for destination timezone and city
+      if (firstOutbound && firstOutbound.outbound.length > 0) {
+        const lastOutboundSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
+        if (lastOutboundSeg?.arrPort) {
+          const destAirportTZ = getAirportTimezone(lastOutboundSeg.arrPort);
+          if (destAirportTZ && destAirportTZ !== destTimeZone) {
+            setDestTimeZone(destAirportTZ);
+          }
+          // Auto-detect destination city from airport for per diem lookups
+          const detectedCity = getCityFromAirport(lastOutboundSeg.arrPort) || getAirportCity(lastOutboundSeg.arrPort);
+          if (detectedCity && detectedCity !== destCity) {
+            setDestCity(detectedCity);
+          }
+        }
+      }
+    }, [flights]);
+
+    // Auto-populate Transportation based on Flights
+    // Rules from WORK TRAVEL.md:
+    // - Get to airport 3 hours before flight (in local time zone)
+    // - Leave airport 1 hour after arrival
+    // - Home <-> Airport takes 1 hour
+    // - Hotel <-> Airport takes 30 minutes
+    React.useEffect(() => {
+      if (flights.length === 0) return;
+
+      const allSegments = flights.flatMap(f => [
+        ...(f.outbound || []).map(s => ({ ...s, isOutbound: true })),
+        ...(f.returnSegments || []).map(s => ({ ...s, isOutbound: false }))
+      ]).filter(s => s.depDate && s.depTime);
+
+      if (allSegments.length === 0) return;
+
+      // Helper to parse date and time
+      const parseFlightDateTime = (dateStr, timeStr) => {
+        if (!dateStr || !timeStr) return null;
+        const date = parseSegDate(dateStr);
+        if (!date) return null;
+        const time = parseTime(timeStr);
+        if (time === null) return null;
+        const d = new Date(date + 'T00:00:00');
+        d.setHours(Math.floor(time), Math.round((time % 1) * 60), 0, 0);
+        return d;
+      };
+
+      // Helper to subtract hours and get new time string
+      const subtractHours = (timeStr, hours) => {
+        const t = parseTime(timeStr);
+        if (t === null) return timeStr;
+        return formatTime(t - hours);
+      };
+
+      // Helper to add hours and get new time string
+      const addHoursToTime = (timeStr, hours) => {
+        const t = parseTime(timeStr);
+        if (t === null) return timeStr;
+        return formatTime(t + hours);
+      };
+
+      // Generate transportation items
+      const newTransport = [];
+
+      // Group segments by departure date
+      const firstOutbound = allSegments.find(s => s.isOutbound);
+      const lastReturn = [...allSegments].reverse().find(s => !s.isOutbound);
+      const firstArrival = allSegments.find(s => s.isOutbound && s.arrDate);
+      const lastDeparture = [...allSegments].reverse().find(s => !s.isOutbound && s.depDate);
+
+      // Outbound: Home -> Airport (arrive 3 hours before flight, 1 hour drive)
+      if (firstOutbound && firstOutbound.depDate && firstOutbound.depTime) {
+        const depTime = parseTime(firstOutbound.depTime);
+        if (depTime !== null) {
+          // Leave home 3+1=4 hours before flight
+          const leaveHomeTime = formatTime(depTime - 4);
+          const arriveAirportTime = formatTime(depTime - 3);
+          const depDate = parseSegDate(firstOutbound.depDate);
+
+          newTransport.push({
+            id: 't-out-home-airport',
+            type: 'uber',
+            fromEmoji: '🏡',
+            toEmoji: '✈️',
+            description: `To ${firstOutbound.depPort || 'Airport'}`,
+            date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
+            time: leaveHomeTime,
+            endTime: arriveAirportTime,
+            duration: 60,
+            cost: 0,
+            currency: 'USD',
+            isHome: true
+          });
+        }
+      }
+
+      // First arrival at destination: Airport -> Hotel (1 hour after arrival, 30 min ride)
+      if (firstArrival && firstArrival.arrDate && firstArrival.arrTime) {
+        const arrTime = parseTime(firstArrival.arrTime);
+        if (arrTime !== null) {
+          const leaveAirportTime = formatTime(arrTime + 1);
+          const arriveHotelTime = formatTime(arrTime + 1.5);
+          const arrDate = parseSegDate(firstArrival.arrDate);
+
+          newTransport.push({
+            id: 't-out-airport-hotel',
+            type: 'uber',
+            fromEmoji: '✈️',
+            toEmoji: '🏨',
+            description: `From ${firstArrival.arrPort || 'Airport'}`,
+            date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
+            time: leaveAirportTime,
+            endTime: arriveHotelTime,
+            duration: 30,
+            cost: 0,
+            currency: 'USD',
+            isHome: false
+          });
+        }
+      }
+
+      // Return: Hotel -> Airport (3 hours before return flight, 30 min ride)
+      if (lastDeparture && lastDeparture.depDate && lastDeparture.depTime) {
+        const depTime = parseTime(lastDeparture.depTime);
+        if (depTime !== null) {
+          const leaveHotelTime = formatTime(depTime - 3.5);
+          const arriveAirportTime = formatTime(depTime - 3);
+          const depDate = parseSegDate(lastDeparture.depDate);
+
+          newTransport.push({
+            id: 't-ret-hotel-airport',
+            type: 'uber',
+            fromEmoji: '🏨',
+            toEmoji: '✈️',
+            description: `To ${lastDeparture.depPort || 'Airport'}`,
+            date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
+            time: leaveHotelTime,
+            endTime: arriveAirportTime,
+            duration: 30,
+            cost: 0,
+            currency: 'USD',
+            isHome: false
+          });
+        }
+      }
+
+      // Last arrival home: Airport -> Home (1 hour after arrival, 1 hour drive)
+      if (lastReturn && lastReturn.arrDate && lastReturn.arrTime) {
+        const arrTime = parseTime(lastReturn.arrTime);
+        if (arrTime !== null) {
+          const leaveAirportTime = formatTime(arrTime + 1);
+          const arriveHomeTime = formatTime(arrTime + 2);
+          const arrDate = parseSegDate(lastReturn.arrDate);
+
+          newTransport.push({
+            id: 't-ret-airport-home',
+            type: 'uber',
+            fromEmoji: '✈️',
+            toEmoji: '🏡',
+            description: `From ${lastReturn.arrPort || 'Airport'}`,
+            date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
+            time: leaveAirportTime,
+            endTime: arriveHomeTime,
+            duration: 60,
+            cost: 0,
+            currency: 'USD',
+            isHome: true
+          });
+        }
+      }
+
+      // Only auto-populate if transportation is empty
+      setTransportation(prev => {
+        if (prev.length === 0 && newTransport.length > 0) {
+          return newTransport;
+        }
+        // Update existing auto-generated items but keep user-added ones
+        const userItems = prev.filter(t => !t.id.startsWith('t-out-') && !t.id.startsWith('t-ret-'));
+        const existingAutoIds = prev.filter(t => t.id.startsWith('t-out-') || t.id.startsWith('t-ret-')).map(t => t.id);
+
+        // If user has deleted an auto item, don't re-add it
+        // Only update times for existing auto items
+        if (existingAutoIds.length > 0 || userItems.length > 0) {
+          const updatedAuto = newTransport.filter(nt => existingAutoIds.includes(nt.id)).map(nt => {
+            const existing = prev.find(p => p.id === nt.id);
+            // Preserve user edits to cost/currency, update time/date from flights
+            return existing ? { ...nt, cost: existing.cost, currency: existing.currency } : nt;
+          });
+          return [...userItems, ...updatedAuto];
         }
         return prev;
       });
-    }
+    }, [flights]);
 
-    setDays(prevDays => {
-      const updatedDays = autoPopulateHotels(flights, prevDays, {
-        rate: prevDays.find(d => d.hotelRate > 0)?.hotelRate || 185,
-        tax: prevDays.find(d => d.hotelTax > 0)?.hotelTax || 25,
-        currency: prevDays.find(d => d.hotelCurrency)?.hotelCurrency || 'USD'
+
+    const totals = useMemo(() => {
+      let registration = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);
+      let fl = flights.reduce((sum, f) => sum + (f.cost || 0), 0);
+      let travel = 0;
+      let mieTotal = 0;
+
+      days.forEach((day, idx) => {
+        // M&IE
+        mieTotal += calculateMIE(idx, days.length, day.mieBase, day.meals, day.isForeignMie);
+
+        // Travel legs
+        (day.legs || []).forEach(l => {
+          if (l.type !== 'flight') {
+            travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', currentRates);
+          }
+        });
       });
-      if (JSON.stringify(updatedDays) !== JSON.stringify(prevDays)) {
-        return updatedDays;
-      }
-      return prevDays;
-    });
-  }, [flights, days]);
 
-  // Auto-detect time zones and destination city from airports
-  React.useEffect(() => {
-    if (flights.length === 0) return;
+      // Hotels
+      const hotelTotal = hotels.reduce((acc, h) => {
+        return acc + convertCurrency(h.cost, h.currency || 'USD', 'USD', currentRates);
+      }, 0);
 
-    // Find first outbound departure airport for home timezone
-    const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
-    if (firstOutbound && firstOutbound.outbound[0]?.depPort) {
-      const homeAirportTZ = getAirportTimezone(firstOutbound.outbound[0].depPort);
-      if (homeAirportTZ && homeAirportTZ !== homeTimeZone) {
-        setHomeTimeZone(homeAirportTZ);
-      }
-    }
+      // Transportation (from new Transportation panel)
+      const transportTotal = transportation.reduce((acc, t) => {
+        return acc + convertCurrency(t.cost || 0, t.currency || 'USD', 'USD', currentRates);
+      }, 0);
 
-    // Find last arrival airport of outbound for destination timezone and city
-    if (firstOutbound && firstOutbound.outbound.length > 0) {
-      const lastOutboundSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
-      if (lastOutboundSeg?.arrPort) {
-        const destAirportTZ = getAirportTimezone(lastOutboundSeg.arrPort);
-        if (destAirportTZ && destAirportTZ !== destTimeZone) {
-          setDestTimeZone(destAirportTZ);
-        }
-        // Auto-detect destination city from airport for per diem lookups
-        const detectedCity = getCityFromAirport(lastOutboundSeg.arrPort) || getAirportCity(lastOutboundSeg.arrPort);
-        if (detectedCity && detectedCity !== destCity) {
-          setDestCity(detectedCity);
-        }
-      }
-    }
-  }, [flights]);
+      return {
+        grand: registration + fl + travel + mieTotal + hotelTotal + transportTotal,
+        registration,
+        flights: fl,
+        travel: travel + transportTotal,
+        mie: mieTotal,
+        lodging: hotelTotal,
+      };
+    }, [days, flights, hotels, transportation, registrationFee, registrationCurrency, currentRates]);
 
-  // Auto-populate Transportation based on Flights
-  // Rules from WORK TRAVEL.md:
-  // - Get to airport 3 hours before flight (in local time zone)
-  // - Leave airport 1 hour after arrival
-  // - Home <-> Airport takes 1 hour
-  // - Hotel <-> Airport takes 30 minutes
-  React.useEffect(() => {
-    if (flights.length === 0) return;
+    const isDifferentTZ = homeTimeZone !== destTimeZone;
 
-    const allSegments = flights.flatMap(f => [
-      ...(f.outbound || []).map(s => ({ ...s, isOutbound: true })),
-      ...(f.returnSegments || []).map(s => ({ ...s, isOutbound: false }))
-    ]).filter(s => s.depDate && s.depTime);
+    return (
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="travel-app dark">
+          <main className="one-column-layout">
+            <section className="trip-header-section glass">
+              <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version {APP_VERSION}</div>
 
-    if (allSegments.length === 0) return;
+              <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <button
+                  className="action-btn"
+                  onClick={undo}
+                  disabled={history.past.length === 0}
+                  title="Undo (Cmd/Ctrl+Z)"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    background: history.past.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    borderRadius: '6px',
+                    color: history.past.length === 0 ? '#64748b' : '#a5b4fc',
+                    cursor: history.past.length === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    opacity: history.past.length === 0 ? 0.5 : 1
+                  }}
+                >
+                  <Undo2 size={14} /> Undo
+                </button>
+                <button
+                  className="action-btn"
+                  onClick={redo}
+                  disabled={history.future.length === 0}
+                  title="Redo (Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y)"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    background: history.future.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    borderRadius: '6px',
+                    color: history.future.length === 0 ? '#64748b' : '#a5b4fc',
+                    cursor: history.future.length === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    opacity: history.future.length === 0 ? 0.5 : 1
+                  }}
+                >
+                  <Redo2 size={14} /> Redo
+                </button>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    borderRadius: '6px',
+                    color: '#a5b4fc',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Load from file"
+                >
+                  <FolderOpen size={14} /> Load
+                  <input type="file" id="file-input-trigger" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
+                </label>
+                <button
+                  className="action-btn"
+                  onClick={saveToFile}
+                  title="Save to file (Cmd/Ctrl+S)"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    borderRadius: '6px',
+                    color: '#a5b4fc',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Save size={14} /> Save
+                </button>
 
-    // Helper to parse date and time
-    const parseFlightDateTime = (dateStr, timeStr) => {
-      if (!dateStr || !timeStr) return null;
-      const date = parseSegDate(dateStr);
-      if (!date) return null;
-      const time = parseTime(timeStr);
-      if (time === null) return null;
-      const d = new Date(date + 'T00:00:00');
-      d.setHours(Math.floor(time), Math.round((time % 1) * 60), 0, 0);
-      return d;
-    };
+                <button
+                  className={`action-btn ${showCloudPanel ? 'active' : ''}`}
+                  onClick={() => setShowCloudPanel(!showCloudPanel)}
+                  title="Cloud Trips"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    background: showCloudPanel ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    borderRadius: '6px',
+                    color: '#a5b4fc',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Cloud size={14} /> Cloud
+                </button>
 
-    // Helper to subtract hours and get new time string
-    const subtractHours = (timeStr, hours) => {
-      const t = parseTime(timeStr);
-      if (t === null) return timeStr;
-      return formatTime(t - hours);
-    };
+                {user ? (
+                  <button
+                    className="action-btn"
+                    onClick={logout}
+                    title="Sign Out"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 12px',
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      borderRadius: '6px',
+                      color: '#f87171',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <LogOut size={14} /> {user.displayName ? user.displayName.split(' ')[0] : 'Sign Out'}
+                  </button>
+                ) : (
+                  <button
+                    className="action-btn"
+                    onClick={login}
+                    title="Sign In with Google"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 12px',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                      borderRadius: '6px',
+                      color: '#34d399',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <LogIn size={14} /> Sign In
+                  </button>
+                )}
+              </div>
 
-    // Helper to add hours and get new time string
-    const addHoursToTime = (timeStr, hours) => {
-      const t = parseTime(timeStr);
-      if (t === null) return timeStr;
-      return formatTime(t + hours);
-    };
-
-    // Generate transportation items
-    const newTransport = [];
-
-    // Group segments by departure date
-    const firstOutbound = allSegments.find(s => s.isOutbound);
-    const lastReturn = [...allSegments].reverse().find(s => !s.isOutbound);
-    const firstArrival = allSegments.find(s => s.isOutbound && s.arrDate);
-    const lastDeparture = [...allSegments].reverse().find(s => !s.isOutbound && s.depDate);
-
-    // Outbound: Home -> Airport (arrive 3 hours before flight, 1 hour drive)
-    if (firstOutbound && firstOutbound.depDate && firstOutbound.depTime) {
-      const depTime = parseTime(firstOutbound.depTime);
-      if (depTime !== null) {
-        // Leave home 3+1=4 hours before flight
-        const leaveHomeTime = formatTime(depTime - 4);
-        const arriveAirportTime = formatTime(depTime - 3);
-        const depDate = parseSegDate(firstOutbound.depDate);
-
-        newTransport.push({
-          id: 't-out-home-airport',
-          type: 'uber',
-          fromEmoji: '🏡',
-          toEmoji: '✈️',
-          description: `To ${firstOutbound.depPort || 'Airport'}`,
-          date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
-          time: leaveHomeTime,
-          endTime: arriveAirportTime,
-          duration: 60,
-          cost: 0,
-          currency: 'USD',
-          isHome: true
-        });
-      }
-    }
-
-    // First arrival at destination: Airport -> Hotel (1 hour after arrival, 30 min ride)
-    if (firstArrival && firstArrival.arrDate && firstArrival.arrTime) {
-      const arrTime = parseTime(firstArrival.arrTime);
-      if (arrTime !== null) {
-        const leaveAirportTime = formatTime(arrTime + 1);
-        const arriveHotelTime = formatTime(arrTime + 1.5);
-        const arrDate = parseSegDate(firstArrival.arrDate);
-
-        newTransport.push({
-          id: 't-out-airport-hotel',
-          type: 'uber',
-          fromEmoji: '✈️',
-          toEmoji: '🏨',
-          description: `From ${firstArrival.arrPort || 'Airport'}`,
-          date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
-          time: leaveAirportTime,
-          endTime: arriveHotelTime,
-          duration: 30,
-          cost: 0,
-          currency: 'USD',
-          isHome: false
-        });
-      }
-    }
-
-    // Return: Hotel -> Airport (3 hours before return flight, 30 min ride)
-    if (lastDeparture && lastDeparture.depDate && lastDeparture.depTime) {
-      const depTime = parseTime(lastDeparture.depTime);
-      if (depTime !== null) {
-        const leaveHotelTime = formatTime(depTime - 3.5);
-        const arriveAirportTime = formatTime(depTime - 3);
-        const depDate = parseSegDate(lastDeparture.depDate);
-
-        newTransport.push({
-          id: 't-ret-hotel-airport',
-          type: 'uber',
-          fromEmoji: '🏨',
-          toEmoji: '✈️',
-          description: `To ${lastDeparture.depPort || 'Airport'}`,
-          date: depDate ? new Date(depDate + 'T00:00:00') : new Date(),
-          time: leaveHotelTime,
-          endTime: arriveAirportTime,
-          duration: 30,
-          cost: 0,
-          currency: 'USD',
-          isHome: false
-        });
-      }
-    }
-
-    // Last arrival home: Airport -> Home (1 hour after arrival, 1 hour drive)
-    if (lastReturn && lastReturn.arrDate && lastReturn.arrTime) {
-      const arrTime = parseTime(lastReturn.arrTime);
-      if (arrTime !== null) {
-        const leaveAirportTime = formatTime(arrTime + 1);
-        const arriveHomeTime = formatTime(arrTime + 2);
-        const arrDate = parseSegDate(lastReturn.arrDate);
-
-        newTransport.push({
-          id: 't-ret-airport-home',
-          type: 'uber',
-          fromEmoji: '✈️',
-          toEmoji: '🏡',
-          description: `From ${lastReturn.arrPort || 'Airport'}`,
-          date: arrDate ? new Date(arrDate + 'T00:00:00') : new Date(),
-          time: leaveAirportTime,
-          endTime: arriveHomeTime,
-          duration: 60,
-          cost: 0,
-          currency: 'USD',
-          isHome: true
-        });
-      }
-    }
-
-    // Only auto-populate if transportation is empty
-    setTransportation(prev => {
-      if (prev.length === 0 && newTransport.length > 0) {
-        return newTransport;
-      }
-      // Update existing auto-generated items but keep user-added ones
-      const userItems = prev.filter(t => !t.id.startsWith('t-out-') && !t.id.startsWith('t-ret-'));
-      const existingAutoIds = prev.filter(t => t.id.startsWith('t-out-') || t.id.startsWith('t-ret-')).map(t => t.id);
-
-      // If user has deleted an auto item, don't re-add it
-      // Only update times for existing auto items
-      if (existingAutoIds.length > 0 || userItems.length > 0) {
-        const updatedAuto = newTransport.filter(nt => existingAutoIds.includes(nt.id)).map(nt => {
-          const existing = prev.find(p => p.id === nt.id);
-          // Preserve user edits to cost/currency, update time/date from flights
-          return existing ? { ...nt, cost: existing.cost, currency: existing.currency } : nt;
-        });
-        return [...userItems, ...updatedAuto];
-      }
-      return prev;
-    });
-  }, [flights]);
-
-
-  const totals = useMemo(() => {
-    let registration = convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates);
-    let fl = flights.reduce((sum, f) => sum + (f.cost || 0), 0);
-    let travel = 0;
-    let mieTotal = 0;
-
-    days.forEach((day, idx) => {
-      // M&IE
-      mieTotal += calculateMIE(idx, days.length, day.mieBase, day.meals, day.isForeignMie);
-
-      // Travel legs
-      (day.legs || []).forEach(l => {
-        if (l.type !== 'flight') {
-          travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', currentRates);
-        }
-      });
-    });
-
-    // Hotels
-    const hotelTotal = hotels.reduce((acc, h) => {
-      return acc + convertCurrency(h.cost, h.currency || 'USD', 'USD', currentRates);
-    }, 0);
-
-    // Transportation (from new Transportation panel)
-    const transportTotal = transportation.reduce((acc, t) => {
-      return acc + convertCurrency(t.cost || 0, t.currency || 'USD', 'USD', currentRates);
-    }, 0);
-
-    return {
-      grand: registration + fl + travel + mieTotal + hotelTotal + transportTotal,
-      registration,
-      flights: fl,
-      travel: travel + transportTotal,
-      mie: mieTotal,
-      lodging: hotelTotal,
-    };
-  }, [days, flights, hotels, transportation, registrationFee, registrationCurrency, currentRates]);
-
-  const isDifferentTZ = homeTimeZone !== destTimeZone;
-
-  return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="travel-app dark">
-        <main className="one-column-layout">
-          <section className="trip-header-section glass">
-            <div className="app-version" style={{ fontSize: '0.65rem', opacity: 0.4, marginBottom: '4px', textAlign: 'center', width: '100%', fontFamily: 'monospace' }}>Work Travel: version {APP_VERSION}</div>
-
-            <div className="action-bar" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <button
-                className="action-btn"
-                onClick={undo}
-                disabled={history.past.length === 0}
-                title="Undo (Cmd/Ctrl+Z)"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 12px',
-                  background: history.past.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  borderRadius: '6px',
-                  color: history.past.length === 0 ? '#64748b' : '#a5b4fc',
-                  cursor: history.past.length === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s',
-                  opacity: history.past.length === 0 ? 0.5 : 1
-                }}
-              >
-                <Undo2 size={14} /> Undo
-              </button>
-              <button
-                className="action-btn"
-                onClick={redo}
-                disabled={history.future.length === 0}
-                title="Redo (Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y)"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 12px',
-                  background: history.future.length === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(99, 102, 241, 0.2)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  borderRadius: '6px',
-                  color: history.future.length === 0 ? '#64748b' : '#a5b4fc',
-                  cursor: history.future.length === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s',
-                  opacity: history.future.length === 0 ? 0.5 : 1
-                }}
-              >
-                <Redo2 size={14} /> Redo
-              </button>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 12px',
-                  background: 'rgba(99, 102, 241, 0.2)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  borderRadius: '6px',
-                  color: '#a5b4fc',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s'
-                }}
-                title="Load from file"
-              >
-                <FolderOpen size={14} /> Load
-                <input type="file" id="file-input-trigger" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
-              </label>
-              <button
-                className="action-btn"
-                onClick={saveToFile}
-                title="Save to file (Cmd/Ctrl+S)"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 12px',
-                  background: 'rgba(99, 102, 241, 0.2)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  borderRadius: '6px',
-                  color: '#a5b4fc',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Save size={14} /> Save
-              </button>
-            </div>
-
-            <div className="trip-header-container">
-              <div className="trip-header-main">
-                <input
-                  className="trip-name-display"
-                  value={tripName}
-                  onChange={e => setTripName(e.target.value)}
+              {showCloudPanel && (
+                <CloudTrips
+                  currentTripData={getTripData()}
+                  onLoadTrip={(data) => {
+                    loadData(data);
+                    setShowCloudPanel(false);
+                  }}
                 />
+              )}
 
-                <div className="website-row">
-                  <Link2 size={14} className="web-icon" />
+              <div className="trip-header-container">
+                <div className="trip-header-main">
                   <input
-                    className="trip-web-input"
-                    value={tripWebsite}
-                    onChange={e => setTripWebsite(e.target.value)}
-                    placeholder="Website (Optional)"
+                    className="trip-name-display"
+                    value={tripName}
+                    onChange={e => setTripName(e.target.value)}
                   />
-                </div>
 
-                <div className="trip-meta-row-vertical">
-                  <div className="header-dates-row">
-                    <DateRangePicker
-                      startDate={days[0].date}
-                      endDate={days[days.length - 1].date}
-                      onStartChange={handleStartDateChange}
-                      onEndChange={handleEndDateChange}
+                  <div className="website-row">
+                    <Link2 size={14} className="web-icon" />
+                    <input
+                      className="trip-web-input"
+                      value={tripWebsite}
+                      onChange={e => setTripWebsite(e.target.value)}
+                      placeholder="Website (Optional)"
                     />
                   </div>
-                  <div className="conf-center-block" style={{ width: '100%' }}>
-                    <div className="conf-center-row" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
-                      <span className="conf-icon"><MapPin size={12} /></span>
-                      <input
-                        className="conf-input"
-                        value={conferenceCenter}
-                        onChange={(e) => setConferenceCenter(e.target.value)}
-                        placeholder="Conference Center"
-                        style={{ flex: 1, minWidth: 0 }}
+
+                  <div className="trip-meta-row-vertical">
+                    <div className="header-dates-row">
+                      <DateRangePicker
+                        startDate={days[0].date}
+                        endDate={days[days.length - 1].date}
+                        onStartChange={handleStartDateChange}
+                        onEndChange={handleEndDateChange}
                       />
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="conf-map-link"
-                        title="Open in Google Maps"
-                      >
-                        <Navigation size={12} />
-                      </a>
+                    </div>
+                    <div className="conf-center-block" style={{ width: '100%' }}>
+                      <div className="conf-center-row" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
+                        <span className="conf-icon"><MapPin size={12} /></span>
+                        <input
+                          className="conf-input"
+                          value={conferenceCenter}
+                          onChange={(e) => setConferenceCenter(e.target.value)}
+                          placeholder="Conference Center"
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="conf-map-link"
+                          title="Open in Google Maps"
+                        >
+                          <Navigation size={12} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location and timezone selectors removed - now auto-detected from airport codes */}
+                </div>
+
+
+              </div>
+            </section>
+
+            <section className="timeline-section-panel glass">
+              <div className="timeline-header-row">
+                <div className="section-title"><Calendar size={16} /> TIMELINE</div>
+              </div>
+              <ContinuousTimeline
+                days={days}
+                flights={flights}
+                hotels={hotels}
+                transportation={transportation}
+                showMIE={false}
+                onEditEvent={(ev) => setEditingEvent(ev)}
+                onUpdateMeals={(dayId, meal) => {
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+                }}
+                homeTimeZone={homeTimeZone}
+                destTimeZone={destTimeZone}
+                homeCity={homeCity}
+                destCity={destCity}
+                currentRates={currentRates}
+              />
+
+              {editingEvent && (
+                <div className="edit-overlay glass" onClick={() => setEditingEvent(null)}>
+                  <div className="edit-modal" onClick={e => e.stopPropagation()}>
+                    <div className="edit-modal-header">
+                      <h3>EDIT {editingEvent.type.toUpperCase()}</h3>
+                      <button className="close-btn" onClick={() => setEditingEvent(null)}><X size={16} /></button>
+                    </div>
+                    <div className="edit-modal-content">
+                      {editingEvent.type === 'flight' && (
+                        <div className="simple-edit-form">
+                          <p>Go to the <b>Flights</b> section below to edit this flight ({editingEvent.id})</p>
+                          <button className="btn-primary" onClick={() => {
+                            document.querySelector('.flights-section-panel').scrollIntoView({ behavior: 'smooth' });
+                            setEditingEvent(null);
+                          }}>GO TO FLIGHTS</button>
+                        </div>
+                      )}
+                      {editingEvent.type === 'hotel' && (
+                        <div className="simple-edit-form">
+                          <p>Go to the <b>Hotels</b> section below to edit this hotel ({editingEvent.id})</p>
+                          <button className="btn-primary" onClick={() => {
+                            document.querySelector('.hotels-section-panel').scrollIntoView({ behavior: 'smooth' });
+                            setEditingEvent(null);
+                          }}>GO TO HOTELS</button>
+                        </div>
+                      )}
+                      {editingEvent.type === 'leg' && (
+                        <div className="simple-edit-form">
+                          <p>Travel legs can be edited in the daily plan sections (not implemented as separate section yet, please use main panel if available)</p>
+                          {/* For now just a placeholder */}
+                        </div>
+                      )}
+                      {editingEvent.type === 'transportation' && (
+                        <div className="simple-edit-form">
+                          <p>Go to the <b>Transportation</b> section below to edit this trip ({editingEvent.id})</p>
+                          <button className="btn-primary" onClick={() => {
+                            document.querySelector('.transportation-section-panel').scrollIntoView({ behavior: 'smooth' });
+                            setEditingEvent(null);
+                          }}>GO TO TRANSPORTATION</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
+              )}
+            </section>
 
-                {/* Location and timezone selectors removed - now auto-detected from airport codes */}
-              </div>
+            <section className="flights-section-panel">
+              <FlightPanel
+                flights={flights}
+                totalCost={flightTotal}
+                onUpdate={updateFlight}
+                onDelete={deleteFlight}
+                onAdd={addFlightLeg}
+                dragEndHandler={handleFlightDragEnd}
+                tripDates={days.map(d => d.date)}
+                homeCity={homeCity}
+                destCity={destCity}
+                homeTimeZone={homeTimeZone}
+                destTimeZone={destTimeZone}
+              />
+            </section>
 
+            <section className="hotels-section-panel">
+              <HotelPanel
+                hotels={hotels}
+                onUpdate={(id, f, v) => setHotels(prev => prev.map(h => h.id === id ? { ...h, [f]: v } : h))}
+                onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
+                onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
+                tripDates={days.map(d => d.date)}
+              />
+            </section>
 
-            </div>
-          </section>
+            <section className="transportation-section-panel">
+              <TransportationPanel
+                transportation={transportation}
+                onUpdate={(id, field, value) => setTransportation(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))}
+                onDelete={(id) => setTransportation(prev => prev.filter(t => t.id !== id))}
+                onAdd={() => setTransportation(prev => [...prev, {
+                  id: generateId(),
+                  type: 'uber',
+                  from: 'home',
+                  to: 'airport',
+                  description: '',
+                  date: days[0]?.date || new Date(),
+                  time: '9:00a',
+                  endTime: '10:00a',
+                  duration: 60,
+                  cost: 0,
+                  currency: 'USD',
+                  isHome: true
+                }])}
+                onReorder={(newOrder) => setTransportation(newOrder)}
+                tripDates={days.map(d => d.date)}
+                altCurrency={altCurrency}
+                customRates={customRates}
+                flights={flights}
+              />
+            </section>
 
-          <section className="timeline-section-panel glass">
-            <div className="timeline-header-row">
-              <div className="section-title"><Calendar size={16} /> TIMELINE</div>
-            </div>
-            <ContinuousTimeline
-              days={days}
-              flights={flights}
-              hotels={hotels}
-              transportation={transportation}
-              showMIE={false}
-              onEditEvent={(ev) => setEditingEvent(ev)}
-              onUpdateMeals={(dayId, meal) => {
-                setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
-              }}
-              homeTimeZone={homeTimeZone}
-              destTimeZone={destTimeZone}
-              homeCity={homeCity}
-              destCity={destCity}
-              currentRates={currentRates}
-            />
-
-            {editingEvent && (
-              <div className="edit-overlay glass" onClick={() => setEditingEvent(null)}>
-                <div className="edit-modal" onClick={e => e.stopPropagation()}>
-                  <div className="edit-modal-header">
-                    <h3>EDIT {editingEvent.type.toUpperCase()}</h3>
-                    <button className="close-btn" onClick={() => setEditingEvent(null)}><X size={16} /></button>
-                  </div>
-                  <div className="edit-modal-content">
-                    {editingEvent.type === 'flight' && (
-                      <div className="simple-edit-form">
-                        <p>Go to the <b>Flights</b> section below to edit this flight ({editingEvent.id})</p>
-                        <button className="btn-primary" onClick={() => {
-                          document.querySelector('.flights-section-panel').scrollIntoView({ behavior: 'smooth' });
-                          setEditingEvent(null);
-                        }}>GO TO FLIGHTS</button>
-                      </div>
-                    )}
-                    {editingEvent.type === 'hotel' && (
-                      <div className="simple-edit-form">
-                        <p>Go to the <b>Hotels</b> section below to edit this hotel ({editingEvent.id})</p>
-                        <button className="btn-primary" onClick={() => {
-                          document.querySelector('.hotels-section-panel').scrollIntoView({ behavior: 'smooth' });
-                          setEditingEvent(null);
-                        }}>GO TO HOTELS</button>
-                      </div>
-                    )}
-                    {editingEvent.type === 'leg' && (
-                      <div className="simple-edit-form">
-                        <p>Travel legs can be edited in the daily plan sections (not implemented as separate section yet, please use main panel if available)</p>
-                        {/* For now just a placeholder */}
-                      </div>
-                    )}
-                    {editingEvent.type === 'transportation' && (
-                      <div className="simple-edit-form">
-                        <p>Go to the <b>Transportation</b> section below to edit this trip ({editingEvent.id})</p>
-                        <button className="btn-primary" onClick={() => {
-                          document.querySelector('.transportation-section-panel').scrollIntoView({ behavior: 'smooth' });
-                          setEditingEvent(null);
-                        }}>GO TO TRANSPORTATION</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="flights-section-panel">
-            <FlightPanel
-              flights={flights}
-              totalCost={flightTotal}
-              onUpdate={updateFlight}
-              onDelete={deleteFlight}
-              onAdd={addFlightLeg}
-              dragEndHandler={handleFlightDragEnd}
-              tripDates={days.map(d => d.date)}
-              homeCity={homeCity}
-              destCity={destCity}
-              homeTimeZone={homeTimeZone}
-              destTimeZone={destTimeZone}
-            />
-          </section>
-
-          <section className="hotels-section-panel">
-            <HotelPanel
-              hotels={hotels}
-              onUpdate={(id, f, v) => setHotels(prev => prev.map(h => h.id === id ? { ...h, [f]: v } : h))}
-              onDelete={(id) => setHotels(prev => prev.filter(h => h.id !== id))}
-              onAdd={() => setHotels(prev => [...prev, { id: generateId(), name: '', checkIn: new Date(), checkInTime: '2:00p', checkOut: new Date(), checkOutTime: '11:00a', cost: 0, currency: 'USD' }])}
-              tripDates={days.map(d => d.date)}
-            />
-          </section>
-
-          <section className="transportation-section-panel">
-            <TransportationPanel
-              transportation={transportation}
-              onUpdate={(id, field, value) => setTransportation(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))}
-              onDelete={(id) => setTransportation(prev => prev.filter(t => t.id !== id))}
-              onAdd={() => setTransportation(prev => [...prev, {
-                id: generateId(),
-                type: 'uber',
-                from: 'home',
-                to: 'airport',
-                description: '',
-                date: days[0]?.date || new Date(),
-                time: '9:00a',
-                endTime: '10:00a',
-                duration: 60,
-                cost: 0,
-                currency: 'USD',
-                isHome: true
-              }])}
-              onReorder={(newOrder) => setTransportation(newOrder)}
-              tripDates={days.map(d => d.date)}
-              altCurrency={altCurrency}
-              customRates={customRates}
-              flights={flights}
-            />
-          </section>
-
-          <section className="mie-section-panel">
-            <MIEPanel
-              days={days}
-              destCity={destCity}
-              isForeign={useAlt}
-              onUpdateMeals={(dayId, meal) => {
-                setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
-              }}
-              onUpdateLocation={(dayId, location) => {
-                setDays(prev => prev.map(d => d.id === dayId ? { ...d, location } : d));
-              }}
-              onUpdateLodging={(dayId, lodging) => {
-                setDays(prev => prev.map(d => d.id === dayId ? { ...d, lodging } : d));
-              }}
-              onUpdateMie={(dayId, mie) => {
-                setDays(prev => prev.map(d => d.id === dayId ? { ...d, mie } : d));
-              }}
-              onRefreshLocations={() => {
-                const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
-                let detectedCity = destCity;
-                if (firstOutbound && firstOutbound.outbound.length > 0) {
-                  const lastSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
-                  if (lastSeg?.arrPort) {
-                    detectedCity = getCityFromAirport(lastSeg.arrPort) || getAirportCity(lastSeg.arrPort) || destCity;
+            <section className="mie-section-panel">
+              <MIEPanel
+                days={days}
+                destCity={destCity}
+                isForeign={useAlt}
+                onUpdateMeals={(dayId, meal) => {
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+                }}
+                onUpdateLocation={(dayId, location) => {
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, location } : d));
+                }}
+                onUpdateLodging={(dayId, lodging) => {
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, lodging } : d));
+                }}
+                onUpdateMie={(dayId, mie) => {
+                  setDays(prev => prev.map(d => d.id === dayId ? { ...d, mie } : d));
+                }}
+                onRefreshLocations={() => {
+                  const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
+                  let detectedCity = destCity;
+                  if (firstOutbound && firstOutbound.outbound.length > 0) {
+                    const lastSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
+                    if (lastSeg?.arrPort) {
+                      detectedCity = getCityFromAirport(lastSeg.arrPort) || getAirportCity(lastSeg.arrPort) || destCity;
+                    }
                   }
-                }
-                if (detectedCity) {
-                  setDestCity(detectedCity);
-                  setDays(prev => prev.map(d => ({ ...d, location: '', lodging: undefined, mie: undefined })));
-                  console.log(`[MIE] Refreshed all locations to: ${detectedCity}`);
-                }
-              }}
-            />
-          </section>
+                  if (detectedCity) {
+                    setDestCity(detectedCity);
+                    setDays(prev => prev.map(d => ({ ...d, location: '', lodging: undefined, mie: undefined })));
+                    console.log(`[MIE] Refreshed all locations to: ${detectedCity}`);
+                  }
+                }}
+              />
+            </section>
 
-          <section className="totals-section glass">
-            <div className="totals-header-row">
-              <div className="currency-controls">
-                <div className="curr-toggle-group">
-                  <button
-                    className={`btn-toggle ${!useAlt ? 'active' : ''}`}
-                    onClick={() => setUseAlt(false)}
-                  >
-                    <DollarSign size={14} /> DOMESTIC
-                  </button>
-                  <button
-                    className={`btn-toggle ${useAlt ? 'active' : ''}`}
-                    onClick={() => setUseAlt(true)}
-                  >
-                    <Navigation size={14} /> FOREIGN
-                  </button>
+            <section className="totals-section glass">
+              <div className="totals-header-row">
+                <div className="currency-controls">
+                  <div className="curr-toggle-group">
+                    <button
+                      className={`btn-toggle ${!useAlt ? 'active' : ''}`}
+                      onClick={() => setUseAlt(false)}
+                    >
+                      <DollarSign size={14} /> DOMESTIC
+                    </button>
+                    <button
+                      className={`btn-toggle ${useAlt ? 'active' : ''}`}
+                      onClick={() => setUseAlt(true)}
+                    >
+                      <Navigation size={14} /> FOREIGN
+                    </button>
+                  </div>
+                  {useAlt && (
+                    <div className="alt-curr-inp">
+                      <select value={altCurrency} onChange={e => setAltCurrency(e.target.value)} className="curr-sel">
+                        {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input
+                        type="number"
+                        className="rate-inp"
+                        value={customRates[altCurrency]}
+                        onChange={e => setCustomRates({ ...customRates, [altCurrency]: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                  )}
                 </div>
-                {useAlt && (
-                  <div className="alt-curr-inp">
-                    <select value={altCurrency} onChange={e => setAltCurrency(e.target.value)} className="curr-sel">
-                      {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+              </div>
+              <div className="main-total-card">
+                <span className="total-label">Grand Total</span>
+                <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
+              </div>
+              <div className="totals-grid">
+                <div className="stat-card">
+                  <div className="stat-header">
+                    <Plane size={12} />
+                    <span className="stat-label">FLIGHTS</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(totals.flights, 'USD')}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-header">
+                    <Navigation size={12} />
+                    <span className="stat-label">TRAVEL</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-header">
+                    <Hotel size={12} />
+                    <span className="stat-label">HOTELS</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(totals.lodging, 'USD')}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-header">
+                    <Utensils size={12} />
+                    <span className="stat-label">M&IE</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(totals.mie, 'USD')}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-header">
+                    <CreditCard size={12} />
+                    <span className="stat-label">REGISTRATION</span>
+                    <button
+                      className={`currency-toggle-mini ${registrationCurrency !== 'USD' ? 'active' : ''}`}
+                      onClick={() => setRegistrationCurrency(prev => prev === 'USD' ? altCurrency : 'USD')}
+                    >
+                      {registrationCurrency !== 'USD' ? <Globe size={11} /> : <Hash size={11} />}
+                    </button>
+                  </div>
+                  <div className="reg-fee-input-wrap">
+                    <span className="reg-sym">$</span>
                     <input
                       type="number"
-                      className="rate-inp"
-                      value={customRates[altCurrency]}
-                      onChange={e => setCustomRates({ ...customRates, [altCurrency]: parseFloat(e.target.value) || 0 })}
+                      className="stat-inp reg-inp"
+                      value={registrationFee}
+                      onChange={e => setRegistrationFee(parseFloat(e.target.value) || 0)}
                     />
+                    {registrationCurrency !== 'USD' && <span className="reg-unit">{registrationCurrency}</span>}
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="main-total-card">
-              <span className="total-label">Grand Total</span>
-              <span className="total-value">{formatCurrency(totals.grand, 'USD')}</span>
-            </div>
-            <div className="totals-grid">
-              <div className="stat-card">
-                <div className="stat-header">
-                  <Plane size={12} />
-                  <span className="stat-label">FLIGHTS</span>
-                </div>
-                <span className="stat-value">{formatCurrency(totals.flights, 'USD')}</span>
-              </div>
-              <div className="stat-card">
-                <div className="stat-header">
-                  <Navigation size={12} />
-                  <span className="stat-label">TRAVEL</span>
-                </div>
-                <span className="stat-value">{formatCurrency(totals.travel, 'USD')}</span>
-              </div>
-              <div className="stat-card">
-                <div className="stat-header">
-                  <Hotel size={12} />
-                  <span className="stat-label">HOTELS</span>
-                </div>
-                <span className="stat-value">{formatCurrency(totals.lodging, 'USD')}</span>
-              </div>
-              <div className="stat-card">
-                <div className="stat-header">
-                  <Utensils size={12} />
-                  <span className="stat-label">M&IE</span>
-                </div>
-                <span className="stat-value">{formatCurrency(totals.mie, 'USD')}</span>
-              </div>
-              <div className="stat-card">
-                <div className="stat-header">
-                  <CreditCard size={12} />
-                  <span className="stat-label">REGISTRATION</span>
-                  <button
-                    className={`currency-toggle-mini ${registrationCurrency !== 'USD' ? 'active' : ''}`}
-                    onClick={() => setRegistrationCurrency(prev => prev === 'USD' ? altCurrency : 'USD')}
-                  >
-                    {registrationCurrency !== 'USD' ? <Globe size={11} /> : <Hash size={11} />}
-                  </button>
-                </div>
-                <div className="reg-fee-input-wrap">
-                  <span className="reg-sym">$</span>
-                  <input
-                    type="number"
-                    className="stat-inp reg-inp"
-                    value={registrationFee}
-                    onChange={e => setRegistrationFee(parseFloat(e.target.value) || 0)}
-                  />
-                  {registrationCurrency !== 'USD' && <span className="reg-unit">{registrationCurrency}</span>}
                 </div>
               </div>
-            </div>
-          </section>
-        </main >
+            </section>
+          </main >
 
-        <DragOverlay>
-          {activeId ? (
-            <div className="travel-leg-item dragging glass" style={{ width: '380px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid #6366f1' }}>
-              <div className="leg-content" style={{ opacity: 0.8 }}>
-                <GripVertical size={12} style={{ opacity: 0.5 }} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#6366f1' }}>Moving Travel Leg...</span>
+          <DragOverlay>
+            {activeId ? (
+              <div className="travel-leg-item dragging glass" style={{ width: '380px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid #6366f1' }}>
+                <div className="leg-content" style={{ opacity: 0.8 }}>
+                  <GripVertical size={12} style={{ opacity: 0.5 }} />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#6366f1' }}>Moving Travel Leg...</span>
+                </div>
               </div>
-            </div>
-          ) : null}
-        </DragOverlay>
+            ) : null}
+          </DragOverlay>
 
-        <style>{`
+          <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;950&family=JetBrains+Mono:wght@500;800&display=swap');
 
         :root {
@@ -5752,71 +5839,71 @@ function App() {
           }
         }
         `}</style>
-      </div >
-    </DndContext >
-  );
-}
+        </div >
+      </DndContext >
+    );
+  }
 
-function StatBox({ label, value, main, onChange, currency, altCurrency, onCurrencyChange, rates }) {
-  const isUSD = !currency || currency === 'USD';
-  const usdEquiv = isUSD ? value : convertCurrency(value, currency, 'USD', rates);
+  function StatBox({ label, value, main, onChange, currency, altCurrency, onCurrencyChange, rates }) {
+    const isUSD = !currency || currency === 'USD';
+    const usdEquiv = isUSD ? value : convertCurrency(value, currency, 'USD', rates);
 
-  return (
-    <div className={`stat - box ${main ? 'main' : ''} `}>
-      <span className="stat-label">{label}</span>
+    return (
+      <div className={`stat - box ${main ? 'main' : ''} `}>
+        <span className="stat-label">{label}</span>
 
-      <div className="stat-value-container">
-        {onCurrencyChange && (
-          <div className="stat-mini-toggle" onClick={() => onCurrencyChange?.(isUSD ? altCurrency : 'USD')}>
-            {isUSD ? '$' : '🌍'}
-          </div>
-        )}
+        <div className="stat-value-container">
+          {onCurrencyChange && (
+            <div className="stat-mini-toggle" onClick={() => onCurrencyChange?.(isUSD ? altCurrency : 'USD')}>
+              {isUSD ? '$' : '🌍'}
+            </div>
+          )}
 
-        {onChange ? (
-          <div className="stat-input-wrap">
-            <input
-              className="stat-input"
-              type="number"
-              value={value}
-              onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            />
-            {!isUSD && <span className="stat-curr-label">{currency}</span>}
-          </div>
-        ) : (
-          <span className="stat-val">
-            {isUSD ? formatCurrency(value, 'USD') : `${value} ${currency} `}
-          </span>
-        )}
+          {onChange ? (
+            <div className="stat-input-wrap">
+              <input
+                className="stat-input"
+                type="number"
+                value={value}
+                onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+              />
+              {!isUSD && <span className="stat-curr-label">{currency}</span>}
+            </div>
+          ) : (
+            <span className="stat-val">
+              {isUSD ? formatCurrency(value, 'USD') : `${value} ${currency} `}
+            </span>
+          )}
 
-        {!isUSD && (
-          <span className="stat-equiv">
-            = {formatCurrency(usdEquiv, 'USD')}
-          </span>
-        )}
+          {!isUSD && (
+            <span className="stat-equiv">
+              = {formatCurrency(usdEquiv, 'USD')}
+            </span>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function MealChip({ label, active, onClick, cost, isForeign }) {
-  return (
-    <div className={`meal - chip ${active ? 'active' : ''} `} onClick={onClick} title={label === 'I' ? 'Incidentals' : label}>
-      <span className="l">{label}</span>
-      <span className="c">{formatCurrency(cost, 'USD')}</span>
-    </div>
-  );
-}
+  function MealChip({ label, active, onClick, cost, isForeign }) {
+    return (
+      <div className={`meal - chip ${active ? 'active' : ''} `} onClick={onClick} title={label === 'I' ? 'Incidentals' : label}>
+        <span className="l">{label}</span>
+        <span className="c">{formatCurrency(cost, 'USD')}</span>
+      </div>
+    );
+  }
 
-function miesToDayTotal(day, mie, hotelTotal, rates) {
-  let travel = 0;
-  (day.legs || []).forEach(l => {
-    if (l.type !== 'flight') {
-      travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', rates);
-    }
-  });
-  const hotelInUSD = convertCurrency(hotelTotal, day.hotelCurrency || 'USD', 'USD', rates);
-  return travel + mie + hotelInUSD;
-}
+  function miesToDayTotal(day, mie, hotelTotal, rates) {
+    let travel = 0;
+    (day.legs || []).forEach(l => {
+      if (l.type !== 'flight') {
+        travel += convertCurrency(l.amount * (l.type === 'drive' ? MI_RATE : 1), l.currency, 'USD', rates);
+      }
+    });
+    const hotelInUSD = convertCurrency(hotelTotal, day.hotelCurrency || 'USD', 'USD', rates);
+    return travel + mie + hotelInUSD;
+  }
 
 
-export default App;
+  export default App;

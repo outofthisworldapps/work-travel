@@ -246,3 +246,16 @@ The app exports data in a **category-based** structure rather than day-based, wh
 - **Transportation Alignment**: Home-based transportation is left-aligned in the grid; Away-based transportation is right-aligned.
 - **Midnight Cues**: Home midnight is a solid indigo line; Destination midnight is a dashed orange line.
 
+## Cloud & Authentication
+- **User Authentication**:
+  - Sign In with Google
+  - Profile display with Sign Out option
+- **Cloud Storage**:
+  - Save trips to personal Firebase cloud storage
+  - Load trips from cloud
+  - List view of saved trips with modification dates
+  - Delete saved trips
+- **Data Persistence**:
+  - Trips are stored under the user's UID in Firestore
+  - Supports multiple trip files per user
+
