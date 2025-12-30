@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 22:32 EST";
+const APP_VERSION = "2025-12-29 22:41 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -4314,8 +4314,13 @@ function App() {
               onUpdateLocation={(dayId, location) => {
                 setDays(prev => prev.map(d => d.id === dayId ? { ...d, location } : d));
               }}
+              onUpdateLodging={(dayId, lodging) => {
+                setDays(prev => prev.map(d => d.id === dayId ? { ...d, lodging } : d));
+              }}
+              onUpdateMie={(dayId, mie) => {
+                setDays(prev => prev.map(d => d.id === dayId ? { ...d, mie } : d));
+              }}
               onRefreshLocations={() => {
-                // Get destination city from flights
                 const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
                 let detectedCity = destCity;
                 if (firstOutbound && firstOutbound.outbound.length > 0) {
@@ -4324,10 +4329,9 @@ function App() {
                     detectedCity = getCityFromAirport(lastSeg.arrPort) || getAirportCity(lastSeg.arrPort) || destCity;
                   }
                 }
-                // Update all days with the detected city (clear custom locations)
                 if (detectedCity) {
                   setDestCity(detectedCity);
-                  setDays(prev => prev.map(d => ({ ...d, location: '' })));
+                  setDays(prev => prev.map(d => ({ ...d, location: '', lodging: undefined, mie: undefined })));
                   console.log(`[MIE] Refreshed all locations to: ${detectedCity}`);
                 }
               }}
@@ -5438,6 +5442,33 @@ function App() {
         }
         .mie-col-mie.travel-day-rate {
           color: #f59e0b;
+        }
+        .rate-input {
+          background: transparent;
+          border: none;
+          border-bottom: 1px dashed rgba(255,255,255,0.2);
+          color: #a5b4fc;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.7rem;
+          padding: 2px 4px;
+          width: 50px;
+          text-align: right;
+          outline: none;
+        }
+        .rate-input:focus {
+          border-bottom: 1px solid #6366f1;
+          background: rgba(99, 102, 241, 0.1);
+        }
+        .rate-input.inherited {
+          color: #64748b;
+          font-style: italic;
+        }
+        .rate-input.first-rate {
+          color: #a5b4fc;
+          font-weight: 600;
+        }
+        .rate-input::placeholder {
+          color: #475569;
         }
         .mie-col-meal {
           padding: 0.25rem !important;
