@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 09:20 EST";
+const APP_VERSION = "2025-12-30 09:25 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -2626,6 +2626,7 @@ function App() {
     return {};
   };
   const initialState = getInitialState();
+  const { user, login, logout } = useAuth();
 
   const [tripName, setTripName] = useState(initialState.tripName || 'Global Tech Summit');
   const [tripWebsite, setTripWebsite] = useState(initialState.tripWebsite || '');
@@ -3028,7 +3029,6 @@ function App() {
     };
   }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
-  const { user, login, logout } = useAuth();
   const [showCloudPanel, setShowCloudPanel] = useState(false);
 
   const getTripData = () => {
