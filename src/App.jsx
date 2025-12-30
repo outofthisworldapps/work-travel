@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:25 EST";
+const APP_VERSION = "2025-12-29 23:26 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2591,8 +2591,8 @@ function App() {
   const [tripWebsite, setTripWebsite] = useState(initialState.tripWebsite || '');
   const [homeCity, setHomeCity] = useState(initialState.homeCity || 'Washington, DC');
   const [homeTimeZone, setHomeTimeZone] = useState(initialState.homeTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [destCity, setDestCity] = useState(initialState.destCity || 'London');
-  const [destTimeZone, setDestTimeZone] = useState(initialState.destTimeZone || 'Europe/London');
+  const [destCity, setDestCity] = useState(initialState.destCity || '');
+  const [destTimeZone, setDestTimeZone] = useState(initialState.destTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [registrationFee, setRegistrationFee] = useState(initialState.registrationFee || 0);
   const [registrationCurrency, setRegistrationCurrency] = useState(initialState.registrationCurrency || 'USD');
   const [altCurrency, setAltCurrency] = useState(initialState.altCurrency || 'EUR');
@@ -5443,6 +5443,19 @@ function App() {
         .mie-col-mie.travel-day-rate {
           color: #f59e0b;
         }
+        .rate-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 1px;
+          justify-content: flex-start;
+        }
+        .rate-currency-prefix {
+          color: #64748b;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.7rem;
+          user-select: none;
+          width: 8px;
+        }
         .rate-input {
           background: transparent;
           border: none;
@@ -5450,9 +5463,9 @@ function App() {
           color: #a5b4fc;
           font-family: 'JetBrains Mono', monospace;
           font-size: 0.7rem;
-          padding: 2px 4px;
-          width: 50px;
-          text-align: right;
+          padding: 2px 0;
+          width: 40px;
+          text-align: left;
           outline: none;
         }
         .rate-input:focus {
@@ -5717,8 +5730,8 @@ function App() {
             max-width: 55px;
           }
           .mie-col-location {
-            max-width: 105px; /* Increased location width */
-            min-width: 105px;
+            max-width: 115px; /* Increased location width again */
+            min-width: 115px;
           }
           .mie-col-lodging {
             min-width: 45px;

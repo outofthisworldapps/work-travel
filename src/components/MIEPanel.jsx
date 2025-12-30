@@ -68,7 +68,12 @@ const AutocompleteInput = ({ value, onChange, placeholder, onClear, isInherited,
                     placeholder={placeholder}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
-                    onBlur={() => setSuggestion('')}
+                    onBlur={() => {
+                        if (suggestion && inputValue.length >= 2) {
+                            acceptSuggestion();
+                        }
+                        setSuggestion('');
+                    }}
                 />
                 {suggestion && inputValue && (
                     <span className="autocomplete-suggestion">
@@ -100,14 +105,17 @@ const EditableRate = ({ value, onChange, placeholder, isInherited, isFirst }) =>
     };
 
     return (
-        <input
-            type="text"
-            className={`rate-input ${isInherited ? 'inherited' : ''} ${isFirst ? 'first-rate' : ''}`}
-            value={inputValue}
-            placeholder={placeholder || '—'}
-            onChange={handleChange}
-            size={4}
-        />
+        <div className="rate-input-wrapper">
+            <span className="rate-currency-prefix">$</span>
+            <input
+                type="text"
+                className={`rate-input ${isInherited ? 'inherited' : ''} ${isFirst ? 'first-rate' : ''}`}
+                value={inputValue}
+                placeholder={placeholder || '—'}
+                onChange={handleChange}
+                size={4}
+            />
+        </div>
     );
 };
 
@@ -283,20 +291,29 @@ const MIEPanel = ({
                                     />
                                 </td>
                                 <td className="mie-col-lodging">
-                                    {(day.lodging !== undefined ? day.lodging : lodging) !== null ? (
-                                        <span>${(day.lodging !== undefined ? day.lodging : lodging).toFixed(0)}</span>
-                                    ) : (
-                                        <EditableRate
-                                            value={null}
-                                            placeholder="$"
-                                            onChange={(val) => onUpdateLodging && onUpdateLodging(day.id, val)}
-                                            isInherited={false}
-                                            isFirst={idx === 0}
-                                        />
-                                    )}
+                                    <EditableRate
+                                        value={day.lodging !== undefined && day.lodging !== null ? day.lodging : (lodgingInherited ? lodging : lodging)}
+                                        placeholder={idx === 0 ? "" : "—"}
+                                        onChange={(val) => onUpdateLodging && onUpdateLodging(day.id, val)}
+                                        isInherited={lodgingInherited && day.lodging === undefined}
+                                        isFirst={idx === 0}
+                                    />
                                 </td>
                                 <td className={`mie-col-mie ${isFirstOrLast ? 'travel-day-rate' : ''}`}>
-                                    {adjustedMie !== null ? `$${Math.round(adjustedMie)}` : '—'}
+                                    <EditableRate
+                                        value={day.mie !== undefined && day.mie !== null ? (isFirstOrLast ? day.mie * 0.75 : day.mie) : (mieInherited ? (isFirstOrLast ? mie * 0.75 : mie) : (isFirstOrLast ? adjustedMie : adjustedMie))}
+                                        placeholder={idx === 0 ? "" : "—"}
+                                        onChange={(val) => {
+                                            if (onUpdateMie) {
+                                                // If user types a value on a travel day, we store the base rate (val / 0.75)
+                                                // so that it cascades correctly as the base rate
+                                                const baseVal = isFirstOrLast ? val / 0.75 : val;
+                                                onUpdateMie(day.id, baseVal);
+                                            }
+                                        }}
+                                        isInherited={mieInherited && day.mie === undefined}
+                                        isFirst={idx === 0}
+                                    />
                                 </td>
                                 <td className="mie-col-meal">
                                     <span
