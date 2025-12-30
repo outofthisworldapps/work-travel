@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 22:04 EST";
+const APP_VERSION = "2025-12-29 22:10 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -4314,6 +4314,23 @@ function App() {
               onUpdateLocation={(dayId, location) => {
                 setDays(prev => prev.map(d => d.id === dayId ? { ...d, location } : d));
               }}
+              onRefreshLocations={() => {
+                // Get destination city from flights
+                const firstOutbound = flights.find(f => f.outbound && f.outbound.length > 0);
+                let detectedCity = destCity;
+                if (firstOutbound && firstOutbound.outbound.length > 0) {
+                  const lastSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
+                  if (lastSeg?.arrPort) {
+                    detectedCity = getCityFromAirport(lastSeg.arrPort) || getAirportCity(lastSeg.arrPort) || destCity;
+                  }
+                }
+                // Update all days with the detected city (clear custom locations)
+                if (detectedCity) {
+                  setDestCity(detectedCity);
+                  setDays(prev => prev.map(d => ({ ...d, location: '' })));
+                  console.log(`[MIE] Refreshed all locations to: ${detectedCity}`);
+                }
+              }}
             />
           </section>
 
@@ -5539,23 +5556,68 @@ function App() {
           opacity: 0;
         }
         .clear-location {
-          position: absolute;
-          right: 2px;
           color: #f87171;
           cursor: pointer;
           font-size: 1rem;
           font-weight: bold;
           opacity: 0.7;
           transition: opacity 0.2s;
+          margin-left: 4px;
         }
         .clear-location:hover {
           opacity: 1;
         }
-        .matched-city {
-          font-size: 0.55rem;
-          color: #22c55e;
-          font-style: italic;
-          margin-top: 2px;
+        
+        /* Autocomplete styles */
+        .autocomplete-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+        }
+        .autocomplete-input-container {
+          position: relative;
+          flex: 1;
+        }
+        .autocomplete-suggestion {
+          position: absolute;
+          left: 4px;
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
+        .autocomplete-suggestion .typed-part {
+          color: transparent;
+        }
+        .autocomplete-suggestion .suggestion-part {
+          color: #64748b;
+          opacity: 0.7;
+        }
+        
+        /* Refresh button */
+        .mie-header-controls {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        .refresh-locations-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(99, 102, 241, 0.2);
+          border: 1px solid rgba(99, 102, 241, 0.4);
+          color: #a5b4fc;
+          padding: 0.4rem 0.8rem;
+          border-radius: 6px;
+          font-size: 0.65rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .refresh-locations-btn:hover {
+          background: rgba(99, 102, 241, 0.4);
+          border-color: #6366f1;
         }
         
         @media (max-width: 768px) {

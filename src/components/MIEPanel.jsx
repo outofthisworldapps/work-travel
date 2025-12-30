@@ -5,18 +5,107 @@
  * Shows: Date | City, State, Country | Max Lodging | M&IE | % | M&IE × % | B | L | D | I
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Utensils, Edit3 } from 'lucide-react';
-import { getMealBreakdown, calculateDayMIE, getPerDiemForLocation } from '../utils/perDiemLookup';
+import { Utensils, RefreshCw } from 'lucide-react';
+import { getMealBreakdown, calculateDayMIE, getPerDiemForLocation, US_PER_DIEM } from '../utils/perDiemLookup';
 import { formatCurrency } from '../utils/calculations';
+
+// Get list of all city names for autocomplete
+const CITY_LIST = Object.keys(US_PER_DIEM);
+
+// Autocomplete input component
+const AutocompleteInput = ({ value, onChange, placeholder, onClear }) => {
+    const [inputValue, setInputValue] = useState(value || '');
+    const [suggestion, setSuggestion] = useState('');
+    const inputRef = useRef(null);
+
+    // Update input when external value changes
+    useEffect(() => {
+        setInputValue(value || '');
+    }, [value]);
+
+    // Find matching suggestion
+    const findSuggestion = (text) => {
+        if (!text || text.length < 2) return '';
+        const lower = text.toLowerCase();
+        for (const city of CITY_LIST) {
+            if (city.toLowerCase().startsWith(lower) && city.toLowerCase() !== lower) {
+                return city;
+            }
+        }
+        return '';
+    };
+
+    const handleChange = (e) => {
+        const newValue = e.target.value;
+        setInputValue(newValue);
+        setSuggestion(findSuggestion(newValue));
+        onChange(newValue);
+    };
+
+    const acceptSuggestion = () => {
+        if (suggestion) {
+            setInputValue(suggestion);
+            onChange(suggestion);
+            setSuggestion('');
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if ((e.key === 'Tab' || e.key === 'Enter') && suggestion) {
+            e.preventDefault();
+            acceptSuggestion();
+        }
+    };
+
+    const handleBlur = () => {
+        // Clear suggestion on blur
+        setSuggestion('');
+    };
+
+    return (
+        <div className="autocomplete-wrapper">
+            <div className="autocomplete-input-container">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    className="location-input"
+                    value={inputValue}
+                    placeholder={placeholder}
+                    onChange={handleChange}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleBlur}
+                />
+                {suggestion && inputValue && (
+                    <span className="autocomplete-suggestion">
+                        <span className="typed-part">{inputValue}</span>
+                        <span className="suggestion-part">{suggestion.slice(inputValue.length)}</span>
+                    </span>
+                )}
+            </div>
+            {inputValue && (
+                <span
+                    className="clear-location"
+                    onClick={() => {
+                        setInputValue('');
+                        setSuggestion('');
+                        onClear();
+                    }}
+                    title="Clear to use destination city"
+                >×</span>
+            )}
+        </div>
+    );
+};
 
 const MIEPanel = ({
     days,
     destCity,
     isForeign = false,
     onUpdateMeals,
-    onUpdateLocation
+    onUpdateLocation,
+    onRefreshLocations
 }) => {
     const totalDays = days.length;
 
@@ -74,8 +163,19 @@ const MIEPanel = ({
         <div className="mie-panel glass">
             <div className="mie-panel-header">
                 <div className="f-title"><Utensils size={14} /> M&IE PER DIEM</div>
-                <div className="mie-total-badge">
-                    Total: {formatCurrency(totals.totalAdjustedMIE, 'USD')}
+                <div className="mie-header-controls">
+                    {onRefreshLocations && (
+                        <button
+                            className="refresh-locations-btn"
+                            onClick={onRefreshLocations}
+                            title="Update all locations from flight destination"
+                        >
+                            <RefreshCw size={12} /> Refresh from Flights
+                        </button>
+                    )}
+                    <div className="mie-total-badge">
+                        Total: {formatCurrency(totals.totalAdjustedMIE, 'USD')}
+                    </div>
                 </div>
             </div>
 
@@ -102,26 +202,12 @@ const MIEPanel = ({
                                     {day.date ? format(day.date, 'EEE MMM d') : '—'}
                                 </td>
                                 <td className="mie-col-location">
-                                    <div className="location-editable">
-                                        <input
-                                            type="text"
-                                            className="location-input"
-                                            value={day.location || ''}
-                                            placeholder={destCity || 'Enter city...'}
-                                            onChange={(e) => onUpdateLocation && onUpdateLocation(day.id, e.target.value)}
-                                        />
-                                        {day.location && (
-                                            <span
-                                                className="clear-location"
-                                                onClick={() => onUpdateLocation && onUpdateLocation(day.id, '')}
-                                                title="Clear to use destination city"
-                                            >×</span>
-                                        )}
-                                        {!day.location && <Edit3 size={10} className="edit-icon" />}
-                                    </div>
-                                    {location !== (day.location || destCity || '') && (
-                                        <div className="matched-city">→ {location}</div>
-                                    )}
+                                    <AutocompleteInput
+                                        value={day.location || ''}
+                                        placeholder={destCity || 'Enter city...'}
+                                        onChange={(value) => onUpdateLocation && onUpdateLocation(day.id, value)}
+                                        onClear={() => onUpdateLocation && onUpdateLocation(day.id, '')}
+                                    />
                                 </td>
                                 <td className="mie-col-lodging">
                                     ${lodging.toFixed(0)}
@@ -194,7 +280,7 @@ const MIEPanel = ({
                 <span className="legend-item">
                     <span className="legend-color full-day"></span> 100% Full Day
                 </span>
-                <span className="legend-tip">Click B/L/D/I to toggle • Edit location to look up rates</span>
+                <span className="legend-tip">Tab/Enter to autocomplete • Click B/L/D/I to toggle deductions</span>
             </div>
         </div>
     );
