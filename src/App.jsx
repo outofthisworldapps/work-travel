@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 07:05 EST";
+const APP_VERSION = "2025-12-30 07:18 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -3996,8 +3996,8 @@ function App() {
       if (existingAutoIds.length > 0 || userItems.length > 0) {
         const updatedAuto = newTransport.filter(nt => existingAutoIds.includes(nt.id)).map(nt => {
           const existing = prev.find(p => p.id === nt.id);
-          // Preserve user edits to cost/currency, update time/date from flights
-          return existing ? { ...nt, cost: existing.cost, currency: existing.currency } : nt;
+          // Preserve user edits to cost, currency, and date; update times from flights
+          return existing ? { ...nt, cost: existing.cost, currency: existing.currency, date: existing.date } : nt;
         });
         return [...userItems, ...updatedAuto];
       }
