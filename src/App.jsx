@@ -38,7 +38,38 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 07:23 EST";
+const APP_VERSION = "2025-12-30 09:20 EST";
+
+// --- Cloud Save Helper ---
+const saveTripToCloud = async (user, tripData) => {
+  if (!user) return;
+  try {
+    const { db } = await import('./firebase');
+    const { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } = await import('firebase/firestore');
+
+    const tripName = tripData.trip.name || 'Untitled Trip';
+    const tripDataToSave = {
+      ...tripData,
+      updatedAt: serverTimestamp(),
+      tripName: tripName
+    };
+
+    const tripsRef = collection(db, 'users', user.uid, 'trips');
+    const q = query(tripsRef, where("tripName", "==", tripName));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const docId = querySnapshot.docs[0].id;
+      await updateDoc(doc(db, 'users', user.uid, 'trips', docId), tripDataToSave);
+      console.log("Auto-saved to cloud:", tripName);
+    } else {
+      await addDoc(tripsRef, tripDataToSave);
+      console.log("Created new cloud trip:", tripName);
+    }
+  } catch (err) {
+    console.error("Cloud auto-save error:", err);
+  }
+};
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2832,7 +2863,7 @@ function App() {
 
   // Removed mount-time load effect as initialization is now synchronous in useState
 
-  // Auto-save to localStorage whenever state changes
+  // Auto-save to localStorage
   React.useEffect(() => {
     try {
       const stateData = {
@@ -2858,6 +2889,18 @@ function App() {
       console.error('Error saving to localStorage:', err);
     }
   }, [days, tripName, tripWebsite, homeCity, homeTimeZone, destCity, destTimeZone, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, conferenceCenter, transportation]);
+
+  // Debounced Auto-save to Cloud
+  React.useEffect(() => {
+    if (!user) return;
+
+    const timer = setTimeout(() => {
+      const tripData = getTripData();
+      saveTripToCloud(user, tripData);
+    }, 5000); // 5 second debounce for cloud save
+
+    return () => clearTimeout(timer);
+  }, [days, tripName, tripWebsite, homeCity, homeTimeZone, destCity, destTimeZone, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, hotels, conferenceCenter, transportation, user]);
 
   const loadData = useCallback((data) => {
     try {
@@ -4142,7 +4185,7 @@ function App() {
               <button
                 className={`action-btn ${showCloudPanel ? 'active' : ''}`}
                 onClick={() => setShowCloudPanel(!showCloudPanel)}
-                title="Cloud Trips"
+                title="Cloud Trips & Sync"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -4151,61 +4194,15 @@ function App() {
                   background: showCloudPanel ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.2)',
                   border: '1px solid rgba(99, 102, 241, 0.4)',
                   borderRadius: '6px',
-                  color: '#a5b4fc',
+                  color: user ? '#818cf8' : '#a5b4fc',
                   cursor: 'pointer',
                   fontSize: '0.75rem',
                   fontWeight: '500',
                   transition: 'all 0.2s'
                 }}
               >
-                <Cloud size={14} /> Cloud
+                <Cloud size={14} fill={user ? 'currentColor' : 'none'} /> {user ? 'Cloud Sync' : 'Cloud'}
               </button>
-
-              {user ? (
-                <button
-                  className="action-btn"
-                  onClick={logout}
-                  title="Sign Out"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '6px 12px',
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '6px',
-                    color: '#f87171',
-                    cursor: 'pointer',
-                    fontSize: '0.75rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <LogOut size={14} /> {user.displayName ? user.displayName.split(' ')[0] : 'Sign Out'}
-                </button>
-              ) : (
-                <button
-                  className="action-btn"
-                  onClick={login}
-                  title="Sign In with Google"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '6px 12px',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    border: '1px solid rgba(16, 185, 129, 0.4)',
-                    borderRadius: '6px',
-                    color: '#34d399',
-                    cursor: 'pointer',
-                    fontSize: '0.75rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <LogIn size={14} /> Sign In
-                </button>
-              )}
             </div>
 
             {showCloudPanel && (
@@ -5020,6 +5017,7 @@ function App() {
           font-size: 0.65rem;
           width: 90px;
           flex-shrink: 0;
+          box-sizing: border-box;
         }
         .t-date-select { 
           background: rgba(0,0,0,0.4); 
@@ -5030,6 +5028,7 @@ function App() {
           font-size: 0.65rem;
           font-family: 'JetBrains Mono', monospace;
           width: 90px;
+          box-sizing: border-box;
         }
         .t-time-input { 
           width: 60px !important; 
@@ -5048,7 +5047,7 @@ function App() {
           gap: 4px;
         }
         .t-duration-input {
-          width: 50px !important;
+          width: 40px !important;
           font-size: 0.7rem;
           text-align: right;
           font-weight: 600;
@@ -5057,6 +5056,7 @@ function App() {
           border-radius: 4px;
           padding: 3px 6px;
           color: #fff;
+          box-sizing: border-box;
         }
         .t-duration-label {
           font-size: 0.65rem;
@@ -5087,11 +5087,12 @@ function App() {
         .t-cost-input { 
           background: transparent !important; 
           border: none !important; 
-          width: 45px !important; 
+          width: 40px !important; 
           color: var(--accent) !important; 
           font-weight: 800 !important; 
           text-align: right !important; 
           font-size: 0.8rem !important;
+          box-sizing: border-box;
         }
         .t-usd-equiv { 
           font-size: 0.6rem; 
@@ -5372,7 +5373,7 @@ function App() {
         .h-row-date { font-size: 0.75rem; color: var(--subtext); }
         .h-label { width: 65px; font-weight: 900; color: #475569; text-transform: uppercase; font-size: 0.6rem; }
         .h-time { width: 60px !important; }
-        .h-cost { width: 45px !important; }
+        .h-cost { width: 40px !important; box-sizing: border-box; }
 
         /* Missing styles for Travel Legs */
         .leg-amount-input-compact { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 3px 4px; color: var(--accent); outline: none; font-size: 0.75rem; width: 50px; font-weight: 900; text-align: right; }

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Save, Download, Trash2, Cloud, RotateCw } from 'lucide-react';
+import { Save, Download, Trash2, Cloud, RotateCw, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 const CloudTrips = ({ currentTripData, onLoadTrip, onSaveSuccess }) => {
-    const { user } = useAuth();
+    const { user, login, logout } = useAuth();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -117,14 +117,41 @@ const CloudTrips = ({ currentTripData, onLoadTrip, onSaveSuccess }) => {
         return format(date, 'MMM d, yyyy HH:mm');
     };
 
-    if (!user) return <div className="p-4 text-center">Please log in to save trips.</div>;
+    if (!user) {
+        return (
+            <div className="cloud-trips-panel glass" style={{ padding: '2rem', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                <Cloud size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+                <h3>Cloud Sync</h3>
+                <p style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '1.5rem' }}>Log in to sync your trips across all devices.</p>
+                <button
+                    onClick={login}
+                    className="btn-primary"
+                    style={{ margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <LogIn size={18} /> Sign In with Google
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="cloud-trips-panel glass" style={{ padding: '1rem', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Cloud size={16} /> Cloud Trips
-                </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '8px', borderRadius: '50%' }}>
+                        <UserIcon size={16} color="#818cf8" />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{user.displayName || 'Traveler'}</span>
+                        <button
+                            onClick={logout}
+                            style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 500 }}
+                        >
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+
                 <button
                     className="btn-primary"
                     onClick={handleSaveTrip}
