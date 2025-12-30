@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 13:31 EST";
+const APP_VERSION = "2025-12-30 13:39 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -4242,6 +4242,7 @@ function App() {
                 <Redo2 size={14} /> Redo
               </button>
               <label
+                className="hide-on-mobile"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -4262,7 +4263,7 @@ function App() {
                 <input type="file" id="file-input-trigger" accept="application/json" onChange={loadFromFile} style={{ display: 'none' }} />
               </label>
               <button
-                className="action-btn"
+                className="action-btn hide-on-mobile"
                 onClick={saveToFile}
                 title="Save to file (Cmd/Ctrl+S)"
                 style={{
@@ -5316,7 +5317,7 @@ function App() {
           background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.1));
         }
 
-        .f-trip-header { font-size: 0.65rem; font-weight: 900; color: #475569; letter-spacing: 0.1em; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 2px; }
+        .f-trip-header { font-size: 0.65rem; font-weight: 900; color: #64748b; letter-spacing: 0.1em; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 2px; }
         .f-trip-section { background: rgba(0,0,0,0.1); border-radius: 0.5rem; padding: 0.75rem; }
         
         /* Compact flight section styling (similar to M&IE) */
@@ -5356,7 +5357,7 @@ function App() {
         .g-cost { background: transparent !important; border: none !important; width: 50px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; font-size: 0.9rem !important; }
         
         /* More compact date selector */
-        .f-date-select { width: 100% !important; font-size: 0.65rem; font-weight: 600; cursor: pointer; max-width: 110px; }
+        .f-date-select { width: 100% !important; font-size: 0.65rem; font-weight: 600; cursor: pointer; max-width: 95px; }
         
         .g-air { width: 90px !important; }
 
@@ -5510,12 +5511,12 @@ function App() {
         
         /* Row 1: Name / City / Map / Delete */
         .h-row-1 { justify-content: flex-start; }
-        .h-name { flex: 1; max-width: 180px; font-weight: 800; }
-        .h-city { flex: 1; max-width: 120px; font-weight: 600; opacity: 0.8; }
+        .h-name { flex: 1; max-width: 140px; font-weight: 800; }
+        .h-city { flex: 1; max-width: 90px; font-weight: 600; opacity: 0.8; }
         
         /* Row 2: Check-in / Time / Cost Mode / Cost / Tax */
         .h-row-2 { align-items: center; flex-wrap: wrap; }
-        .h-date-select { max-width: 110px !important; font-size: 0.65rem; }
+        .h-date-select { max-width: 95px !important; font-size: 0.65rem; }
         .h-time { width: 60px !important; }
         .h-cost { width: 50px !important; box-sizing: border-box; }
         
@@ -5656,6 +5657,9 @@ function App() {
 
         /* Responsive */
         @media (max-width: 700px) {
+          /* Hide Load and Save buttons on mobile */
+          .hide-on-mobile { display: none !important; }
+          
           .trip-header-container { flex-direction: column; }
           .header-actions { width: 100%; align-items: stretch; }
           .mie-toggle-btn { justify-content: center; }
