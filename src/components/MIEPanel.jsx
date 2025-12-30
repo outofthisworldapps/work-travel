@@ -110,8 +110,18 @@ const MIEPanel = ({
                                             placeholder={destCity || 'Enter city...'}
                                             onChange={(e) => onUpdateLocation && onUpdateLocation(day.id, e.target.value)}
                                         />
-                                        <Edit3 size={10} className="edit-icon" />
+                                        {day.location && (
+                                            <span
+                                                className="clear-location"
+                                                onClick={() => onUpdateLocation && onUpdateLocation(day.id, '')}
+                                                title="Clear to use destination city"
+                                            >×</span>
+                                        )}
+                                        {!day.location && <Edit3 size={10} className="edit-icon" />}
                                     </div>
+                                    {location !== (day.location || destCity || '') && (
+                                        <div className="matched-city">→ {location}</div>
+                                    )}
                                 </td>
                                 <td className="mie-col-lodging">
                                     ${lodging.toFixed(0)}

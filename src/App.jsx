@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 21:55 EST";
+const APP_VERSION = "2025-12-29 22:04 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5537,6 +5537,25 @@ function App() {
         }
         .location-editable:focus-within .edit-icon {
           opacity: 0;
+        }
+        .clear-location {
+          position: absolute;
+          right: 2px;
+          color: #f87171;
+          cursor: pointer;
+          font-size: 1rem;
+          font-weight: bold;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+        }
+        .clear-location:hover {
+          opacity: 1;
+        }
+        .matched-city {
+          font-size: 0.55rem;
+          color: #22c55e;
+          font-style: italic;
+          margin-top: 2px;
         }
         
         @media (max-width: 768px) {

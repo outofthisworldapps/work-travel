@@ -288,36 +288,60 @@ export const getCityFromAirport = (airportCode) => {
 export const getUSPerDiem = (city, date) => {
     if (!city) return { ...US_STANDARD_RATE, city: 'Standard CONUS' };
 
-    // Try exact match first
-    let cityData = US_PER_DIEM[city];
+    // Trim and normalize input
+    const cityInput = city.trim();
+    if (!cityInput) return { ...US_STANDARD_RATE, city: 'Standard CONUS' };
 
-    // Try case-insensitive match
+    // Try exact match first (case-sensitive)
+    let cityData = US_PER_DIEM[cityInput];
+    let matchedCity = cityInput;
+
+    // Try exact match (case-insensitive)
     if (!cityData) {
-        const cityNorm = city.toLowerCase();
+        const cityNorm = cityInput.toLowerCase();
         for (const [name, data] of Object.entries(US_PER_DIEM)) {
-            if (name.toLowerCase() === cityNorm || name.toLowerCase().includes(cityNorm)) {
+            if (name.toLowerCase() === cityNorm) {
                 cityData = data;
+                matchedCity = name;
+                break;
+            }
+        }
+    }
+
+    // Try partial match (city name contains input or input contains city name)
+    if (!cityData) {
+        const cityNorm = cityInput.toLowerCase();
+        for (const [name, data] of Object.entries(US_PER_DIEM)) {
+            const nameNorm = name.toLowerCase();
+            // Match if input contains the city name or city name contains input (min 3 chars)
+            if (cityNorm.length >= 3 && (nameNorm.includes(cityNorm) || cityNorm.includes(nameNorm))) {
+                cityData = data;
+                matchedCity = name;
                 break;
             }
         }
     }
 
     if (!cityData) {
-        return { ...US_STANDARD_RATE, city };
+        console.log(`[PerDiem] No match for "${cityInput}", using standard CONUS rate`);
+        return { ...US_STANDARD_RATE, city: cityInput };
     }
+
+    console.log(`[PerDiem] Matched "${cityInput}" to "${matchedCity}"`);
 
     // Check seasonal rates
     if (cityData.seasons && cityData.seasons.length > 0) {
         for (const season of cityData.seasons) {
             if (isDateInSeason(date, season.start, season.end)) {
-                return { lodging: season.lodging, mie: season.mie, city };
+                console.log(`[PerDiem] ${matchedCity}: $${season.lodging} lodging, $${season.mie} M&IE (seasonal)`);
+                return { lodging: season.lodging, mie: season.mie, city: matchedCity };
             }
         }
         // No matching season, use first season's rates as default
-        return { lodging: cityData.seasons[0].lodging, mie: cityData.seasons[0].mie, city };
+        return { lodging: cityData.seasons[0].lodging, mie: cityData.seasons[0].mie, city: matchedCity };
     }
 
-    return { lodging: cityData.lodging, mie: cityData.mie, city };
+    return { lodging: cityData.lodging, mie: cityData.mie, city: matchedCity };
 };
 
 /**
