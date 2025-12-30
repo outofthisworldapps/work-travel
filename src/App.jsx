@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:21 EST";
+const APP_VERSION = "2025-12-29 23:25 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5669,6 +5669,7 @@ function App() {
           }
           .one-column-layout {
             gap: 0.75rem;
+            max-width: 100%;
           }
           .glass {
             border-radius: 0;
@@ -5678,60 +5679,63 @@ function App() {
           .trip-header-section,
           .date-range-section,
           .flights-section,
-          .hotels-section {
-            padding: 1rem 0.5rem;
-          }
-          .transportation-section-panel,
-          .mie-section-panel {
-            padding: 0;
-          }
-          .transportation-section-panel .glass,
-          .mie-section-panel .glass {
-            padding: 1rem 0.5rem;
-          }
+          .hotels-section,
           .totals-section {
             padding: 1rem 0.5rem;
           }
-          .mie-panel {
-            width: 100%;
+          /* Eliminate all side margins for these sections */
+          .transportation-section-panel,
+          .mie-section-panel {
             padding: 0;
+            margin: 0;
+            width: 100%;
+          }
+          .transport-panel,
+          .mie-panel {
+            width: 100% !important;
+            padding: 1rem 0.5rem !important;
+            margin: 0 !important;
+            box-sizing: border-box;
           }
           .mie-table-wrapper {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            margin: 0 -0.5rem; /* Allow table to scroll edge-to-edge if needed */
+            padding: 0 0.5rem;
           }
           .mie-table {
             font-size: 0.65rem;
             width: 100%;
           }
           .mie-table th, .mie-table td {
-            padding: 0.4rem 0.25rem;
+            padding: 0.4rem 0.2rem;
+            text-align: left !important; /* Align $ under H in HOTEL */
           }
           .mie-col-date {
-            font-size: 0.6rem;
-            min-width: 60px;
+            font-size: 0.55rem; /* Decreased date font size */
+            min-width: 55px;
+            max-width: 55px;
           }
           .mie-col-location {
-            max-width: 95px;
-            min-width: 95px;
+            max-width: 105px; /* Increased location width */
+            min-width: 105px;
           }
           .mie-col-lodging {
-            text-align: right;
-            padding-right: 0.5rem !important;
+            min-width: 45px;
           }
-          .mie-col-lodging span {
-            display: inline-block;
-            text-align: right;
+          .mie-col-mie {
+            min-width: 40px;
           }
           .meal-chip {
-            min-width: 22px;
-            padding: 2px 4px;
+            min-width: 20px;
+            padding: 2px 3px;
             font-size: 0.55rem;
           }
           .mie-legend {
             flex-wrap: wrap;
-            gap: 0.75rem;
-            font-size: 0.65rem;
+            gap: 0.5rem;
+            font-size: 0.6rem;
+            padding-top: 0.5rem;
           }
         }
         `}</style>
