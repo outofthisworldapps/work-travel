@@ -223,10 +223,8 @@ const MIEPanel = ({
                                     </button>
                                 )}
                             </th>
-                            <th className="mie-col-lodging">Max Lodging</th>
+                            <th className="mie-col-lodging">Lodging</th>
                             <th className="mie-col-mie">M&IE</th>
-                            <th className="mie-col-pct">%</th>
-                            <th className="mie-col-adjusted">M&IE × %</th>
                             <th className="mie-col-meal">B</th>
                             <th className="mie-col-meal">L</th>
                             <th className="mie-col-meal">D</th>
@@ -252,49 +250,43 @@ const MIEPanel = ({
                                 <td className="mie-col-lodging">
                                     ${lodging.toFixed(0)}
                                 </td>
-                                <td className="mie-col-mie">
-                                    ${mie.toFixed(0)}
-                                </td>
-                                <td className={`mie-col-pct ${isFirstOrLast ? 'highlight' : ''}`}>
-                                    {percent}%
-                                </td>
-                                <td className="mie-col-adjusted">
-                                    ${adjustedMie.toFixed(2)}
+                                <td className={`mie-col-mie ${isFirstOrLast ? 'travel-day-rate' : ''}`}>
+                                    ${Math.round(adjustedMie)}
                                 </td>
                                 <td className="mie-col-meal">
                                     <span
                                         className={`meal-chip ${day.meals?.B !== false ? 'active' : 'inactive'}`}
                                         onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'B')}
-                                        title={`Breakfast: $${breakdown.B.toFixed(2)}`}
+                                        title={`Breakfast: $${breakdown.B.toFixed(0)}`}
                                     >
-                                        ${breakdown.B.toFixed(0)}
+                                        ${Math.round(breakdown.B)}
                                     </span>
                                 </td>
                                 <td className="mie-col-meal">
                                     <span
                                         className={`meal-chip ${day.meals?.L !== false ? 'active' : 'inactive'}`}
                                         onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'L')}
-                                        title={`Lunch: $${breakdown.L.toFixed(2)}`}
+                                        title={`Lunch: $${breakdown.L.toFixed(0)}`}
                                     >
-                                        ${breakdown.L.toFixed(0)}
+                                        ${Math.round(breakdown.L)}
                                     </span>
                                 </td>
                                 <td className="mie-col-meal">
                                     <span
                                         className={`meal-chip ${day.meals?.D !== false ? 'active' : 'inactive'}`}
                                         onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'D')}
-                                        title={`Dinner: $${breakdown.D.toFixed(2)}`}
+                                        title={`Dinner: $${breakdown.D.toFixed(0)}`}
                                     >
-                                        ${breakdown.D.toFixed(0)}
+                                        ${Math.round(breakdown.D)}
                                     </span>
                                 </td>
                                 <td className="mie-col-meal">
                                     <span
                                         className={`meal-chip ${day.meals?.I !== false ? 'active' : 'inactive'}`}
                                         onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'I')}
-                                        title={`Incidentals: $${breakdown.I.toFixed(2)}`}
+                                        title={`Incidentals: $${breakdown.I.toFixed(0)}`}
                                     >
-                                        ${breakdown.I.toFixed(0)}
+                                        ${Math.round(breakdown.I)}
                                     </span>
                                 </td>
                             </tr>
@@ -304,9 +296,7 @@ const MIEPanel = ({
                         <tr className="mie-totals-row">
                             <td colSpan="2" className="mie-totals-label">TOTALS</td>
                             <td className="mie-col-lodging">${totals.totalLodging.toFixed(0)}</td>
-                            <td className="mie-col-mie">${totals.totalMIE.toFixed(0)}</td>
-                            <td className="mie-col-pct">—</td>
-                            <td className="mie-col-adjusted">${totals.totalAdjustedMIE.toFixed(2)}</td>
+                            <td className="mie-col-mie">${Math.round(totals.totalAdjustedMIE)}</td>
                             <td colSpan="4"></td>
                         </tr>
                     </tfoot>

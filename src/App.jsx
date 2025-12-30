@@ -36,7 +36,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 22:28 EST";
+const APP_VERSION = "2025-12-29 22:32 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -5432,14 +5432,11 @@ function App() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .mie-col-lodging, .mie-col-mie, .mie-col-adjusted {
+        .mie-col-lodging, .mie-col-mie {
           font-family: 'JetBrains Mono', monospace;
           color: #a5b4fc;
         }
-        .mie-col-pct {
-          font-weight: 800;
-        }
-        .mie-col-pct.highlight {
+        .mie-col-mie.travel-day-rate {
           color: #f59e0b;
         }
         .mie-col-meal {
