@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 06:56 EST";
+const APP_VERSION = "2025-12-30 07:05 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -46,11 +46,21 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const parseLocalDate = (dateInput) => {
   if (!dateInput) return null;
   const dateStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
-  // If it's an ISO string, extract the date part and create a local date at noon
+  // If it's an ISO string, first parse it as a Date to correctly interpret UTC,
+  // then extract LOCAL date components to create a noon local date
   if (dateStr.includes('T')) {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      // Extract the LOCAL year, month, day from the parsed UTC date
+      const y = parsed.getFullYear();
+      const m = parsed.getMonth();
+      const d = parsed.getDate();
+      return new Date(y, m, d, 12, 0, 0);
+    }
+    // Fallback: if parsing fails, try extracting date part (less accurate)
     const datePart = dateStr.split('T')[0];
-    const [y, m, d] = datePart.split('-').map(Number);
-    return new Date(y, m - 1, d, 12, 0, 0);
+    const [year, month, day] = datePart.split('-').map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0);
   }
   // If it's just a date string like "2025-08-08"
   if (dateStr.includes('-') && !dateStr.includes('T')) {
