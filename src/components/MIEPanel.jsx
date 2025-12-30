@@ -7,19 +7,53 @@
 
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
-import { Utensils } from 'lucide-react';
-import { getMealBreakdown, calculateDayMIE } from '../utils/perDiemLookup';
+import { Utensils, Edit3 } from 'lucide-react';
+import { getMealBreakdown, calculateDayMIE, getPerDiemForLocation } from '../utils/perDiemLookup';
 import { formatCurrency } from '../utils/calculations';
 
 const MIEPanel = ({
     days,
     destCity,
-    destState,
-    destCountry,
     isForeign = false,
-    onUpdateMeals
+    onUpdateMeals,
+    onUpdateLocation
 }) => {
     const totalDays = days.length;
+
+    // Calculate per diem rates and totals for each day
+    const dayData = useMemo(() => {
+        return days.map((day, idx) => {
+            // Use day.location if set, otherwise use destCity
+            const location = day.location || destCity || '';
+
+            // Look up per diem rates
+            const perDiem = getPerDiemForLocation(location, day.date);
+
+            // Calculate day's M&IE with first/last day adjustment
+            const { rate: adjustedMie, percent, isFirstOrLast } = calculateDayMIE(idx, totalDays, perDiem.mie);
+
+            // Get meal breakdown
+            const breakdown = getMealBreakdown(perDiem.mie, isForeign);
+            const adjustedBreakdown = {
+                B: breakdown.B * (percent / 100),
+                L: breakdown.L * (percent / 100),
+                D: breakdown.D * (percent / 100),
+                I: breakdown.I * (percent / 100)
+            };
+
+            return {
+                day,
+                idx,
+                location: perDiem.city || location,
+                lodging: perDiem.lodging,
+                mie: perDiem.mie,
+                adjustedMie,
+                percent,
+                isFirstOrLast,
+                breakdown: adjustedBreakdown
+            };
+        });
+    }, [days, destCity, totalDays, isForeign]);
 
     // Calculate totals
     const totals = useMemo(() => {
@@ -27,28 +61,14 @@ const MIEPanel = ({
         let totalMIE = 0;
         let totalAdjustedMIE = 0;
 
-        days.forEach((day, idx) => {
-            totalLodging += day.maxLodging || 0;
-            const { rate } = calculateDayMIE(idx, totalDays, day.mieBase || 0);
-            totalMIE += day.mieBase || 0;
-            totalAdjustedMIE += rate;
+        dayData.forEach(d => {
+            totalLodging += d.lodging;
+            totalMIE += d.mie;
+            totalAdjustedMIE += d.adjustedMie;
         });
 
         return { totalLodging, totalMIE, totalAdjustedMIE };
-    }, [days, totalDays]);
-
-    // Format location display
-    const getLocationDisplay = (day) => {
-        const parts = [];
-        if (day.location) {
-            parts.push(day.location);
-        } else {
-            if (destCity) parts.push(destCity);
-            if (destState) parts.push(destState);
-            if (destCountry) parts.push(destCountry);
-        }
-        return parts.join(', ') || 'Destination';
-    };
+    }, [dayData]);
 
     return (
         <div className="mie-panel glass">
@@ -76,75 +96,73 @@ const MIEPanel = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {days.map((day, idx) => {
-                            const { rate, percent, isFirstOrLast } = calculateDayMIE(idx, totalDays, day.mieBase || 0);
-                            const breakdown = getMealBreakdown(day.mieBase || 0, day.isForeignMie !== false);
-                            const adjustedBreakdown = {
-                                B: breakdown.B * (percent / 100),
-                                L: breakdown.L * (percent / 100),
-                                D: breakdown.D * (percent / 100),
-                                I: breakdown.I * (percent / 100)
-                            };
-
-                            return (
-                                <tr key={day.id} className={isFirstOrLast ? 'mie-row-travel-day' : ''}>
-                                    <td className="mie-col-date">
-                                        {day.date ? format(day.date, 'EEE MMM d') : '—'}
-                                    </td>
-                                    <td className="mie-col-location">
-                                        {getLocationDisplay(day)}
-                                    </td>
-                                    <td className="mie-col-lodging">
-                                        ${(day.maxLodging || 0).toFixed(0)}
-                                    </td>
-                                    <td className="mie-col-mie">
-                                        ${(day.mieBase || 0).toFixed(0)}
-                                    </td>
-                                    <td className={`mie-col-pct ${isFirstOrLast ? 'highlight' : ''}`}>
-                                        {percent}%
-                                    </td>
-                                    <td className="mie-col-adjusted">
-                                        ${rate.toFixed(2)}
-                                    </td>
-                                    <td className="mie-col-meal">
-                                        <span
-                                            className={`meal-chip ${day.meals?.B !== false ? 'active' : 'inactive'}`}
-                                            onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'B')}
-                                            title={`Breakfast: $${adjustedBreakdown.B.toFixed(2)}`}
-                                        >
-                                            ${adjustedBreakdown.B.toFixed(0)}
-                                        </span>
-                                    </td>
-                                    <td className="mie-col-meal">
-                                        <span
-                                            className={`meal-chip ${day.meals?.L !== false ? 'active' : 'inactive'}`}
-                                            onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'L')}
-                                            title={`Lunch: $${adjustedBreakdown.L.toFixed(2)}`}
-                                        >
-                                            ${adjustedBreakdown.L.toFixed(0)}
-                                        </span>
-                                    </td>
-                                    <td className="mie-col-meal">
-                                        <span
-                                            className={`meal-chip ${day.meals?.D !== false ? 'active' : 'inactive'}`}
-                                            onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'D')}
-                                            title={`Dinner: $${adjustedBreakdown.D.toFixed(2)}`}
-                                        >
-                                            ${adjustedBreakdown.D.toFixed(0)}
-                                        </span>
-                                    </td>
-                                    <td className="mie-col-meal">
-                                        <span
-                                            className={`meal-chip ${day.meals?.I !== false ? 'active' : 'inactive'}`}
-                                            onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'I')}
-                                            title={`Incidentals: $${adjustedBreakdown.I.toFixed(2)}`}
-                                        >
-                                            ${adjustedBreakdown.I.toFixed(0)}
-                                        </span>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                        {dayData.map(({ day, idx, location, lodging, mie, adjustedMie, percent, isFirstOrLast, breakdown }) => (
+                            <tr key={day.id} className={isFirstOrLast ? 'mie-row-travel-day' : ''}>
+                                <td className="mie-col-date">
+                                    {day.date ? format(day.date, 'EEE MMM d') : '—'}
+                                </td>
+                                <td className="mie-col-location">
+                                    <div className="location-editable">
+                                        <input
+                                            type="text"
+                                            className="location-input"
+                                            value={day.location || ''}
+                                            placeholder={destCity || 'Enter city...'}
+                                            onChange={(e) => onUpdateLocation && onUpdateLocation(day.id, e.target.value)}
+                                        />
+                                        <Edit3 size={10} className="edit-icon" />
+                                    </div>
+                                </td>
+                                <td className="mie-col-lodging">
+                                    ${lodging.toFixed(0)}
+                                </td>
+                                <td className="mie-col-mie">
+                                    ${mie.toFixed(0)}
+                                </td>
+                                <td className={`mie-col-pct ${isFirstOrLast ? 'highlight' : ''}`}>
+                                    {percent}%
+                                </td>
+                                <td className="mie-col-adjusted">
+                                    ${adjustedMie.toFixed(2)}
+                                </td>
+                                <td className="mie-col-meal">
+                                    <span
+                                        className={`meal-chip ${day.meals?.B !== false ? 'active' : 'inactive'}`}
+                                        onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'B')}
+                                        title={`Breakfast: $${breakdown.B.toFixed(2)}`}
+                                    >
+                                        ${breakdown.B.toFixed(0)}
+                                    </span>
+                                </td>
+                                <td className="mie-col-meal">
+                                    <span
+                                        className={`meal-chip ${day.meals?.L !== false ? 'active' : 'inactive'}`}
+                                        onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'L')}
+                                        title={`Lunch: $${breakdown.L.toFixed(2)}`}
+                                    >
+                                        ${breakdown.L.toFixed(0)}
+                                    </span>
+                                </td>
+                                <td className="mie-col-meal">
+                                    <span
+                                        className={`meal-chip ${day.meals?.D !== false ? 'active' : 'inactive'}`}
+                                        onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'D')}
+                                        title={`Dinner: $${breakdown.D.toFixed(2)}`}
+                                    >
+                                        ${breakdown.D.toFixed(0)}
+                                    </span>
+                                </td>
+                                <td className="mie-col-meal">
+                                    <span
+                                        className={`meal-chip ${day.meals?.I !== false ? 'active' : 'inactive'}`}
+                                        onClick={() => onUpdateMeals && onUpdateMeals(day.id, 'I')}
+                                        title={`Incidentals: $${breakdown.I.toFixed(2)}`}
+                                    >
+                                        ${breakdown.I.toFixed(0)}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                     <tfoot>
                         <tr className="mie-totals-row">
@@ -166,7 +184,7 @@ const MIEPanel = ({
                 <span className="legend-item">
                     <span className="legend-color full-day"></span> 100% Full Day
                 </span>
-                <span className="legend-tip">Click B/L/D/I to toggle meal deductions</span>
+                <span className="legend-tip">Click B/L/D/I to toggle • Edit location to look up rates</span>
             </div>
         </div>
     );

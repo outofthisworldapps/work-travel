@@ -33,9 +33,10 @@ import { calculateMIE, formatCurrency, MI_RATE, MOCK_RATES, convertCurrency, MEA
 import { autoPopulateHotels } from './utils/hotelLogic';
 import ContinuousTimeline from './components/ContinuousTimeline';
 import MIEPanel from './components/MIEPanel';
-import { getAirportTimezone, AIRPORT_TIMEZONES } from './utils/airportTimezones';
+import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
+import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 21:37 EST";
+const APP_VERSION = "2025-12-29 21:55 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -3781,7 +3782,7 @@ function App() {
     });
   }, [flights, days]);
 
-  // Auto-detect time zones from airports
+  // Auto-detect time zones and destination city from airports
   React.useEffect(() => {
     if (flights.length === 0) return;
 
@@ -3794,13 +3795,18 @@ function App() {
       }
     }
 
-    // Find last arrival airport of outbound for destination timezone
+    // Find last arrival airport of outbound for destination timezone and city
     if (firstOutbound && firstOutbound.outbound.length > 0) {
       const lastOutboundSeg = firstOutbound.outbound[firstOutbound.outbound.length - 1];
       if (lastOutboundSeg?.arrPort) {
         const destAirportTZ = getAirportTimezone(lastOutboundSeg.arrPort);
         if (destAirportTZ && destAirportTZ !== destTimeZone) {
           setDestTimeZone(destAirportTZ);
+        }
+        // Auto-detect destination city from airport for per diem lookups
+        const detectedCity = getCityFromAirport(lastOutboundSeg.arrPort) || getAirportCity(lastOutboundSeg.arrPort);
+        if (detectedCity && detectedCity !== destCity) {
+          setDestCity(detectedCity);
         }
       }
     }
@@ -4301,11 +4307,12 @@ function App() {
             <MIEPanel
               days={days}
               destCity={destCity}
-              destState=""
-              destCountry=""
               isForeign={useAlt}
               onUpdateMeals={(dayId, meal) => {
                 setDays(prev => prev.map(d => d.id === dayId ? { ...d, meals: { ...d.meals, [meal]: !d.meals[meal] } } : d));
+              }}
+              onUpdateLocation={(dayId, location) => {
+                setDays(prev => prev.map(d => d.id === dayId ? { ...d, location } : d));
               }}
             />
           </section>
@@ -5493,6 +5500,43 @@ function App() {
         .legend-tip {
           font-style: italic;
           color: #64748b;
+        }
+        .location-editable {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          position: relative;
+        }
+        .location-input {
+          background: transparent;
+          border: none;
+          border-bottom: 1px dashed rgba(255,255,255,0.2);
+          color: #fff;
+          font-size: 0.7rem;
+          font-weight: 600;
+          padding: 2px 4px;
+          width: 100%;
+          max-width: 130px;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .location-input:focus {
+          border-bottom: 1px solid #6366f1;
+          background: rgba(99, 102, 241, 0.1);
+        }
+        .location-input::placeholder {
+          color: #64748b;
+          font-style: italic;
+        }
+        .location-editable .edit-icon {
+          color: #64748b;
+          opacity: 0.5;
+          position: absolute;
+          right: 2px;
+          pointer-events: none;
+        }
+        .location-editable:focus-within .edit-icon {
+          opacity: 0;
         }
         
         @media (max-width: 768px) {
