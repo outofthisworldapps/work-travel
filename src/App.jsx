@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 13:16 EST";
+const APP_VERSION = "2025-12-30 13:24 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -1385,8 +1385,11 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates, homeCity, de
         </div>
       </div>
 
-      <div className="f-trip-section">
-        <div className="f-trip-header">OUTBOUND</div>
+      <div className="f-trip-section-compact">
+        <div className="f-trip-header-with-action">
+          <div className="f-trip-header">OUTBOUND</div>
+          <button className="f-add-seg-inline" onClick={() => addLeg('outbound')}><Plus size={10} /> ADD LEG</button>
+        </div>
         <div className="f-segments-list">
           {(flight.outbound || []).map((seg, idx) => (
             <React.Fragment key={seg.id}>
@@ -1408,12 +1411,14 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates, homeCity, de
               />
             </React.Fragment>
           ))}
-          <button className="f-add-seg" onClick={() => addLeg('outbound')}><Plus size={10} /> Add Leg</button>
         </div>
       </div>
 
-      <div className="f-trip-section" style={{ marginTop: '1rem' }}>
-        <div className="f-trip-header">RETURN</div>
+      <div className="f-trip-section-compact" style={{ marginTop: '0.75rem' }}>
+        <div className="f-trip-header-with-action">
+          <div className="f-trip-header">RETURN</div>
+          <button className="f-add-seg-inline" onClick={() => addLeg('returnSegments')}><Plus size={10} /> ADD LEG</button>
+        </div>
         <div className="f-segments-list">
           {(flight.returnSegments || []).map((seg, idx) => (
             <React.Fragment key={seg.id}>
@@ -1435,7 +1440,6 @@ const SortableFlightRow = ({ flight, onUpdate, onDelete, tripDates, homeCity, de
               />
             </React.Fragment>
           ))}
-          <button className="f-add-seg" onClick={() => addLeg('returnSegments')}><Plus size={10} /> Add Leg</button>
         </div>
       </div>
     </div>
@@ -5217,6 +5221,43 @@ function App() {
 
         .f-trip-header { font-size: 0.65rem; font-weight: 900; color: #475569; letter-spacing: 0.1em; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 2px; }
         .f-trip-section { background: rgba(0,0,0,0.1); border-radius: 0.5rem; padding: 0.75rem; }
+        
+        /* Compact flight section styling (similar to M&IE) */
+        .f-trip-section-compact { margin-bottom: 0.5rem; }
+        .f-trip-header-with-action { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          margin-bottom: 0.5rem; 
+          padding-bottom: 4px;
+        }
+        .f-add-seg-inline {
+          background: rgba(99, 102, 241, 0.1);
+          border: 1px solid rgba(99, 102, 241, 0.2);
+          color: #818cf8;
+          border-radius: 6px;
+          padding: 4px 8px;
+          font-size: 0.6rem;
+          font-weight: 900;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .f-add-seg-inline:hover {
+          background: rgba(99, 102, 241, 0.2);
+          border-color: rgba(99, 102, 241, 0.4);
+          transform: translateY(-1px);
+        }
+        
+        /* Narrower cost input */
+        .g-cost { background: transparent !important; border: none !important; width: 50px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; font-size: 0.9rem !important; }
+        
+        /* Narrower date selector */
+        .f-date-select { width: 100% !important; font-size: 0.7rem; font-weight: 600; cursor: pointer; max-width: 140px; }
         
         .g-air { width: 90px !important; }
 

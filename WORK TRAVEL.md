@@ -35,15 +35,18 @@
   - **Return Flights**: Departure time is in destination time zone, arrival time is in home time zone.
 - **Editable Flight Data**: 
   - All flight times and dates are fully editable in text inputs.
-  - Flight date dropdowns allow selection of any date within the trip duration.
+  - Flight date dropdowns allow selection of any date within the trip duration (narrower selector for compact view).
   - Changes to flight times immediately update the timeline display and positioning.
   - No automatic history saves on keystroke - allows smooth editing without performance issues.
 - **Single-line Flight Entry**: Each flight booking shows:
   - Drag handle (grip icon) on left.
   - Airline name input.
   - Confirmation/Reference number input.
-  - Cost with $ / Globe toggle (on same line).
+  - Cost with $ / Globe toggle (narrower input for compact view).
   - Delete button.
+- **Compact Section Headers**: 
+  - OUTBOUND and RETURN headers have inline "+ADD LEG" buttons on the same row (right-aligned).
+  - Reduced spacing to create a cleaner, more compact visual appearance similar to the M&IE section.
 - **Segment Details**: Each leg shows:
   - Flight number (e.g., "FI 642").
   - **Departure Date**: Simple dropdown selector showing all dates within the trip duration.
