@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-29 23:41 EST";
+const APP_VERSION = "2025-12-30 06:56 EST";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
