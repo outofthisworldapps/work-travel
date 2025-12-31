@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 22:31 EST";
+const APP_VERSION = "2025-12-30 22:40 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -5437,12 +5437,9 @@ function App() {
         .continuous-timeline-wrapper { overflow: visible; }
         .continuous-timeline { overflow: visible; display: flex; position: relative; }
         .continuous-timeline .timeline-col { flex-shrink: 0; position: relative; }
-        .continuous-timeline .day-col { width: 5%; min-width: 50px; }
-        .continuous-timeline .time-col { width: 5%; min-width: 45px; }
-        .continuous-timeline .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
-        .continuous-timeline .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
-        .continuous-timeline .time-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
-        .continuous-timeline .day-col.right { border-left: 1px solid rgba(255,255,255,0.05); }
+        .continuous-timeline .combined-col { width: 5%; min-width: 65px; }
+        .continuous-timeline .combined-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
+        .continuous-timeline .combined-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
         .continuous-timeline .timeline-hours-container { flex-grow: 1; position: relative; background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(255,255,255,0.02) 4px, rgba(255,255,255,0.02) 5px); overflow: visible; }
         
         .midnight-line-continuous { pointer-events: none; }
@@ -5456,17 +5453,15 @@ function App() {
         .timeline-day-row { display: flex; min-height: 80px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-col { flex-shrink: 0; position: relative; }
         
-        /* New 3-column structure */
-        .left-combined { width: 5%; min-width: 65px; border-right: 1px solid rgba(255,255,255,0.1); }
-        .right-combined { width: 5%; min-width: 65px; border-left: 1px solid rgba(255,255,255,0.1); }
+        /* Combined column structure (3-column layout) */
+        .combined-col { width: 5%; min-width: 65px; }
+        .combined-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
+        .combined-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
         
-        .day-col { width: 5%; min-width: 50px; }
-        .time-col { width: 5%; min-width: 45px; }
-        
-        .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
-        .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
-        .time-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
-        .day-col.right { border-left: 1px solid rgba(255,255,255,0.05); }
+        /* Header combined column styling */
+        .side-col.combined-col { min-width: 65px; }
+        .side-col.combined-col.left { color: var(--accent); }
+        .side-col.combined-col.right { color: #f59e0b; }
 
         .timeline-header-icons { display: flex; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); height: 32px; }
         .side-col { display: flex; align-items: center; justify-content: center; color: #64748b; }

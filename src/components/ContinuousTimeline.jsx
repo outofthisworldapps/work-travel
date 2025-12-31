@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { format, differenceInHours, differenceInMinutes, addDays, startOfDay } from 'date-fns';
-import { Calendar, Home, Briefcase, Utensils, CreditCard } from 'lucide-react';
+import { Home, Briefcase, Utensils, CreditCard } from 'lucide-react';
 
 // Utility: parse time string to hours (e.g., "8:30p" -> 20.5)
 const parseTime = (timeStr) => {
@@ -414,14 +414,10 @@ const ContinuousTimeline = ({
         <div className="continuous-timeline-wrapper">
             {/* Header Row */}
             <div className={`timeline-header-icons ${isDifferentTZ ? 'dual-tz' : ''}`}>
-                <div className="side-col day-col left"><Calendar size={12} /></div>
-                <div className="side-col time-col left"><Home size={14} /></div>
+                <div className="side-col combined-col left"><Home size={14} /></div>
                 <div className="center-spacer"></div>
                 {isDifferentTZ && (
-                    <>
-                        <div className="side-col time-col right"><Briefcase size={14} /></div>
-                        <div className="side-col day-col right"><Calendar size={12} style={{ opacity: 0.5 }} /></div>
-                    </>
+                    <div className="side-col combined-col right"><Briefcase size={14} /></div>
                 )}
                 {showMIE && <div style={{ width: '65px' }} />}
             </div>
@@ -430,8 +426,9 @@ const ContinuousTimeline = ({
             <div className={`continuous-timeline ${isDifferentTZ ? 'dual-tz' : ''} ${showMIE ? 'with-mie' : ''}`}
                 style={{ height: `${totalHeight}px`, position: 'relative', display: 'flex' }}>
 
-                {/* Left Day Column - Home Time Zone Dates */}
-                <div className="timeline-col day-col left" style={{ position: 'relative' }}>
+                {/* Left Combined Column - Home Time Zone Dates + Times */}
+                <div className="timeline-col combined-col left" style={{ position: 'relative' }}>
+                    {/* Date labels at midnight positions */}
                     {midnights.filter(m => m.tz === 'home').map((m, i) => (
                         <div key={`home-${i}`} className="midnight-label-stack home"
                             style={{ position: 'absolute', top: `${getPosition(m.hoursFromStart)}%` }}>
@@ -441,10 +438,6 @@ const ContinuousTimeline = ({
                             </div>
                         </div>
                     ))}
-                </div>
-
-                {/* Left Time Column - Home hours */}
-                <div className="timeline-col time-col left" style={{ width: '55px', position: 'relative' }}>
                     {/* Hour labels for each day */}
                     {Array.from({ length: totalDays + 1 }, (_, dayIdx) => (
                         Array.from({ length: 23 }, (_, h) => {
@@ -737,9 +730,19 @@ const ContinuousTimeline = ({
                     })}
                 </div>
 
-                {/* Right Time Column - Dest hours (if different TZ) */}
+                {/* Right Combined Column - Dest Time Zone Dates + Times (if different TZ) */}
                 {isDifferentTZ && (
-                    <div className="timeline-col time-col right" style={{ width: '55px', position: 'relative' }}>
+                    <div className="timeline-col combined-col right" style={{ position: 'relative' }}>
+                        {/* Date labels at midnight positions */}
+                        {midnights.filter(m => m.tz === 'dest').map((m, i) => (
+                            <div key={`dest-${i}`} className="midnight-label-stack dest"
+                                style={{ position: 'absolute', top: `${getPosition(m.hoursFromStart)}%` }}>
+                                <div className="date-stack dest">
+                                    <div className="tl-dw">{m.label.split('|')[0]}</div>
+                                    <div className="tl-dm">{m.label.split('|')[1]}</div>
+                                </div>
+                            </div>
+                        ))}
                         {/* Hour labels for dest timezone - positioned relative to dest midnights */}
                         {Array.from({ length: totalDays + 2 }, (_, dayIdx) => {
                             // Get the offset for this day
@@ -770,21 +773,6 @@ const ContinuousTimeline = ({
                                 );
                             });
                         })}
-                    </div>
-                )}
-
-                {/* Right Day Column - Dest Time Zone Dates */}
-                {isDifferentTZ && (
-                    <div className="timeline-col day-col right" style={{ position: 'relative' }}>
-                        {midnights.filter(m => m.tz === 'dest').map((m, i) => (
-                            <div key={`dest-${i}`} className="midnight-label-stack dest"
-                                style={{ position: 'absolute', top: `${getPosition(m.hoursFromStart)}%` }}>
-                                <div className="date-stack dest">
-                                    <div className="tl-dw">{m.label.split('|')[0]}</div>
-                                    <div className="tl-dm">{m.label.split('|')[1]}</div>
-                                </div>
-                            </div>
-                        ))}
                     </div>
                 )}
 

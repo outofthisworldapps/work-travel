@@ -249,12 +249,10 @@ The app exports data in a **category-based** structure rather than day-based, wh
   - **Home timezone**: Set from the first outbound departure airport.
   - **Destination timezone**: Set from the last outbound arrival airport.
   - Intermediate/layover airports also have their timezones correctly determined for accurate timeline display and time conversion.
-- **5-Column Layout**: The timeline is partitioned into 5 distinct vertical tracks:
-  1. **Home Date**: The date label for the home time zone.
-  2. **Home Time**: The specific hour/minute markers for home (indigo colored).
-  3. **Timeline Grid**: The central area for flights, hotels, and transportation.
-  4. **Away Time**: The specific hour/minute markers for the destination (orange colored).
-  5. **Away Date**: The date label for the destination time zone.
+- **3-Column Layout**: The timeline is partitioned into 3 distinct vertical tracks:
+  1. **Home Column** (🏠 icon): Combined date and time display for the home time zone (indigo colored). Shows day labels at midnight positions and hour markers throughout.
+  2. **Timeline Grid**: The central area for flights, hotels, and transportation events.
+  3. **Away Column** (💼 icon): Combined date and time display for the destination time zone (orange colored). Shows day labels at midnight positions and hour markers throughout.
 - **Local Times in Timeline**: Flight blocks display local departure/arrival times in **white** next to airport codes in the center of the timeline grid.
 - **Bold Time Markers**: Times in the home and away columns are bolded when they correspond to that column's timezone (based on airport lookup):
   - If a flight departs from a home-timezone airport, the home (left) time is bold; the away (right) time is faint.
