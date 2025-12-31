@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 09:01 EST";
+const APP_VERSION = "2025-12-31 09:33 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2430,7 +2430,7 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
                   return (
                     <div
                       key={dayIdx}
-                      className={`cc-day ${isEvenMonth ? 'even-month' : 'odd-month'} ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast || isBeforeRange ? 'past' : ''} ${isToday ? 'today' : ''}`}
+                      className={`cc-day ${isEvenMonth ? 'even-month' : 'odd-month'} ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast || isBeforeRange ? 'past' : ''} ${isToday ? 'today' : ''} ${tempStart && isSameDay(day, tempStart) ? 'selecting-start' : ''}`}
                       onClick={() => !isPast && !isBeforeRange && handleDayClick(day)}
                     >
                       {dayNum}
@@ -5392,24 +5392,32 @@ function App() {
         }
         /* Start date is filled */
         .cc-day.start {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-          color: #fff !important;
-          font-weight: 950;
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+          /* background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; */
+          background: rgba(16, 185, 129, 0.35);
+          color: #d1fae5;
+          font-weight: 700;
           border: 2px solid #10b981;
         }
         /* End date is outline only */
         .cc-day.end {
-          background: transparent !important;
-          color: #10b981 !important;
-          font-weight: 950;
+          background: rgba(16, 185, 129, 0.35);
+          color: #d1fae5;
+          font-weight: 700;
           border: 2px solid #10b981;
-          box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
         }
         .cc-day.in-range {
           background: rgba(16, 185, 129, 0.35);
           color: #d1fae5;
           font-weight: 700;
+          border: 2px solid #10b981;
+        }
+        /* POP bright green when actively selecting first date */
+        .cc-day.selecting-start {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+          color: #fff !important;
+          font-weight: 900 !important;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
+          border: 2px solid #10b981 !important;
         }
         
         /* Editable date input in display */
