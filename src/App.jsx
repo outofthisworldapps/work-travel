@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 13:47 EST";
+const APP_VERSION = "2025-12-30 20:14 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -1497,7 +1497,42 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
     const modes = ['perNight', 'total', 'perDay'];
     const currentIndex = modes.indexOf(costMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    // When switching to perDay mode, auto-populate all nights with current cost value
+    if (nextMode === 'perDay' && nights > 0) {
+      const dailyCosts = {};
+      const costPerNight = hotel.cost || 0;
+      for (let i = 0; i < nights; i++) {
+        dailyCosts[`day${i}`] = costPerNight;
+      }
+      onUpdate(hotel.id, 'dailyCosts', dailyCosts);
+    }
+
     onUpdate(hotel.id, 'costMode', nextMode);
+  };
+
+  // Handle average rate change - update all nightly rates
+  const handleAverageChange = (newAverage) => {
+    onUpdate(hotel.id, 'cost', newAverage);
+    if (costMode === 'perDay' && nights > 0) {
+      const dailyCosts = {};
+      for (let i = 0; i < nights; i++) {
+        dailyCosts[`day${i}`] = newAverage;
+      }
+      onUpdate(hotel.id, 'dailyCosts', dailyCosts);
+    }
+  };
+
+  // Handle individual nightly rate change - recalculate average
+  const handleNightlyRateChange = (dayKey, newRate) => {
+    const newDailyCosts = { ...(hotel.dailyCosts || {}) };
+    newDailyCosts[dayKey] = newRate;
+    onUpdate(hotel.id, 'dailyCosts', newDailyCosts);
+
+    // Calculate new average from all nightly rates
+    const total = Object.values(newDailyCosts).reduce((sum, rate) => sum + (rate || 0), 0);
+    const average = nights > 0 ? total / nights : 0;
+    onUpdate(hotel.id, 'cost', average);
   };
 
   return (
@@ -1560,16 +1595,16 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
               className="f-inp h-cost"
               type="number"
               value={hotel.cost || ''}
-              onChange={e => onUpdate(hotel.id, 'cost', parseFloat(e.target.value) || 0)}
+              onChange={e => handleAverageChange(parseFloat(e.target.value) || 0)}
               placeholder="0"
             />
           </div>
           <button
             className="h-cost-mode-toggle"
             onClick={toggleCostMode}
-            title={`Cost mode: ${costMode === 'perNight' ? 'Per Night' : costMode === 'total' ? 'Total' : 'Per Day'}`}
+            title={`Cost mode: ${costMode === 'perNight' ? 'Per Night' : costMode === 'total' ? 'Total' : 'Average'}`}
           >
-            {costMode === 'perNight' ? '/night' : costMode === 'total' ? 'total' : '/day'}
+            {costMode === 'perNight' ? '/night' : costMode === 'total' ? 'total' : 'average'}
           </button>
         </div>
 
@@ -1629,11 +1664,7 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
                     className="f-inp h-perday-input"
                     type="number"
                     value={dayCost || ''}
-                    onChange={e => {
-                      const newDailyCosts = { ...(hotel.dailyCosts || {}) };
-                      newDailyCosts[dayKey] = parseFloat(e.target.value) || 0;
-                      onUpdate(hotel.id, 'dailyCosts', newDailyCosts);
-                    }}
+                    onChange={e => handleNightlyRateChange(dayKey, parseFloat(e.target.value) || 0)}
                     placeholder="0"
                   />
                 </div>
@@ -5525,7 +5556,7 @@ function App() {
         /* Row 2: Check-in / Time / Cost Mode / Cost / Tax */
         .h-row-2 { align-items: center; flex-wrap: wrap; }
         .h-date-select { max-width: 95px !important; font-size: 0.65rem; }
-        .h-time { width: 60px !important; }
+        .h-time { width: 50px !important; }
         .h-cost { width: 50px !important; box-sizing: border-box; }
         
         .h-cost-group {
