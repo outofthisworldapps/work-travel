@@ -6,7 +6,7 @@ import {
   Download, RefreshCcw, DollarSign, MapPin,
   Bus, Info, Calendar, Home, GripVertical, X,
   Link2, Link2Off, Hash, AlertTriangle, Lock, Globe, Briefcase,
-  Undo2, Redo2, FolderOpen, Save, Cloud, LogIn, LogOut, User
+  Undo2, Redo2, FolderOpen, Save, Cloud, LogIn, LogOut, User, Check, FileText
 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import CloudTrips from './components/CloudTrips';
@@ -38,38 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 23:23 EST";
-
-// --- Cloud Save Helper ---
-const saveTripToCloud = async (user, tripData) => {
-  if (!user) return;
-  try {
-    const { db } = await import('./firebase');
-    const { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } = await import('firebase/firestore');
-
-    const tripName = tripData.trip.name || 'Untitled Trip';
-    const tripDataToSave = {
-      ...tripData,
-      updatedAt: serverTimestamp(),
-      tripName: tripName
-    };
-
-    const tripsRef = collection(db, 'users', user.uid, 'trips');
-    const q = query(tripsRef, where("tripName", "==", tripName));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const docId = querySnapshot.docs[0].id;
-      await updateDoc(doc(db, 'users', user.uid, 'trips', docId), tripDataToSave);
-      console.log("Auto-saved to cloud:", tripName);
-    } else {
-      await addDoc(tripsRef, tripDataToSave);
-      console.log("Created new cloud trip:", tripName);
-    }
-  } catch (err) {
-    console.error("Cloud auto-save error:", err);
-  }
-};
+const APP_VERSION = "2025-12-31 07:14 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2105,25 +2074,121 @@ const TransportationPanel = ({
 
 // --- Components ---
 
-// Vertically scrolling date range picker (Google Flights style)
+// Parse flexible date input: supports "Jan 4", "1/4", "1-4", "1 4", "January 4", etc.
+const parseDateInput = (input) => {
+  if (!input || typeof input !== 'string') return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const currentYear = today.getFullYear();
+
+  // Month name mapping
+  const monthNames = {
+    'jan': 0, 'january': 0, 'feb': 1, 'february': 1, 'mar': 2, 'march': 2,
+    'apr': 3, 'april': 3, 'may': 4, 'jun': 5, 'june': 5, 'jul': 6, 'july': 6,
+    'aug': 7, 'august': 7, 'sep': 8, 'sept': 8, 'september': 8, 'oct': 9, 'october': 9,
+    'nov': 10, 'november': 10, 'dec': 11, 'december': 11
+  };
+
+  let month = null;
+  let day = null;
+
+  // Try "Month Day" format first (Jan 4, January 4)
+  const monthDayMatch = trimmed.match(/^([a-zA-Z]+)\s*(\d{1,2})$/);
+  if (monthDayMatch) {
+    const monthStr = monthDayMatch[1].toLowerCase();
+    if (monthNames[monthStr] !== undefined) {
+      month = monthNames[monthStr];
+      day = parseInt(monthDayMatch[2], 10);
+    }
+  }
+
+  // Try "M/D", "M-D", "M D" formats
+  if (month === null) {
+    const numericMatch = trimmed.match(/^(\d{1,2})[\/\-\s](\d{1,2})$/);
+    if (numericMatch) {
+      month = parseInt(numericMatch[1], 10) - 1; // Convert to 0-indexed
+      day = parseInt(numericMatch[2], 10);
+    }
+  }
+
+  if (month !== null && day !== null && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+    // Determine year: use next occurrence of this date
+    let year = currentYear;
+    let resultDate = new Date(year, month, day, 12, 0, 0);
+
+    // If the date is in the past, use next year
+    if (resultDate < today && !isSameDay(resultDate, today)) {
+      year = currentYear + 1;
+      resultDate = new Date(year, month, day, 12, 0, 0);
+    }
+
+    // Validate the date is real (e.g., Feb 30 doesn't exist)
+    if (resultDate.getMonth() === month && resultDate.getDate() === day) {
+      return resultDate;
+    }
+  }
+
+  return null;
+};
+
+// Vertically scrolling date range picker with continuous flowing calendar
 const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectingStart, setSelectingStart] = useState(true);
   const [tempStart, setTempStart] = useState(null);
+  const [editingStart, setEditingStart] = useState(false);
+  const [editingEnd, setEditingEnd] = useState(false);
+  const [startInputValue, setStartInputValue] = useState('');
+  const [endInputValue, setEndInputValue] = useState('');
   const popupRef = React.useRef(null);
   const scrollRef = React.useRef(null);
-  const startMonthRef = React.useRef(null);
+  const startRowRef = React.useRef(null);
+  const startInputRef = React.useRef(null);
+  const endInputRef = React.useRef(null);
 
-  // Generate 13 months: current month + 12 months ahead
-  const months = useMemo(() => {
+  // Generate 365 days starting from today
+  const allDays = useMemo(() => {
     const result = [];
     const today = new Date();
-    const firstMonth = startOfMonth(today);
-    for (let i = 0; i < 13; i++) {
-      result.push(addMonths(firstMonth, i));
+    today.setHours(12, 0, 0, 0);
+    for (let i = 0; i < 365; i++) {
+      result.push(addDays(today, i));
     }
     return result;
   }, []);
+
+  // Group days into weeks (Sunday-Saturday)
+  const weeks = useMemo(() => {
+    const result = [];
+    let currentWeek = [];
+
+    // Find the first Sunday on or before the first day
+    const firstDay = allDays[0];
+    const firstSunday = addDays(firstDay, -firstDay.getDay());
+
+    // Start from first Sunday and go through all days
+    let currentDate = firstSunday;
+    const lastDay = allDays[allDays.length - 1];
+
+    while (currentDate <= lastDay) {
+      currentWeek.push(currentDate);
+      if (currentWeek.length === 7) {
+        result.push(currentWeek);
+        currentWeek = [];
+      }
+      currentDate = addDays(currentDate, 1);
+    }
+
+    // Add remaining days
+    if (currentWeek.length > 0) {
+      result.push(currentWeek);
+    }
+
+    return result;
+  }, [allDays]);
 
   // Close on outside click
   React.useEffect(() => {
@@ -2138,14 +2203,29 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Scroll to the start date's month when opening
+  // Scroll to start date's week when opening
   React.useEffect(() => {
-    if (isOpen && scrollRef.current && startMonthRef.current) {
+    if (isOpen && scrollRef.current && startRowRef.current) {
       setTimeout(() => {
-        startMonthRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+        startRowRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
       }, 50);
     }
   }, [isOpen]);
+
+  // Focus input when editing
+  React.useEffect(() => {
+    if (editingStart && startInputRef.current) {
+      startInputRef.current.focus();
+      startInputRef.current.select();
+    }
+  }, [editingStart]);
+
+  React.useEffect(() => {
+    if (editingEnd && endInputRef.current) {
+      endInputRef.current.focus();
+      endInputRef.current.select();
+    }
+  }, [editingEnd]);
 
   const openCalendar = () => {
     setTempStart(null);
@@ -2154,17 +2234,17 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   };
 
   const handleDayClick = (day) => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    if (isBefore(day, today) && !isSameDay(day, today)) return;
+
     if (selectingStart) {
-      // First click: set temp start
       setTempStart(day);
       setSelectingStart(false);
     } else {
-      // Second click: finalize range
       if (tempStart && isBefore(day, tempStart)) {
-        // Clicked before temp start - swap and set as new temp start
         setTempStart(day);
       } else {
-        // Set final range
         const finalStart = tempStart || startDate;
         onStartChange(finalStart);
         onEndChange(day);
@@ -2175,72 +2255,75 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     }
   };
 
-  const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
-
-  const renderMonth = (monthDate, isStartMonth) => {
-    const year = monthDate.getFullYear();
-    const month = monthDate.getMonth();
-    const totalDays = daysInMonth(year, month);
-    const startDay = firstDayOfMonth(year, month);
-    const cells = [];
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
-
-    // Empty cells for days before the 1st
-    for (let i = 0; i < startDay; i++) {
-      cells.push(<div key={`empty-${i}`} className="cal-day empty" />);
-    }
-
-    // Active selection (for highlighting)
-    const activeStart = tempStart || startDate;
-    const activeEnd = tempStart ? null : endDate;
-
-    for (let d = 1; d <= totalDays; d++) {
-      const date = new Date(year, month, d, 12, 0, 0);
-      const isPast = isBefore(date, today) && !isSameDay(date, today);
-      const isStart = activeStart && isSameDay(date, activeStart);
-      const isEnd = activeEnd && isSameDay(date, activeEnd);
-      const isInRange = activeStart && activeEnd && isAfter(date, activeStart) && isBefore(date, activeEnd);
-      const isToday = isSameDay(date, today);
-
-      cells.push(
-        <div
-          key={d}
-          className={`cal-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}
-          onClick={() => !isPast && handleDayClick(date)}
-        >
-          {d}
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={format(monthDate, 'yyyy-MM')}
-        className="cal-month-block"
-        ref={isStartMonth ? startMonthRef : null}
-      >
-        <div className="cal-month-header">
-          {format(monthDate, 'MMMM yyyy')}
-        </div>
-        <div className="cal-weekdays">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
-        </div>
-        <div className="cal-grid">
-          {cells}
-        </div>
-      </div>
-    );
+  const handleStartClick = (e) => {
+    e.stopPropagation();
+    setEditingStart(true);
+    setStartInputValue(startDate ? format(startDate, 'MMM d') : '');
   };
 
-  // Find which month the start date is in for scrolling
-  const startMonthIndex = useMemo(() => {
+  const handleEndClick = (e) => {
+    e.stopPropagation();
+    setEditingEnd(true);
+    setEndInputValue(endDate ? format(endDate, 'MMM d') : '');
+  };
+
+  const handleStartInputChange = (e) => {
+    setStartInputValue(e.target.value);
+  };
+
+  const handleEndInputChange = (e) => {
+    setEndInputValue(e.target.value);
+  };
+
+  const handleStartInputBlur = () => {
+    const parsed = parseDateInput(startInputValue);
+    if (parsed) {
+      onStartChange(parsed);
+      // If new start is after end, adjust end
+      if (endDate && isAfter(parsed, endDate)) {
+        onEndChange(addDays(parsed, differenceInCalendarDays(endDate, startDate) || 0));
+      }
+    }
+    setEditingStart(false);
+  };
+
+  const handleEndInputBlur = () => {
+    const parsed = parseDateInput(endInputValue);
+    if (parsed) {
+      // Only accept if end is on or after start
+      if (startDate && !isBefore(parsed, startDate)) {
+        onEndChange(parsed);
+      }
+    }
+    setEditingEnd(false);
+  };
+
+  const handleStartInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleStartInputBlur();
+    } else if (e.key === 'Escape') {
+      setEditingStart(false);
+    }
+  };
+
+  const handleEndInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEndInputBlur();
+    } else if (e.key === 'Escape') {
+      setEditingEnd(false);
+    }
+  };
+
+  // Find which week contains the start date for auto-scroll
+  const startWeekIndex = useMemo(() => {
     if (!startDate) return 0;
-    const startMo = startOfMonth(startDate);
-    const idx = months.findIndex(m => isSameDay(startOfMonth(m), startMo));
-    return idx >= 0 ? idx : 0;
-  }, [startDate, months]);
+    const idx = weeks.findIndex(week =>
+      week.some(day => isSameDay(day, startDate))
+    );
+    return Math.max(0, idx);
+  }, [startDate, weeks]);
 
   // Calculate number of days in range
   const dayCount = useMemo(() => {
@@ -2248,22 +2331,74 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     return differenceInCalendarDays(endDate, startDate) + 1;
   }, [startDate, endDate]);
 
-  // Format display: 🗓️ Sun JAN 4 – Thu JAN 8 (5 days)
-  const formatDisplay = () => {
-    if (!startDate || !endDate) {
-      return <span className="date-range-placeholder">Select dates</span>;
-    }
-    const fmtDate = (d) => {
-      const dow = format(d, 'EEE'); // Sun, Mon, etc.
-      const mon = format(d, 'MMM').toUpperCase(); // JAN, FEB, etc.
-      const day = format(d, 'd');
-      return <><span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span></>;
-    };
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const activeStart = tempStart || startDate;
+  const activeEnd = tempStart ? null : endDate;
+
+  // Render continuous calendar
+  const renderCalendar = () => {
     return (
-      <>
-        {fmtDate(startDate)} <span className="range-dash">–</span> {fmtDate(endDate)} <span className="day-count-badge">({dayCount} day{dayCount !== 1 ? 's' : ''})</span>
-      </>
+      <div className="cc-calendar">
+        {/* Weekday headers */}
+        <div className="cc-header-row">
+          <div className="cc-month-label-cell"></div>
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+            <div key={d} className="cc-weekday">{d}</div>
+          ))}
+        </div>
+
+        {/* Week rows */}
+        <div className="cc-weeks-container" ref={scrollRef}>
+          {weeks.map((week, weekIdx) => {
+            const sundayDate = week[0];
+            const sundayMonth = sundayDate.getMonth();
+            const monthAbbr = format(sundayDate, 'MMM').toUpperCase();
+            const isEvenMonth = sundayMonth % 2 === 0;
+            const isStartRow = weekIdx === startWeekIndex;
+
+            return (
+              <div
+                key={weekIdx}
+                className={`cc-week-row ${isEvenMonth ? 'even-month' : 'odd-month'}`}
+                ref={isStartRow ? startRowRef : null}
+              >
+                <div className="cc-month-label-cell">
+                  <span className="cc-month-label">{monthAbbr}</span>
+                </div>
+                {week.map((day, dayIdx) => {
+                  const isPast = isBefore(day, today) && !isSameDay(day, today);
+                  const isBeforeRange = isBefore(day, allDays[0]);
+                  const isStart = activeStart && isSameDay(day, activeStart);
+                  const isEnd = activeEnd && isSameDay(day, activeEnd);
+                  const isInRange = activeStart && activeEnd && isAfter(day, activeStart) && isBefore(day, activeEnd);
+                  const isToday = isSameDay(day, today);
+                  const dayNum = day.getDate();
+
+                  return (
+                    <div
+                      key={dayIdx}
+                      className={`cc-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast || isBeforeRange ? 'past' : ''} ${isToday ? 'today' : ''}`}
+                      onClick={() => !isPast && !isBeforeRange && handleDayClick(day)}
+                    >
+                      {dayNum}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
+  };
+
+  // Format display for dates
+  const fmtDate = (d) => {
+    const dow = format(d, 'EEE');
+    const mon = format(d, 'MMM').toUpperCase();
+    const day = format(d, 'd');
+    return <><span className="dow">{dow}</span> <span className="mon">{mon}</span> <span className="day">{day}</span></>;
   };
 
   return (
@@ -2271,15 +2406,52 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
       <button className="cal-icon-btn" onClick={openCalendar} type="button" title="Select date range">
         <span className="cal-emoji">🗓️</span>
       </button>
-      <div className="date-range-display" onClick={openCalendar}>
-        {formatDisplay()}
+      <div className="date-range-display">
+        {!startDate || !endDate ? (
+          <span className="date-range-placeholder" onClick={openCalendar}>Select dates</span>
+        ) : (
+          <>
+            {editingStart ? (
+              <input
+                ref={startInputRef}
+                className="date-edit-input"
+                value={startInputValue}
+                onChange={handleStartInputChange}
+                onBlur={handleStartInputBlur}
+                onKeyDown={handleStartInputKeyDown}
+                placeholder="Jan 4"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span className="date-clickable" onClick={handleStartClick} title="Click to edit">
+                {fmtDate(startDate)}
+              </span>
+            )}
+            <span className="range-dash">–</span>
+            {editingEnd ? (
+              <input
+                ref={endInputRef}
+                className="date-edit-input"
+                value={endInputValue}
+                onChange={handleEndInputChange}
+                onBlur={handleEndInputBlur}
+                onKeyDown={handleEndInputKeyDown}
+                placeholder="Jan 8"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span className="date-clickable" onClick={handleEndClick} title="Click to edit">
+                {fmtDate(endDate)}
+              </span>
+            )}
+            <span className="day-count-badge">({dayCount} day{dayCount !== 1 ? 's' : ''})</span>
+          </>
+        )}
       </div>
 
       {isOpen && (
-        <div className="cal-popup vertical-scroll">
-          <div className="cal-scroll-container" ref={scrollRef}>
-            {months.map((monthDate, idx) => renderMonth(monthDate, idx === startMonthIndex))}
-          </div>
+        <div className="cc-popup">
+          {renderCalendar()}
           <div className="cal-hint">
             {selectingStart ? 'Select departure date' : 'Select return date'}
           </div>
@@ -2790,6 +2962,7 @@ function App() {
   const [customRates, setCustomRates] = useState(initialState.customRates || MOCK_RATES);
   const [useAlt, setUseAlt] = useState(initialState.useAlt !== undefined ? initialState.useAlt : true);
   const [conferenceCenter, setConferenceCenter] = useState(initialState.conferenceCenter || 'Conference Center');
+  const [tripCity, setTripCity] = useState(initialState.tripCity || '');
 
   const [days, setDays] = useState(() => {
     if (initialState.days) {
@@ -3033,6 +3206,7 @@ function App() {
         flights,
         hotels,
         conferenceCenter,
+        tripCity,
         transportation
       };
       localStorage.setItem('work-travel-state', JSON.stringify(stateData));
@@ -3072,6 +3246,7 @@ function App() {
         if (data.trip.destination?.city) setDestCity(data.trip.destination.city);
         if (data.trip.destination?.timeZone) setDestTimeZone(data.trip.destination.timeZone);
         if (data.trip.conferenceCenter) setConferenceCenter(data.trip.conferenceCenter);
+        if (data.trip.city) setTripCity(data.trip.city);
       }
 
       // Reconstruct days from mie and lodging arrays (NO legs - deprecated)
@@ -3180,6 +3355,43 @@ function App() {
   }, [undo, redo, days, tripName, loadData, flights, hotels]);
 
   const [showCloudPanel, setShowCloudPanel] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
+
+  const saveTripToCloud = async (user, tripData) => {
+    if (!user) return;
+    setIsSyncing(true);
+    try {
+      const { db } = await import('./firebase');
+      const { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } = await import('firebase/firestore');
+
+      const tripName = tripData.trip.name || 'Untitled Trip';
+      const tripDataToSave = {
+        ...tripData,
+        updatedAt: serverTimestamp(),
+        tripName: tripName
+      };
+
+      const tripsRef = collection(db, 'users', user.uid, 'trips');
+      const q = query(tripsRef, where("tripName", "==", tripName));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const docId = querySnapshot.docs[0].id;
+        await updateDoc(doc(db, 'users', user.uid, 'trips', docId), tripDataToSave);
+        console.log("Auto-saved to cloud:", tripName);
+      } else {
+        await addDoc(tripsRef, tripDataToSave);
+        console.log("Created new cloud trip:", tripName);
+      }
+      setLastSync(new Date());
+    } catch (err) {
+      console.error("Cloud auto-save error:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
 
   const getTripData = () => {
     // Build category-based JSON structure
@@ -3197,7 +3409,8 @@ function App() {
         city: destCity,
         timeZone: destTimeZone
       },
-      conferenceCenter: conferenceCenter
+      conferenceCenter: conferenceCenter,
+      city: tripCity
     };
 
     // M&IE per-day entries with dates
@@ -4308,6 +4521,51 @@ function App() {
               >
                 <Redo2 size={14} /> Redo
               </button>
+              <button
+                onClick={() => {
+                  if (confirm('Start a new trip? Your current trip will be saved to history (Undo will bring it back).')) {
+                    saveToHistory(days, tripName, registrationFee, registrationCurrency, altCurrency, customRates, useAlt, flights, flightTotal, hotels, homeCity, homeTimeZone, destCity, destTimeZone, tripWebsite, conferenceCenter);
+                    // Reset to default state
+                    setTripName('New Trip');
+                    setTripWebsite('');
+                    setConferenceCenter('Conference Center');
+                    setDays([{
+                      id: "day-0",
+                      date: new Date(),
+                      mieBase: 105,
+                      meals: { B: true, L: true, D: true, I: true },
+                      hotelRate: 0, hotelTax: 0, hotelCurrency: 'USD',
+                      maxLodging: 200,
+                      registrationFee: 0,
+                      location: '',
+                      isForeignMie: false,
+                      isForeignHotel: false,
+                      hotelName: '',
+                      overageCapPercent: 25
+                    }]);
+                    setFlights([]);
+                    setHotels([]);
+                    setTransportation([]);
+                  }
+                }}
+                title="Start a new trip"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  borderRadius: '6px',
+                  color: '#a5b4fc',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FileText size={14} /> New
+              </button>
               <label
                 className="hide-on-mobile"
                 style={{
@@ -4351,32 +4609,40 @@ function App() {
                 <Save size={14} /> Save
               </button>
 
+              {/* Cloud Button with Status Indicator */}
               <button
                 className={`action-btn ${showCloudPanel ? 'active' : ''}`}
                 onClick={() => setShowCloudPanel(!showCloudPanel)}
-                title="Cloud Trips & Sync"
+                title={user ? (isSyncing ? 'Syncing...' : lastSync ? `Last synced: ${lastSync.toLocaleTimeString()}` : 'Cloud Trips') : 'Sign in to sync'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
                   padding: '6px 12px',
-                  background: showCloudPanel ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.2)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  background: showCloudPanel ? 'rgba(129, 140, 248, 0.4)' : 'rgba(129, 140, 248, 0.1)',
+                  border: `1px solid ${user && lastSync ? 'rgba(16, 185, 129, 0.4)' : 'rgba(129, 140, 248, 0.3)'}`,
                   borderRadius: '6px',
-                  color: user ? '#818cf8' : '#a5b4fc',
+                  color: user && lastSync ? '#10b981' : '#818cf8',
                   cursor: 'pointer',
                   fontSize: '0.75rem',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   transition: 'all 0.2s'
                 }}
               >
-                <Cloud size={14} fill={user ? 'currentColor' : 'none'} /> {user ? 'Cloud Sync' : 'Cloud'}
+                {isSyncing ? (
+                  <RefreshCcw size={14} className="spin" />
+                ) : (
+                  <Cloud size={14} fill={user && lastSync && !isSyncing ? 'currentColor' : 'none'} />
+                )}
+                Cloud
               </button>
             </div>
 
             {showCloudPanel && (
               <CloudTrips
                 currentTripData={getTripData()}
+                isSyncing={isSyncing}
+                lastSync={lastSync}
                 onLoadTrip={(data) => {
                   loadData(data);
                   setShowCloudPanel(false);
@@ -4411,9 +4677,21 @@ function App() {
                       onEndChange={handleEndDateChange}
                     />
                   </div>
+                  <div className="city-block" style={{ width: '100%', marginTop: '8px' }}>
+                    <div className="city-row" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
+                      <span className="city-icon"><MapPin size={12} /></span>
+                      <input
+                        className="city-input"
+                        value={tripCity}
+                        onChange={(e) => setTripCity(e.target.value)}
+                        placeholder="City (e.g. Paris, London)"
+                        style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '4px 8px', color: '#fff', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
                   <div className="conf-center-block" style={{ width: '100%' }}>
                     <div className="conf-center-row" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
-                      <span className="conf-icon"><MapPin size={12} /></span>
+                      <span className="conf-icon"><Briefcase size={12} /></span>
                       <input
                         className="conf-input"
                         value={conferenceCenter}
@@ -4422,7 +4700,7 @@ function App() {
                         style={{ flex: 1, minWidth: 0 }}
                       />
                       <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter)}`}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(conferenceCenter + (tripCity ? ', ' + tripCity : ''))}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="conf-map-link"
@@ -4937,6 +5215,149 @@ function App() {
           border-top: 1px solid rgba(99, 102, 241, 0.2);
         }
 
+        /* Continuous Calendar Styles */
+        .cc-popup {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          margin-top: 8px;
+          background: rgba(15, 23, 42, 0.98);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 16px;
+          padding: 0;
+          z-index: 10001;
+          box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1);
+          width: 340px;
+          overflow: hidden;
+        }
+        .cc-calendar {
+          display: flex;
+          flex-direction: column;
+        }
+        .cc-header-row {
+          display: grid;
+          grid-template-columns: 40px repeat(7, 1fr);
+          gap: 2px;
+          padding: 10px 8px 6px;
+          background: rgba(15, 23, 42, 0.98);
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
+        .cc-weekday {
+          text-align: center;
+          font-size: 0.55rem;
+          font-weight: 800;
+          color: #475569;
+          text-transform: uppercase;
+        }
+        .cc-weeks-container {
+          max-height: 380px;
+          overflow-y: auto;
+          scroll-behavior: smooth;
+          padding: 4px 8px;
+        }
+        .cc-weeks-container::-webkit-scrollbar { width: 6px; }
+        .cc-weeks-container::-webkit-scrollbar-track { background: transparent; }
+        .cc-weeks-container::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 3px;
+        }
+        .cc-weeks-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+        .cc-week-row {
+          display: grid;
+          grid-template-columns: 40px repeat(7, 1fr);
+          gap: 2px;
+          padding: 2px 0;
+          border-radius: 6px;
+          margin-bottom: 1px;
+        }
+        .cc-week-row.even-month {
+          background: rgba(99, 102, 241, 0.06);
+        }
+        .cc-week-row.odd-month {
+          background: rgba(245, 158, 11, 0.04);
+        }
+        .cc-month-label-cell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 40px;
+        }
+        .cc-month-label {
+          font-size: 0.5rem;
+          font-weight: 900;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+        .cc-day {
+          text-align: center;
+          padding: 8px 3px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          border-radius: 6px;
+          color: #94a3b8;
+          transition: all 0.15s;
+        }
+        .cc-day:hover:not(.past) { 
+          background: rgba(99, 102, 241, 0.3); 
+          color: #fff; 
+        }
+        .cc-day.past { 
+          color: #334155; 
+          cursor: not-allowed; 
+        }
+        .cc-day.today { 
+          border: 2px solid var(--accent); 
+        }
+        .cc-day.start {
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          color: #fff;
+          font-weight: 900;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        .cc-day.end {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: #fff;
+          font-weight: 900;
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        .cc-day.in-range {
+          background: rgba(99, 102, 241, 0.2);
+          color: #a5b4fc;
+        }
+        
+        /* Editable date input in display */
+        .date-clickable {
+          cursor: pointer;
+          padding: 2px 4px;
+          border-radius: 4px;
+          transition: all 0.15s;
+        }
+        .date-clickable:hover {
+          background: rgba(99, 102, 241, 0.2);
+        }
+        .date-edit-input {
+          width: 70px;
+          background: rgba(99, 102, 241, 0.15);
+          border: 1px solid var(--accent);
+          border-radius: 4px;
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 600;
+          padding: 2px 6px;
+          outline: none;
+          font-family: inherit;
+        }
+        .date-edit-input::placeholder {
+          color: #6b7280;
+          font-style: italic;
+        }
 
         /* SingleDatePicker Styles */
         .single-date-picker { position: relative; display: inline-block; width: 100%; }

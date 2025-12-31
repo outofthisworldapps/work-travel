@@ -9,14 +9,22 @@
   - **Save**: Downloads current trip state as a JSON file (Cmd/Ctrl+S).
 - **Auto-Save & Recovery**: App automatically saves state to browser's localStorage on every change. If the app crashes or browser closes, it automatically restores the last state on reload.
 - **Trip Dates**: 
-  - **Vertically Scrolling Date Range Picker** (Google Flights style):
-    - Single 🗓️ calendar icon on the left opens the calendar.
-    - Calendar scrolls vertically showing 13 months (current + 12 months ahead).
-    - First click selects the departure (start) date.
-    - Second click selects the return (end) date to complete the range.
+  - **Continuous Flowing Calendar**:
+    - Single 🗓️ calendar icon on the left opens the calendar popup.
+    - Calendar displays 365 days from the current date in a continuous vertical scroll (no month breaks).
+    - Days flow seamlessly from one month to the next.
+    - **Month Labels on Left**: Abbreviated month name (e.g., JAN, FEB) appears on the left side of each week row, corresponding to the Sunday of that week.
+    - **Alternating Month Shading**: Even months have a subtle indigo tint, odd months have a subtle orange tint for visual distinction.
+    - **Week Rows**: Each row represents a full Sunday-Saturday week.
+    - First click selects the departure (start) date; second click selects the return (end) date.
     - If user clicks a date before the selected start, it resets as the new start.
     - Past dates are grayed out and not selectable.
-    - Calendar auto-scrolls to the currently selected start month when opened.
+    - Calendar auto-scrolls to the week containing the selected start date when opened.
+    - High z-index (10001) ensures popup displays above all other UI elements.
+  - **Editable Date Display**: 
+    - Clicking directly on the start or end date text allows inline editing.
+    - Supports flexible text input formats: `Jan 4`, `1/4`, `1-4`, `1 4`, `January 4`.
+    - Year is auto-determined as the next upcoming occurrence of the entered date.
   - **Display Format**: `🗓️ Sun JAN 4 – Thu JAN 8 (5 days)` showing weekday, month (uppercase), day, and trip duration.
   - **Sticky Duration**: Changing the start date shifts the entire trip (end date moves to keep the same # of days). Changing the start date also shifts all flights and hotel dates.
   - **User Never Enters Year**: Year is auto-determined as the next upcoming occurrence of the selected month/day.
