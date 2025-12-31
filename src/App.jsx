@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 22:45 EST";
+const APP_VERSION = "2025-12-30 22:53 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -5508,9 +5508,9 @@ function App() {
         
         .tl-event { position: absolute; border-radius: 6px; padding: 4px 8px; font-size: 0.62rem; font-weight: 950; overflow: visible; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
         .tl-event.flight-event { width: auto; left: 0; right: 0; z-index: 10; padding: 2px 8px; background: rgba(99, 102, 241, 0.4); justify-content: center; backdrop-filter: blur(4px); }
-        .tl-event.travel-event { width: 45%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 6px; padding: 0 !important; }
-        .tl-event.travel-event.home-side { left: 4px !important; right: auto !important; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); border-left: 2px solid #fff !important; border-radius: 0 3px 3px 0 !important; }
-        .tl-event.travel-event.away-side { right: 4px !important; left: auto !important; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); border-right: 2px solid #fff !important; border-radius: 3px 0 0 3px !important; }
+        .tl-event.travel-event { width: 45%; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.4); height: 6px; padding: 0 !important; border-radius: 4px !important; }
+        .tl-event.travel-event.home-side { left: 4px !important; right: auto !important; background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.6)); }
+        .tl-event.travel-event.away-side { right: 4px !important; left: auto !important; background: linear-gradient(to left, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.6)); }
         .tl-event.hotel-event { width: 50%; left: 50%; right: 0; opacity: 1.0; z-index: 2; background: linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85)); border: 1px solid rgba(16, 185, 129, 0.6); justify-content: center; }
 
 

@@ -703,13 +703,13 @@ const ContinuousTimeline = ({
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900, width: 'auto' }}>
+                                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff' }}>
                                             {formatTimeNum(seg.localStartTime)}
                                         </span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem' }}>{seg.toEmoji}</span>
-                                        <span className={`time-item ${seg.isHome ? 'home' : 'dest'}`} style={{ fontSize: '0.5rem', fontWeight: 900, width: 'auto' }}>
+                                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff' }}>
                                             {formatTimeNum(seg.localEndTime)}
                                         </span>
                                     </div>
