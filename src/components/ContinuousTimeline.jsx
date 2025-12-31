@@ -127,7 +127,7 @@ const calculateMidnights = (tripStartDate, totalDays, homeTZ, destTZ) => {
     // For each day in the trip, add home midnight (at 0h of that day in home time)
     for (let dayIdx = 0; dayIdx <= totalDays; dayIdx++) {
         const dayDate = addDays(tripStartDate, dayIdx);
-        const dayLabel = format(dayDate, 'EEE|MMM d').toUpperCase();
+        const dayLabel = format(dayDate, 'EEE MMM d').toUpperCase();
 
         midnights.push({
             dayIndex: dayIdx,
@@ -152,7 +152,7 @@ const calculateMidnights = (tripStartDate, totalDays, homeTZ, destTZ) => {
             // Only add if within trip bounds (with some margin)
             if (destMidnightInHomeHours >= -12 && destMidnightInHomeHours <= (totalDays + 1) * 24) {
                 // The label should be for the destination date (dayIdx), not the home date
-                const destLabel = format(destDayDate, 'EEE|MMM d').toUpperCase();
+                const destLabel = format(destDayDate, 'EEE MMM d').toUpperCase();
 
                 midnights.push({
                     dayIndex: dayIdx,
@@ -430,12 +430,9 @@ const ContinuousTimeline = ({
                 <div className="timeline-col combined-col left" style={{ position: 'relative' }}>
                     {/* Date labels at midnight positions */}
                     {midnights.filter(m => m.tz === 'home').map((m, i) => (
-                        <div key={`home-${i}`} className="midnight-label-stack home"
+                        <div key={`home-${i}`} className="midnight-label-single home"
                             style={{ position: 'absolute', top: `${getPosition(m.hoursFromStart)}%` }}>
-                            <div className="date-stack home">
-                                <div className="tl-dw">{m.label.split('|')[0]}</div>
-                                <div className="tl-dm">{m.label.split('|')[1]}</div>
-                            </div>
+                            {m.label}
                         </div>
                     ))}
                     {/* Hour labels for each day */}
@@ -648,24 +645,19 @@ const ContinuousTimeline = ({
                                     height: `${height}%`,
                                     width: '50%',
                                     left: '50%',
-                                    borderLeft: '4px solid rgba(16, 185, 129, 0.7)',
+                                    borderLeft: '3px solid rgba(16, 185, 129, 0.6)',
                                     borderRadius: '8px',
                                     zIndex: 2,
-                                    background: 'linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85))'
+                                    background: 'linear-gradient(to right, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.15) 50%, rgba(16, 185, 129, 0.25))'
                                 }}
                             >
                                 <div className="tl-hotel-name" style={{
                                     position: 'absolute', top: '50%', left: 0, right: 0,
-                                    textAlign: 'center', transform: 'translateY(-50%)', zIndex: 5
+                                    textAlign: 'center', transform: 'translateY(-50%)', zIndex: 5,
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                                 }}>
-                                    <span style={{
-                                        background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(10px)',
-                                        padding: '5px 14px', borderRadius: '99px',
-                                        border: '1.5px solid rgba(16, 185, 129, 0.5)',
-                                        boxShadow: '0 4px 15px rgba(0,0,0,0.6)'
-                                    }}>
-                                        🏨 {seg.name || 'Hotel'}
-                                    </span>
+                                    <span style={{ fontSize: '1rem' }}>🏨</span>
+                                    <span style={{ color: '#fff', fontWeight: 800, fontSize: '0.7rem' }}>{seg.name || 'Hotel'}</span>
                                 </div>
                             </div>
                         );
@@ -735,12 +727,9 @@ const ContinuousTimeline = ({
                     <div className="timeline-col combined-col right" style={{ position: 'relative' }}>
                         {/* Date labels at midnight positions */}
                         {midnights.filter(m => m.tz === 'dest').map((m, i) => (
-                            <div key={`dest-${i}`} className="midnight-label-stack dest"
+                            <div key={`dest-${i}`} className="midnight-label-single dest"
                                 style={{ position: 'absolute', top: `${getPosition(m.hoursFromStart)}%` }}>
-                                <div className="date-stack dest">
-                                    <div className="tl-dw">{m.label.split('|')[0]}</div>
-                                    <div className="tl-dm">{m.label.split('|')[1]}</div>
-                                </div>
+                                {m.label}
                             </div>
                         ))}
                         {/* Hour labels for dest timezone - positioned relative to dest midnights */}
