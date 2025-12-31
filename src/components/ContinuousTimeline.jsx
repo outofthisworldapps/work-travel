@@ -549,9 +549,10 @@ const ContinuousTimeline = ({
                                     {/* Restructured content: Two rows for flight details */}
                                     <div className="tl-f-content-stack" style={{
                                         display: 'flex', flexDirection: 'column', gap: '1px',
-                                        width: '100%', padding: '0 10px', justifyContent: 'center'
+                                        width: '100%', padding: '0 10px', justifyContent: 'center',
+                                        position: 'relative'
                                     }}>
-                                        {/* Row 1: departure time // airport // plane icon // airline */}
+                                        {/* Row 1: departure time // airport // space for straddling icon // airline */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span style={{
                                                 fontSize: '0.65rem', fontWeight: 700, color: '#fff',
@@ -560,7 +561,13 @@ const ContinuousTimeline = ({
                                             <span style={{
                                                 fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
                                             }}>{seg.depPort}</span>
-                                            <span style={{ fontSize: '0.65rem' }}>✈️</span>
+
+                                            {/* Straddling Plane Icon */}
+                                            <span style={{
+                                                fontSize: '0.65rem', width: '12px', display: 'flex', justifyContent: 'center',
+                                                position: 'relative', top: '7px', zIndex: 6
+                                            }}>✈️</span>
+
                                             <span style={{
                                                 fontSize: '0.65rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap'
                                             }}>{seg.segment.airlineCode}</span>
@@ -703,23 +710,22 @@ const ContinuousTimeline = ({
                                     flexDirection: 'row',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '4px'
+                                    gap: '6px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                        <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
-                                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff' }}>
-                                            {formatTimeNum(seg.localStartTime)}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                        <span style={{ fontSize: '0.65rem' }}>{seg.toEmoji}</span>
-                                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff' }}>
-                                            {formatTimeNum(seg.localEndTime)}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '1rem', marginLeft: '2px' }}>
-                                        {typeEmoji}
-                                    </div>
+                                    {/* typeEmoji // startTime // fromEmoji // endTime // toEmoji */}
+                                    <div style={{ fontSize: '0.9rem' }}>{typeEmoji}</div>
+
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 900, color: '#fff' }}>
+                                        {formatTimeNum(seg.localStartTime)}
+                                    </span>
+
+                                    <span style={{ fontSize: '0.65rem' }}>{seg.fromEmoji}</span>
+
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 900, color: '#fff' }}>
+                                        {formatTimeNum(seg.localEndTime)}
+                                    </span>
+
+                                    <span style={{ fontSize: '0.65rem' }}>{seg.toEmoji}</span>
                                 </div>
                             </div>
                         );
