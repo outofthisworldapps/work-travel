@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 16:00 EST";
+const APP_VERSION = "2025-12-31 16:09 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1190,7 +1190,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('airlineCode', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Airline"
-          style={{ flex: '0 0 36px' }}
+          style={{ flex: '0 0 30px' }}
         />
         <input
           className="f-inp s-full-num"
@@ -1198,7 +1198,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('flightNumber', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Flight #"
-          style={{ flex: '1 1 80px' }}
+          style={{ flex: '1 1 110px' }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span className="seat-label" style={{ fontSize: '0.65rem', color: '#64748b' }}>SEAT:</span>
@@ -5837,7 +5837,7 @@ function App() {
         .f-grip-group { color: #475569; cursor: grab; }
         .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; align-items: center; }
         .g-air { width: 72px; font-weight: 800; }
-        .g-conf { width: 100px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+        .g-conf { width: 75px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
         
         .f-cost-row { display: flex; align-items: center; gap: 0.5rem; }
         .f-cost-box { display: flex; align-items: center; background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); padding: 0 8px; }
@@ -5941,12 +5941,12 @@ function App() {
         }
         
         /* Narrower cost input */
-        .g-cost { background: transparent !important; border: none !important; width: 50px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; font-size: 0.9rem !important; }
+        .g-cost { background: transparent !important; border: none !important; width: 80px !important; color: var(--accent) !important; font-weight: 950 !important; text-align: right !important; font-size: 0.9rem !important; }
         
         /* More compact date selector */
         .f-date-select { width: 100% !important; font-size: 0.65rem; font-weight: 600; cursor: pointer; max-width: 95px; }
         
-        .g-air { width: 54px !important; }
+        .g-air { width: 85px !important; }
 
         .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; overflow: visible; position: relative; z-index: 100; }
         .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
