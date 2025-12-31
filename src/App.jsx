@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 21:19 EST";
+const APP_VERSION = "2025-12-30 22:12 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -71,7 +71,25 @@ const saveTripToCloud = async (user, tripData) => {
   }
 };
 
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// Helper function to advance to next input on Enter key
+const handleEnterKeyAdvance = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const form = e.target.form || e.target.closest('.f-segment, .f-group-header, .h-row-line, .t-row-1, .t-row-2');
+    if (!form) return;
+
+    const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled])'));
+    const currentIndex = inputs.indexOf(e.target);
+
+    if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+      inputs[currentIndex + 1].focus();
+    }
+  }
+};
+
 
 // Parse a date string to a local Date at noon (avoids timezone shifting issues)
 const parseLocalDate = (dateInput) => {
@@ -1190,6 +1208,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           className="f-inp"
           value={segment.airlineCode || ''}
           onChange={e => onUpdate('airlineCode', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="Airline"
           style={{ flex: '0 0 60px' }}
         />
@@ -1197,6 +1216,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           className="f-inp s-full-num"
           value={segment.flightNumber || ''}
           onChange={e => onUpdate('flightNumber', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="Flight #"
           style={{ flex: '1 1 80px' }}
         />
@@ -1206,6 +1226,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
             className="f-inp s-seat"
             value={segment.seat || ''}
             onChange={e => onUpdate('seat', e.target.value)}
+            onKeyDown={handleEnterKeyAdvance}
             placeholder=""
             style={{ width: '50px' }}
           />
@@ -1219,6 +1240,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           className="f-inp f-date-select monospace-font"
           value={depDate && !isNaN(depDate.getTime()) ? format(depDate, 'yyyy-MM-dd') : ''}
           onChange={e => handleDepDateChange(e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           style={{ fontFamily: 'monospace', fontSize: '0.65rem', flex: '0 0 95px' }}
         >
           <option value="">Select date</option>
@@ -1234,11 +1256,12 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           className="f-inp s-time"
           value={segment.depTime || ''}
           onChange={e => handleDepTimeChange(e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder=""
           style={{ flex: '0 0 50px' }}
         />
-        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="" style={{ flex: '0 0 45px' }} />
-        <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="" style={{ flex: '0 0 35px' }} />
+        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} onKeyDown={handleEnterKeyAdvance} placeholder="" style={{ flex: '0 0 45px' }} />
+        <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} onKeyDown={handleEnterKeyAdvance} placeholder="" style={{ flex: '0 0 35px' }} />
       </div>
 
       {/* Row 3: Arrival Date // Time // Airport // Terminal */}
@@ -1250,11 +1273,12 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           className="f-inp s-time"
           value={segment.arrTime || ''}
           onChange={e => handleArrTimeChange(e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder=""
           style={{ flex: '0 0 50px' }}
         />
-        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="" style={{ flex: '0 0 45px' }} />
-        <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="" style={{ flex: '0 0 35px' }} />
+        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} onKeyDown={handleEnterKeyAdvance} placeholder="" style={{ flex: '0 0 45px' }} />
+        <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} onKeyDown={handleEnterKeyAdvance} placeholder="" style={{ flex: '0 0 35px' }} />
       </div>
 
       {layover && (
@@ -1527,12 +1551,14 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           className="f-inp h-name"
           value={hotel.name || ''}
           onChange={e => onUpdate(hotel.id, 'name', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="Hotel Name"
         />
         <input
           className="f-inp h-city"
           value={hotel.city || ''}
           onChange={e => onUpdate(hotel.id, 'city', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="City"
         />
         <a
@@ -1553,6 +1579,7 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           className="f-inp f-date-select monospace-font h-date-select"
           value={hotel.checkIn ? format(hotel.checkIn, 'yyyy-MM-dd') : ''}
           onChange={e => handleStartChange(new Date(e.target.value))}
+          onKeyDown={handleEnterKeyAdvance}
         >
           <option value="">Check-in</option>
           {tripDates && tripDates.map((date, idx) => (
@@ -1563,6 +1590,7 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           className="f-inp s-time h-time"
           value={hotel.checkInTime || ''}
           onChange={e => onUpdate(hotel.id, 'checkInTime', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="2:00p"
         />
 
@@ -1601,6 +1629,7 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           className="f-inp f-date-select monospace-font h-date-select"
           value={hotel.checkOut ? format(hotel.checkOut, 'yyyy-MM-dd') : ''}
           onChange={e => handleEndChange(new Date(e.target.value))}
+          onKeyDown={handleEnterKeyAdvance}
         >
           <option value="">Check-out</option>
           {tripDates && tripDates.map((date, idx) => (
@@ -1611,6 +1640,7 @@ const HotelRow = ({ hotel, onUpdate, onDelete, tripDates }) => {
           className="f-inp s-time h-time"
           value={hotel.checkOutTime || ''}
           onChange={e => onUpdate(hotel.id, 'checkOutTime', e.target.value)}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="11:00a"
         />
 
@@ -1906,6 +1936,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
           className="t-date-select"
           value={transport.date && !isNaN(transport.date.getTime()) ? format(transport.date, 'yyyy-MM-dd') : ''}
           onChange={handleDateChange}
+          onKeyDown={handleEnterKeyAdvance}
         >
           <option value="">Date</option>
           {tripDates && tripDates.map((date, idx) => (
@@ -1914,7 +1945,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
         </select>
 
 
-        <select className="t-place-select" value={fromValue} onChange={handleFromChange}>
+        <select className="t-place-select" value={fromValue} onChange={handleFromChange} onKeyDown={handleEnterKeyAdvance}>
           {PLACE_TYPES.map(p => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
@@ -1924,6 +1955,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
           className="t-time-input"
           value={transport.time || ''}
           onChange={handleStartTimeChange}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="9:00a"
         />
 
@@ -1957,13 +1989,13 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
       <div className="t-row-2">
         <div className="t-row2-spacer"></div>
 
-        <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange}>
+        <select className="t-type-select" value={transport.type || 'uber'} onChange={handleTypeChange} onKeyDown={handleEnterKeyAdvance}>
           {TRANSPORT_TYPES.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
 
-        <select className="t-place-select" value={toValue} onChange={handleToChange}>
+        <select className="t-place-select" value={toValue} onChange={handleToChange} onKeyDown={handleEnterKeyAdvance}>
           {PLACE_TYPES.map(p => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
@@ -1973,6 +2005,7 @@ const SortableTransportRow = ({ transport, onUpdate, onDelete, tripDates, altCur
           className="t-time-input"
           value={transport.endTime || ''}
           onChange={handleEndTimeChange}
+          onKeyDown={handleEnterKeyAdvance}
           placeholder="10:00a"
         />
 
@@ -4639,6 +4672,11 @@ function App() {
                   />
                   {registrationCurrency !== 'USD' && <span className="reg-unit">{registrationCurrency}</span>}
                 </div>
+                {registrationCurrency !== 'USD' && registrationFee > 0 && (
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                    ≈ ${Math.round(convertCurrency(registrationFee, registrationCurrency, 'USD', currentRates))}
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -5144,6 +5182,11 @@ function App() {
           flex-shrink: 0;
           box-sizing: border-box;
         }
+        @media (max-width: 768px) {
+          .t-type-select {
+            width: 90px;
+          }
+        }
         .t-date-select { 
           background: rgba(0,0,0,0.4); 
           border: 1px solid rgba(255,255,255,0.15); 
@@ -5400,8 +5443,8 @@ function App() {
         .continuous-timeline-wrapper { overflow: visible; }
         .continuous-timeline { overflow: visible; display: flex; position: relative; }
         .continuous-timeline .timeline-col { flex-shrink: 0; position: relative; }
-        .continuous-timeline .day-col { width: 65px; }
-        .continuous-timeline .time-col { width: 55px; }
+        .continuous-timeline .day-col { width: 5%; min-width: 50px; }
+        .continuous-timeline .time-col { width: 5%; min-width: 45px; }
         .continuous-timeline .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
         .continuous-timeline .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
         .continuous-timeline .time-col.right { border-left: 1px solid rgba(255,255,255,0.1); }
@@ -5418,8 +5461,8 @@ function App() {
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
         .timeline-day-row { display: flex; min-height: 80px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-col { flex-shrink: 0; position: relative; }
-        .day-col { width: 65px; }
-        .time-col { width: 55px; }
+        .day-col { width: 5%; min-width: 50px; }
+        .time-col { width: 5%; min-width: 45px; }
         
         .day-col.left { border-right: 1px solid rgba(255,255,255,0.05); }
         .time-col.left { border-right: 1px solid rgba(255,255,255,0.1); }
