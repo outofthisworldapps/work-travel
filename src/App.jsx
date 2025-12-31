@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 07:20 EST";
+const APP_VERSION = "2025-12-31 07:24 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2149,12 +2149,12 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   const startInputRef = React.useRef(null);
   const endInputRef = React.useRef(null);
 
-  // Generate 365 days starting from today
+  // Generate 150 days (~5 months) starting from today
   const allDays = useMemo(() => {
     const result = [];
     const today = new Date();
     today.setHours(12, 0, 0, 0);
-    for (let i = 0; i < 365; i++) {
+    for (let i = 0; i < 150; i++) {
       result.push(addDays(today, i));
     }
     return result;
@@ -2203,12 +2203,13 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Scroll to start date's week when opening
+  // Instantly scroll to start date's week when opening (no animation)
   React.useEffect(() => {
     if (isOpen && scrollRef.current && startRowRef.current) {
-      setTimeout(() => {
-        startRowRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
-      }, 50);
+      // Use scrollTop for instant positioning
+      const container = scrollRef.current;
+      const row = startRowRef.current;
+      container.scrollTop = row.offsetTop - container.offsetTop;
     }
   }, [isOpen]);
 
@@ -2352,15 +2353,13 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
         <div className="cc-weeks-container" ref={scrollRef}>
           {weeks.map((week, weekIdx) => {
             const sundayDate = week[0];
-            const sundayMonth = sundayDate.getMonth();
             const monthAbbr = format(sundayDate, 'MMM').toUpperCase();
-            const isEvenMonth = sundayMonth % 2 === 0;
             const isStartRow = weekIdx === startWeekIndex;
 
             return (
               <div
                 key={weekIdx}
-                className={`cc-week-row ${isEvenMonth ? 'even-month' : 'odd-month'}`}
+                className="cc-week-row"
                 ref={isStartRow ? startRowRef : null}
               >
                 <div className="cc-month-label-cell">
@@ -2374,11 +2373,14 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
                   const isInRange = activeStart && activeEnd && isAfter(day, activeStart) && isBefore(day, activeEnd);
                   const isToday = isSameDay(day, today);
                   const dayNum = day.getDate();
+                  // Per-day month shading based on this day's own month
+                  const dayMonth = day.getMonth();
+                  const isEvenMonth = dayMonth % 2 === 0;
 
                   return (
                     <div
                       key={dayIdx}
-                      className={`cc-day ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast || isBeforeRange ? 'past' : ''} ${isToday ? 'today' : ''}`}
+                      className={`cc-day ${isEvenMonth ? 'even-month' : 'odd-month'} ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''} ${isPast || isBeforeRange ? 'past' : ''} ${isToday ? 'today' : ''}`}
                       onClick={() => !isPast && !isBeforeRange && handleDayClick(day)}
                     >
                       {dayNum}
@@ -4998,7 +5000,7 @@ function App() {
         
         .travel-app { min-height: 100vh; background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%); padding: 2rem 1rem; }
         .one-column-layout { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
-        .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
+        .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; content-visibility: visible; }
 
         /* Header */
         .trip-header-section { padding: 1.5rem 2rem; overflow: visible; position: relative; z-index: 100; }
@@ -5255,7 +5257,6 @@ function App() {
         .cc-weeks-container {
           max-height: 380px;
           overflow-y: auto;
-          scroll-behavior: smooth;
           padding: 4px 8px;
         }
         .cc-weeks-container::-webkit-scrollbar { width: 6px; }
@@ -5272,14 +5273,7 @@ function App() {
           grid-template-columns: 40px repeat(7, 1fr);
           gap: 2px;
           padding: 2px 0;
-          border-radius: 6px;
           margin-bottom: 1px;
-        }
-        .cc-week-row.even-month {
-          background: rgba(99, 102, 241, 0.06);
-        }
-        .cc-week-row.odd-month {
-          background: rgba(245, 158, 11, 0.04);
         }
         .cc-month-label-cell {
           display: flex;
@@ -5304,13 +5298,26 @@ function App() {
           color: #94a3b8;
           transition: all 0.15s;
         }
+        /* Per-day month shading - more prominent */
+        .cc-day.even-month {
+          background: rgba(99, 102, 241, 0.15);
+        }
+        .cc-day.odd-month {
+          background: rgba(30, 41, 59, 0.6);
+        }
         .cc-day:hover:not(.past) { 
-          background: rgba(99, 102, 241, 0.3); 
+          background: rgba(99, 102, 241, 0.4); 
           color: #fff; 
         }
         .cc-day.past { 
           color: #334155; 
           cursor: not-allowed; 
+        }
+        .cc-day.past.even-month {
+          background: rgba(99, 102, 241, 0.06);
+        }
+        .cc-day.past.odd-month {
+          background: rgba(30, 41, 59, 0.3);
         }
         .cc-day.today { 
           border: 2px solid var(--accent); 
