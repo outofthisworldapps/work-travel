@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 22:12 EST";
+const APP_VERSION = "2025-12-30 22:31 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -408,14 +408,10 @@ const getMidnights = (date, homeTZ, destTZ) => {
 
 const TimelineHeader = ({ isDifferentTZ }) => (
   <div className={`timeline-header-icons ${isDifferentTZ ? 'dual-tz' : ''}`}>
-    <div className="side-col day-col left"></div>
-    <div className="side-col time-col left"><Home size={14} /></div>
+    <div className="side-col left-combined"><Home size={14} /></div>
     <div className="center-spacer"></div>
     {isDifferentTZ && (
-      <>
-        <div className="side-col time-col right"><Briefcase size={14} /></div>
-        <div className="side-col day-col right"></div>
-      </>
+      <div className="side-col right-combined"><Briefcase size={14} /></div>
     )}
   </div>
 );
@@ -550,14 +546,14 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
   return (
     <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''} ${isDifferentTZ ? 'dual-tz' : ''}`}>
-      <div className="timeline-col day-col left">
+      {/* Left Column: Home dates and times merged */}
+      <div className="timeline-col left-combined">
         {midnights.filter(m => m.tz === 'home').map((m, i) => (
           <div key={i} className="midnight-label-single home" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
             {m.label}
           </div>
         ))}
       </div>
-      <div className="timeline-col time-col left" style={{ width: '65px' }} />
 
 
       <div className="timeline-hours-container">
@@ -786,10 +782,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 }}
               >
                 {(isCheckInDay || (dayIndex === 0 && isMidStay)) && (
-                  <div className="tl-hotel-name" style={{ top: isCheckInDay ? '40px' : '20px' }}>
-                    <span style={{ background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(10px)', padding: '5px 14px', borderRadius: '99px', border: '1.5px solid rgba(16, 185, 129, 0.5)', boxShadow: '0 4px 15px rgba(0,0,0,0.6)' }}>
-                      🏨 {h.name || 'Hotel'}
-                    </span>
+                  <div className="tl-hotel-name" style={{ top: isCheckInDay ? '40px' : '20px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.2rem', lineHeight: '1.2' }}>🏨</div>
+                    <div style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>
+                      {h.name || 'Hotel'}
+                    </div>
                   </div>
                 )}
 
@@ -882,14 +879,11 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
 
       {isDifferentTZ && (
         <>
-          <div className="timeline-col time-col right" style={{ width: '65px' }} />
-          <div className="timeline-col day-col right">
+          {/* Right Column: Away times and dates merged */}
+          <div className="timeline-col right-combined">
             {midnights.filter(m => m.tz === 'dest').map((m, i) => (
-              <div key={i} className="midnight-label-stack dest" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
-                <div className="date-stack dest">
-                  <div className="tl-dw">{m.label.split('|')[0]}</div>
-                  <div className="tl-dm">{m.label.split('|')[1]}</div>
-                </div>
+              <div key={i} className="midnight-label-single dest" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
+                {m.label}
               </div>
             ))}
           </div>
@@ -5461,6 +5455,11 @@ function App() {
         .vertical-timeline { overflow: visible; display: flex; flex-direction: column; }
         .timeline-day-row { display: flex; min-height: 80px; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
         .timeline-col { flex-shrink: 0; position: relative; }
+        
+        /* New 3-column structure */
+        .left-combined { width: 5%; min-width: 65px; border-right: 1px solid rgba(255,255,255,0.1); }
+        .right-combined { width: 5%; min-width: 65px; border-left: 1px solid rgba(255,255,255,0.1); }
+        
         .day-col { width: 5%; min-width: 50px; }
         .time-col { width: 5%; min-width: 45px; }
         
@@ -5476,6 +5475,19 @@ function App() {
         .midnight-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid currentColor; z-index: 5; opacity: 0.5; }
         .midnight-line.home { color: var(--accent); }
         .midnight-line.dest { color: #f59e0b; border-top-style: dashed; }
+        
+        .midnight-label-single { 
+          width: 100%; 
+          pointer-events: none; 
+          padding: 2px 4px; 
+          font-size: 0.7rem; 
+          font-weight: 800; 
+          text-align: center; 
+          line-height: 1.2; 
+          white-space: nowrap;
+        }
+        .midnight-label-single.home { color: var(--accent); }
+        .midnight-label-single.dest { color: #f59e0b; text-align: right; }
         
         .midnight-label-stack { width: 100%; pointer-events: none; padding: 0 4px; }
         .midnight-label-stack.home { color: var(--accent); }
