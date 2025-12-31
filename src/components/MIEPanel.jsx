@@ -354,14 +354,7 @@ const MIEPanel = ({
                             </tr>
                         ))}
                     </tbody>
-                    <tfoot>
-                        <tr className="mie-totals-row">
-                            <td colSpan="2" className="mie-totals-label">TOTALS</td>
-                            <td className="mie-col-lodging">${Math.round(totals.totalLodging)}</td>
-                            <td className="mie-col-mie">${Math.round(totals.totalAdjustedMIE)}</td>
-                            <td colSpan="4"></td>
-                        </tr>
-                    </tfoot>
+
                 </table>
             </div>
 
