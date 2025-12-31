@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 07:31 EST";
+const APP_VERSION = "2025-12-31 08:00 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2150,7 +2150,7 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   const startInputRef = React.useRef(null);
   const endInputRef = React.useRef(null);
 
-  // Generate dates: previous month + current month + 1 year ahead
+  // Generate dates: from 1st of previous month up to 1 year from today
   const allDays = useMemo(() => {
     const result = [];
     const today = new Date();
@@ -2159,9 +2159,14 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
     // Start from the 1st of previous month
     const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1, 12, 0, 0);
 
-    // Generate for ~14 months (previous + current + 12 ahead)
-    for (let i = 0; i < 425; i++) { // ~14 months worth of days
-      result.push(addDays(startDate, i));
+    // End date is exactly 1 year from today (365 days)
+    const endDate = addDays(today, 365);
+
+    // Generate all days from start to end
+    let currentDate = startDate;
+    while (currentDate <= endDate) {
+      result.push(currentDate);
+      currentDate = addDays(currentDate, 1);
     }
     return result;
   }, []);
@@ -2382,7 +2387,7 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
         {/* Weekday headers */}
         <div className="cc-header-row">
           <div className="cc-year-cell">{visibleYear}</div>
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} className="cc-weekday">{d}</div>
           ))}
         </div>
@@ -5381,20 +5386,23 @@ function App() {
           border: 2px solid var(--accent); 
         }
         .cc-day.start {
-          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: #fff;
           font-weight: 900;
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+          border: 2px solid #10b981;
         }
         .cc-day.end {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: #fff;
           font-weight: 900;
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+          border: 2px solid #10b981;
         }
         .cc-day.in-range {
-          background: rgba(99, 102, 241, 0.2);
-          color: #a5b4fc;
+          background: rgba(16, 185, 129, 0.35);
+          color: #d1fae5;
+          font-weight: 700;
         }
         
         /* Editable date input in display */
