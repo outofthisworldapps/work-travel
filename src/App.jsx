@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 20:14 EST";
+const APP_VERSION = "2025-12-30 20:34 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -359,7 +359,7 @@ const getMidnights = (date, homeTZ, destTZ) => {
   midnights.push({
     time: 0,
     tz: 'home',
-    label: format(homeStart, 'EEE|MMM d').toUpperCase()
+    label: format(homeStart, 'EEE MMM d').toUpperCase()
   });
 
   if (homeTZ !== destTZ) {
@@ -376,7 +376,7 @@ const getMidnights = (date, homeTZ, destTZ) => {
             midnights.push({
               time: h + (m + 1) / 60,
               tz: 'dest',
-              label: (new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, weekday: 'short' }) + '|' + new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, month: 'short', day: 'numeric' })).toUpperCase()
+              label: (new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, weekday: 'short' }) + ' ' + new Date(m2).toLocaleDateString('en-US', { timeZone: destTZ, month: 'short', day: 'numeric' })).toUpperCase()
             });
             break;
           }
@@ -390,13 +390,13 @@ const getMidnights = (date, homeTZ, destTZ) => {
 
 const TimelineHeader = ({ isDifferentTZ }) => (
   <div className={`timeline-header-icons ${isDifferentTZ ? 'dual-tz' : ''}`}>
-    <div className="side-col day-col left"><Calendar size={12} /></div>
+    <div className="side-col day-col left"></div>
     <div className="side-col time-col left"><Home size={14} /></div>
     <div className="center-spacer"></div>
     {isDifferentTZ && (
       <>
         <div className="side-col time-col right"><Briefcase size={14} /></div>
-        <div className="side-col day-col right"><Calendar size={12} style={{ opacity: 0.5 }} /></div>
+        <div className="side-col day-col right"></div>
       </>
     )}
   </div>
@@ -534,11 +534,8 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
     <div className={`timeline-day-row ${showMIE ? 'with-mie' : ''} ${isDifferentTZ ? 'dual-tz' : ''}`}>
       <div className="timeline-col day-col left">
         {midnights.filter(m => m.tz === 'home').map((m, i) => (
-          <div key={i} className="midnight-label-stack home" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
-            <div className="date-stack home">
-              <div className="tl-dw">{m.label.split('|')[0]}</div>
-              <div className="tl-dm">{m.label.split('|')[1]}</div>
-            </div>
+          <div key={i} className="midnight-label-single home" style={{ top: `${getPosition(m.time)}%`, position: 'absolute' }}>
+            {m.label}
           </div>
         ))}
       </div>
@@ -767,7 +764,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                   borderBottom: (isMidStay || (isCheckInDay && !isCheckOutDay)) ? 'none' : '1px solid rgba(16, 185, 129, 0.6)',
                   borderRight: '1px solid rgba(16, 185, 129, 0.6)',
                   zIndex: 2,
-                  background: 'linear-gradient(to right, rgba(16, 185, 129, 0.85), rgba(16, 185, 129, 0.7) 20%, rgba(16, 185, 129, 0.65) 50%, rgba(16, 185, 129, 0.7) 80%, rgba(16, 185, 129, 0.85))'
+                  background: 'linear-gradient(to right, rgba(16, 185, 129, 0.4), rgba(16, 185, 129, 0.3) 20%, rgba(16, 185, 129, 0.25) 50%, rgba(16, 185, 129, 0.3) 80%, rgba(16, 185, 129, 0.4))'
                 }}
               >
                 {(isCheckInDay || (dayIndex === 0 && isMidStay)) && (
@@ -1187,92 +1184,79 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
 
   return (
     <div className="f-segment">
-      <div className="f-seg-grid">
-        <div className="f-grid-col f-id-col">
+      {/* Row 1: Airline // Flight Number //  Seat // Trash */}
+      <div className="f-row-1" style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '4px' }}>
+        <input
+          className="f-inp"
+          value={segment.airlineCode || ''}
+          onChange={e => onUpdate('airlineCode', e.target.value)}
+          placeholder="Airline"
+          style={{ flex: '0 0 60px' }}
+        />
+        <input
+          className="f-inp s-full-num"
+          value={segment.flightNumber || ''}
+          onChange={e => onUpdate('flightNumber', e.target.value)}
+          placeholder="Flight #"
+          style={{ flex: '1 1 80px' }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="seat-label" style={{ fontSize: '0.65rem', color: '#64748b' }}>SEAT:</span>
           <input
-            className="f-inp s-full-num"
-            value={(segment.airlineCode || '') + (segment.flightNumber ? ' ' + segment.flightNumber : '')}
-            onChange={e => {
-              const val = e.target.value;
-              const parts = val.split(' ');
-              const airlineCode = parts[0] || '';
-              const flightNumber = parts.slice(1).join(' ') || '';
-              // Single update with both fields to avoid blocking
-              onUpdate('airlineCode', airlineCode);
-              if (flightNumber !== segment.flightNumber) {
-                setTimeout(() => onUpdate('flightNumber', flightNumber), 0);
-              }
-            }}
-            placeholder="Flight #"
-          />
-          <div className="f-sub-label">
-            <span className="seat-label">SEAT:</span>
-            <input
-              className="f-inp s-seat"
-              value={segment.seat || ''}
-              onChange={e => onUpdate('seat', e.target.value)}
-              placeholder=""
-            />
-          </div>
-        </div>
-
-        <div className="f-grid-col f-date-col">
-          <div className="f-date-wrapper">
-            <select
-              className="f-inp f-date-select monospace-font"
-              value={depDate && !isNaN(depDate.getTime()) ? format(depDate, 'yyyy-MM-dd') : ''}
-              onChange={e => handleDepDateChange(e.target.value)}
-              style={{ fontFamily: 'monospace', fontSize: '0.65rem' }}
-            >
-              <option value="">Select date</option>
-              {tripDates && tripDates.map((date, idx) => {
-                const dateStr = format(date, 'yyyy-MM-dd');
-                const displayStr = safeFormat(date, 'EEE MMM d');
-                return (
-                  <option key={idx} value={dateStr}>{displayStr}</option>
-                );
-              })}
-            </select>
-          </div>
-          <div className="f-arr-date-display" style={{ marginTop: '2px' }}>
-            {arrDate && !isNaN(arrDate.getTime()) ? (
-              <span className="arr-date-text" style={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                {format(arrDate, 'EEE MMM d')}
-              </span>
-            ) : (
-              <span className="arr-date-placeholder">Arrival</span>
-            )}
-          </div>
-        </div>
-
-        <div className="f-grid-col f-time-col">
-          <input
-            className="f-inp s-time"
-            value={segment.depTime || ''}
-            onChange={e => handleDepTimeChange(e.target.value)}
+            className="f-inp s-seat"
+            value={segment.seat || ''}
+            onChange={e => onUpdate('seat', e.target.value)}
             placeholder=""
-          />
-          <input
-            className="f-inp s-time"
-            value={segment.arrTime || ''}
-            onChange={e => handleArrTimeChange(e.target.value)}
-            placeholder=""
+            style={{ width: '50px' }}
           />
         </div>
-
-        <div className="f-grid-col f-port-col">
-          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-            <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="" />
-            <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="" />
-          </div>
-          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-            <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="" />
-            <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="" />
-          </div>
-        </div>
-
         <button className="f-seg-del" onClick={onDelete}><Trash2 size={12} /></button>
       </div>
+
+      {/* Row 2: Departure Date // Time // Airport // Terminal */}
+      <div className="f-row-2" style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px' }}>
+        <select
+          className="f-inp f-date-select monospace-font"
+          value={depDate && !isNaN(depDate.getTime()) ? format(depDate, 'yyyy-MM-dd') : ''}
+          onChange={e => handleDepDateChange(e.target.value)}
+          style={{ fontFamily: 'monospace', fontSize: '0.65rem', flex: '0 0 95px' }}
+        >
+          <option value="">Select date</option>
+          {tripDates && tripDates.map((date, idx) => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const displayStr = safeFormat(date, 'EEE MMM d');
+            return (
+              <option key={idx} value={dateStr}>{displayStr}</option>
+            );
+          })}
+        </select>
+        <input
+          className="f-inp s-time"
+          value={segment.depTime || ''}
+          onChange={e => handleDepTimeChange(e.target.value)}
+          placeholder=""
+          style={{ flex: '0 0 50px' }}
+        />
+        <input className="f-inp s-port" value={segment.depPort || ''} onChange={e => onUpdate('depPort', e.target.value)} placeholder="" style={{ flex: '0 0 45px' }} />
+        <input className="f-inp s-term" value={segment.depTerminal || ''} onChange={e => onUpdate('depTerminal', e.target.value)} placeholder="" style={{ flex: '0 0 35px' }} />
+      </div>
+
+      {/* Row 3: Arrival Date // Time // Airport // Terminal */}
+      <div className="f-row-3" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: '0.65rem', flex: '0 0 95px', color: '#94a3b8' }}>
+          {arrDate && !isNaN(arrDate.getTime()) ? format(arrDate, 'EEE MMM d') : 'Arrival'}
+        </div>
+        <input
+          className="f-inp s-time"
+          value={segment.arrTime || ''}
+          onChange={e => handleArrTimeChange(e.target.value)}
+          placeholder=""
+          style={{ flex: '0 0 50px' }}
+        />
+        <input className="f-inp s-port" value={segment.arrPort || ''} onChange={e => onUpdate('arrPort', e.target.value)} placeholder="" style={{ flex: '0 0 45px' }} />
+        <input className="f-inp s-term" value={segment.arrTerminal || ''} onChange={e => onUpdate('arrTerminal', e.target.value)} placeholder="" style={{ flex: '0 0 35px' }} />
+      </div>
+
       {layover && (
         <div className="f-layover">
           <RefreshCcw size={10} /> {layover} layover
@@ -5973,11 +5957,11 @@ function App() {
           opacity: 0;
         }
         .clear-location {
-          color: #f87171;
+          color: #64748b;
           cursor: pointer;
           font-size: 1rem;
           font-weight: bold;
-          opacity: 0.7;
+          opacity: 0.5;
           transition: opacity 0.2s;
           margin-left: 4px;
         }
