@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 16:30 EST";
+const APP_VERSION = "2025-12-31 16:33 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1190,7 +1190,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('airlineCode', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Airline"
-          style={{ flex: '0 0 30px', minWidth: 0 }}
+          style={{ flex: '0 0 90px', minWidth: 0 }}
         />
         <input
           className="f-inp s-full-num"
@@ -1198,7 +1198,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('flightNumber', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Flight #"
-          style={{ flex: '1 1 110px', minWidth: 0 }}
+          style={{ flex: '1 1 30px', minWidth: 0 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span className="seat-label" style={{ fontSize: '0.65rem', color: '#64748b' }}>SEAT:</span>
@@ -1247,7 +1247,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
       {/* Row 3: Arrival Date // Time // Airport // Terminal */}
       <div className="f-row-3" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
         <div style={{ fontFamily: 'monospace', fontSize: '0.65rem', flex: '0 0 95px', color: '#94a3b8' }}>
-          {arrDate && !isNaN(arrDate.getTime()) ? format(arrDate, 'EEE MMM d') : 'Arrival'}
+          {'\u00A0\u00A0'}{arrDate && !isNaN(arrDate.getTime()) ? format(arrDate, 'EEE MMM d') : 'Arrival'}
         </div>
         <input
           className="f-inp s-time"
