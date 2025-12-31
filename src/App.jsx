@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 09:33 EST";
+const APP_VERSION = "2025-12-31 10:53 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2294,7 +2294,6 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
         const finalStart = tempStart || startDate;
         onStartChange(finalStart);
         onEndChange(day);
-        setIsOpen(false);
         setTempStart(null);
         setSelectingStart(true);
       }
