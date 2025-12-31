@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-30 22:53 EST";
+const APP_VERSION = "2025-12-30 23:09 EST";
 
 // --- Cloud Save Helper ---
 const saveTripToCloud = async (user, tripData) => {
@@ -655,24 +655,41 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
               >
                 {(!isOvernight || isDeparturePart) && (
                   <div className="tl-f-main-wrap" style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative', height: '100%' }}>
-                    <div className="tl-f-ports-stack" style={{ position: 'absolute', left: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1px' }}>
-                      <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span className="tl-f-local-time" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff', opacity: 0.9, minWidth: '38px', textAlign: 'right' }}>{s.localDepTime || ''}</span>
-                        <span className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.depPort}</span>
+                    {/* Restructured content: Two rows for flight details */}
+                    <div className="tl-f-content-stack" style={{
+                      display: 'flex', flexDirection: 'column', gap: '1px',
+                      width: '100%', padding: '0 10px', justifyContent: 'center'
+                    }}>
+                      {/* Row 1: departure time // airport // plane icon // airline */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 700, color: '#fff',
+                          minWidth: '42px', textAlign: 'right', opacity: 0.95
+                        }}>{s.localDepTime || ''}</span>
+                        <span style={{
+                          fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
+                        }}>{s.depPort}</span>
+                        <span style={{ fontSize: '0.65rem' }}>✈️</span>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap'
+                        }}>{s.airlineCode}</span>
                       </div>
-                      <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span className="tl-f-local-time" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff', opacity: 0.9, minWidth: '38px', textAlign: 'right' }}>{s.localArrTime || ''}</span>
-                        <span className="tl-f-port" style={{ fontSize: '0.7rem', fontWeight: 950, lineHeight: 1 }}>{s.arrPort}</span>
+                      {/* Row 2: arrival time // airport // small space // flight number */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 700, color: '#fff',
+                          minWidth: '42px', textAlign: 'right', opacity: 0.95
+                        }}>{s.localArrTime || ''}</span>
+                        <span style={{
+                          fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
+                        }}>{s.arrPort}</span>
+                        <span style={{ minWidth: '12px' }}></span>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap'
+                        }}>{s.flightNumber}</span>
+                        {s.seat && <span style={{ fontSize: '0.55rem', opacity: 0.7, color: '#fff', marginLeft: 'auto', marginRight: '30px' }}>Seat: {s.seat}</span>}
                       </div>
                     </div>
-
-                    <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
-                      <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                        {getEventRelevance('flight-arr', s) === 'dest' ? '💼' : '✈️'} {s.airlineCode}{s.flightNumber}
-                      </div>
-                      {s.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {s.seat}</div>}
-                    </div>
-
                     <div className="tl-f-rec" style={{ position: 'absolute', right: '10px', opacity: 0.6, fontSize: '0.6rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
                   </div>
                 )}
@@ -1204,7 +1221,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('airlineCode', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Airline"
-          style={{ flex: '0 0 60px' }}
+          style={{ flex: '0 0 36px' }}
         />
         <input
           className="f-inp s-full-num"
@@ -5309,7 +5326,7 @@ function App() {
         .f-group-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 0.75rem; }
         .f-grip-group { color: #475569; cursor: grab; }
         .f-meta-primary { flex: 1; display: flex; gap: 0.75rem; align-items: center; }
-        .g-air { width: 120px; font-weight: 800; }
+        .g-air { width: 72px; font-weight: 800; }
         .g-conf { width: 100px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
         
         .f-cost-row { display: flex; align-items: center; gap: 0.5rem; }
@@ -5419,7 +5436,7 @@ function App() {
         /* More compact date selector */
         .f-date-select { width: 100% !important; font-size: 0.65rem; font-weight: 600; cursor: pointer; max-width: 95px; }
         
-        .g-air { width: 90px !important; }
+        .g-air { width: 54px !important; }
 
         .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; }
         .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
@@ -5763,7 +5780,7 @@ function App() {
           .f-meta-primary { width: 100%; order: 1; display: flex; flex-wrap: wrap; gap: 0.4rem !important; align-items: center; }
           .f-del-group { margin-left: auto; }
           
-          .g-air { width: 100px !important; }
+          .g-air { width: 60px !important; }
           .g-conf { width: 90px !important; }
           
           .s-full-num { font-size: 0.75rem !important; }

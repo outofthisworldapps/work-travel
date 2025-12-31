@@ -546,36 +546,40 @@ const ContinuousTimeline = ({
                                     display: 'flex', width: '100%', alignItems: 'center',
                                     justifyContent: 'center', position: 'relative', height: '100%'
                                 }}>
-                                    {/* Local times and airport codes in white in the middle */}
-                                    <div className="tl-f-ports-stack" style={{
-                                        position: 'absolute', left: '10px', display: 'flex',
-                                        flexDirection: 'column', justifyContent: 'center', gap: '2px'
+                                    {/* Restructured content: Two rows for flight details */}
+                                    <div className="tl-f-content-stack" style={{
+                                        display: 'flex', flexDirection: 'column', gap: '1px',
+                                        width: '100%', padding: '0 10px', justifyContent: 'center'
                                     }}>
-                                        <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span className="tl-f-local-time" style={{
+                                        {/* Row 1: departure time // airport // plane icon // airline */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{
                                                 fontSize: '0.65rem', fontWeight: 700, color: '#fff',
                                                 minWidth: '42px', textAlign: 'right', opacity: 0.95
                                             }}>{seg.localDepTime || ''}</span>
-                                            <span className="tl-f-port" style={{
+                                            <span style={{
                                                 fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
                                             }}>{seg.depPort}</span>
+                                            <span style={{ fontSize: '0.65rem' }}>✈️</span>
+                                            <span style={{
+                                                fontSize: '0.65rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap'
+                                            }}>{seg.segment.airlineCode}</span>
                                         </div>
-                                        <div className="tl-f-port-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span className="tl-f-local-time" style={{
+                                        {/* Row 2: arrival time // airport // small space // flight number */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{
                                                 fontSize: '0.65rem', fontWeight: 700, color: '#fff',
                                                 minWidth: '42px', textAlign: 'right', opacity: 0.95
                                             }}>{seg.localArrTime || ''}</span>
-                                            <span className="tl-f-port" style={{
+                                            <span style={{
                                                 fontSize: '0.75rem', fontWeight: 950, lineHeight: 1, color: '#fff'
                                             }}>{seg.arrPort}</span>
+                                            <span style={{ minWidth: '12px' }}></span>
+                                            <span style={{
+                                                fontSize: '0.65rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap'
+                                            }}>{seg.segment.flightNumber}</span>
+                                            {seg.segment.seat && <span style={{ fontSize: '0.55rem', opacity: 0.7, color: '#fff', marginLeft: 'auto', marginRight: '30px' }}>Seat: {seg.segment.seat}</span>}
                                         </div>
-                                    </div>
-
-                                    <div className="tl-f-info-stack" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0' }}>
-                                        <div className="tl-f-mid" style={{ fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                            ✈️ {seg.segment.airlineCode} {seg.segment.flightNumber}
-                                        </div>
-                                        {seg.segment.seat && <div className="tl-f-seat" style={{ fontSize: '0.55rem', opacity: 0.7 }}>Seat: {seg.segment.seat}</div>}
                                     </div>
 
                                     <div className="tl-f-rec" style={{
