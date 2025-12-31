@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 07:14 EST";
+const APP_VERSION = "2025-12-31 07:20 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -5001,7 +5001,7 @@ function App() {
         .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-radius: 1.5rem; }
 
         /* Header */
-        .trip-header-section { padding: 1.5rem 2rem; }
+        .trip-header-section { padding: 1.5rem 2rem; overflow: visible; position: relative; z-index: 100; }
         .trip-header-main { width: 100%; }
 
         .trip-name-display { background: transparent; border: none; font-size: 2rem; font-weight: 950; color: #fff; width: 100%; outline: none; margin-bottom: 0rem; letter-spacing: -0.02em; text-align: left; }
@@ -5078,7 +5078,7 @@ function App() {
         .hidden-date-picker { visibility: hidden; width: 0; min-width: 0; height: 0; padding: 0; margin: 0; position: absolute; }
 
         /* DateRangePicker Styles */
-        .date-range-picker { position: relative; display: flex; align-items: center; gap: 8px; }
+        .date-range-picker { position: relative; display: flex; align-items: center; gap: 8px; z-index: 50; }
         .cal-icon-btn { 
           background: transparent; 
           border: none; 
@@ -5859,7 +5859,7 @@ function App() {
         
         .g-air { width: 54px !important; }
 
-        .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; }
+        .trip-header-section { padding: 2rem; border-radius: 2rem; margin-bottom: 2rem; overflow: visible; position: relative; z-index: 100; }
         .trip-header-container { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
         .trip-header-main { flex: 1; }
         .header-actions { display: flex; flex-direction: column; gap: 1rem; align-items: flex-end; }
