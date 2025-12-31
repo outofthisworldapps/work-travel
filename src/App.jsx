@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 16:09 EST";
+const APP_VERSION = "2025-12-31 16:21 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -6290,8 +6290,8 @@ function App() {
           .f-meta-primary { width: 100%; order: 1; display: flex; flex-wrap: wrap; gap: 0.4rem !important; align-items: center; }
           .f-del-group { margin-left: auto; }
           
-          .g-air { width: 60px !important; }
-          .g-conf { width: 90px !important; }
+          .g-air  { width: 90px !important; }
+          .g-conf { width: 60px !important; }
           
           .s-full-num { font-size: 0.75rem !important; }
           .s-port { font-size: 0.7rem !important; }
