@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 07:24 EST";
+const APP_VERSION = "2025-12-31 07:31 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2143,19 +2143,25 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   const [editingEnd, setEditingEnd] = useState(false);
   const [startInputValue, setStartInputValue] = useState('');
   const [endInputValue, setEndInputValue] = useState('');
+  const [visibleYear, setVisibleYear] = useState(new Date().getFullYear());
   const popupRef = React.useRef(null);
   const scrollRef = React.useRef(null);
   const startRowRef = React.useRef(null);
   const startInputRef = React.useRef(null);
   const endInputRef = React.useRef(null);
 
-  // Generate 150 days (~5 months) starting from today
+  // Generate dates: previous month + current month + 1 year ahead
   const allDays = useMemo(() => {
     const result = [];
     const today = new Date();
     today.setHours(12, 0, 0, 0);
-    for (let i = 0; i < 150; i++) {
-      result.push(addDays(today, i));
+
+    // Start from the 1st of previous month
+    const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1, 12, 0, 0);
+
+    // Generate for ~14 months (previous + current + 12 ahead)
+    for (let i = 0; i < 425; i++) { // ~14 months worth of days
+      result.push(addDays(startDate, i));
     }
     return result;
   }, []);
@@ -2210,8 +2216,34 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
       const container = scrollRef.current;
       const row = startRowRef.current;
       container.scrollTop = row.offsetTop - container.offsetTop;
+
+      // Set initial visible year
+      if (startDate) {
+        setVisibleYear(startDate.getFullYear());
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, startDate]);
+
+  // Track visible year on scroll
+  React.useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || !isOpen) return;
+
+    const handleScroll = () => {
+      // Find the first visible week row
+      const scrollTop = container.scrollTop;
+      const weekRowHeight = 32; // approximate height of a week row
+      const visibleWeekIndex = Math.floor(scrollTop / weekRowHeight);
+
+      if (weeks[visibleWeekIndex]) {
+        const firstVisibleDay = weeks[visibleWeekIndex][0];
+        setVisibleYear(firstVisibleDay.getFullYear());
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isOpen, weeks]);
 
   // Focus input when editing
   React.useEffect(() => {
@@ -2229,9 +2261,15 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
   }, [editingEnd]);
 
   const openCalendar = () => {
-    setTempStart(null);
-    setSelectingStart(true);
-    setIsOpen(true);
+    if (isOpen) {
+      // If already open, close it
+      setIsOpen(false);
+    } else {
+      // If closed, open it
+      setTempStart(null);
+      setSelectingStart(true);
+      setIsOpen(true);
+    }
   };
 
   const handleDayClick = (day) => {
@@ -2343,7 +2381,7 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
       <div className="cc-calendar">
         {/* Weekday headers */}
         <div className="cc-header-row">
-          <div className="cc-month-label-cell"></div>
+          <div className="cc-year-cell">{visibleYear}</div>
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
             <div key={d} className="cc-weekday">{d}</div>
           ))}
@@ -2354,6 +2392,8 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
           {weeks.map((week, weekIdx) => {
             const sundayDate = week[0];
             const monthAbbr = format(sundayDate, 'MMM').toUpperCase();
+            const sundayMonth = sundayDate.getMonth();
+            const isSundayEvenMonth = sundayMonth % 2 === 0;
             const isStartRow = weekIdx === startWeekIndex;
 
             return (
@@ -2362,7 +2402,7 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
                 className="cc-week-row"
                 ref={isStartRow ? startRowRef : null}
               >
-                <div className="cc-month-label-cell">
+                <div className={`cc-month-label-cell ${isSundayEvenMonth ? 'even-month' : 'odd-month'}`}>
                   <span className="cc-month-label">{monthAbbr}</span>
                 </div>
                 {week.map((day, dayIdx) => {
@@ -5254,8 +5294,17 @@ function App() {
           color: #475569;
           text-transform: uppercase;
         }
+        .cc-year-cell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.7rem;
+          font-weight: 900;
+          color: #a5b4fc;
+          min-width: 40px;
+        }
         .cc-weeks-container {
-          max-height: 380px;
+          max-height: 180px;
           overflow-y: auto;
           padding: 4px 8px;
         }
@@ -5280,11 +5329,20 @@ function App() {
           align-items: center;
           justify-content: center;
           min-width: 40px;
+          border-radius: 4px;
+          padding: 2px;
+        }
+        /* Month label shading to match days */
+        .cc-month-label-cell.even-month {
+          background: rgba(99, 102, 241, 0.35);
+        }
+        .cc-month-label-cell.odd-month {
+          background: rgba(30, 41, 59, 0.8);
         }
         .cc-month-label {
           font-size: 0.5rem;
           font-weight: 900;
-          color: #6b7280;
+          color: #e2e8f0;
           text-transform: uppercase;
           letter-spacing: 0.02em;
         }
@@ -5298,15 +5356,15 @@ function App() {
           color: #94a3b8;
           transition: all 0.15s;
         }
-        /* Per-day month shading - more prominent */
+        /* Per-day month shading - MUCH higher contrast */
         .cc-day.even-month {
-          background: rgba(99, 102, 241, 0.15);
+          background: rgba(99, 102, 241, 0.35);
         }
         .cc-day.odd-month {
-          background: rgba(30, 41, 59, 0.6);
+          background: rgba(30, 41, 59, 0.8);
         }
         .cc-day:hover:not(.past) { 
-          background: rgba(99, 102, 241, 0.4); 
+          background: rgba(99, 102, 241, 0.6); 
           color: #fff; 
         }
         .cc-day.past { 
@@ -5314,10 +5372,10 @@ function App() {
           cursor: not-allowed; 
         }
         .cc-day.past.even-month {
-          background: rgba(99, 102, 241, 0.06);
+          background: rgba(99, 102, 241, 0.12);
         }
         .cc-day.past.odd-month {
-          background: rgba(30, 41, 59, 0.3);
+          background: rgba(30, 41, 59, 0.4);
         }
         .cc-day.today { 
           border: 2px solid var(--accent); 
