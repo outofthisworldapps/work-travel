@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 16:21 EST";
+const APP_VERSION = "2025-12-31 16:30 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1190,7 +1190,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('airlineCode', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Airline"
-          style={{ flex: '0 0 30px' }}
+          style={{ flex: '0 0 30px', minWidth: 0 }}
         />
         <input
           className="f-inp s-full-num"
@@ -1198,7 +1198,7 @@ const FlightSegmentRow = ({ segment, onUpdate, onDelete, isLast, layover, tripDa
           onChange={e => onUpdate('flightNumber', e.target.value)}
           onKeyDown={handleEnterKeyAdvance}
           placeholder="Flight #"
-          style={{ flex: '1 1 110px' }}
+          style={{ flex: '1 1 110px', minWidth: 0 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span className="seat-label" style={{ fontSize: '0.65rem', color: '#64748b' }}>SEAT:</span>
@@ -5850,25 +5850,25 @@ function App() {
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
         .f-seg-row { display: grid; grid-template-columns: 90px 1fr 30px; align-items: center; gap: 1rem; }
         .f-num-col { font-weight: 950; color: var(--accent); font-size: 0.85rem; }
-        .s-full-num { background: transparent !important; border: none !important; width: 100%; color: inherit !important; font-weight: inherit !important; text-align: left !important; }
+        .s-full-num { background: transparent !important; border: none !important; color: inherit !important; font-weight: inherit !important; text-align: left !important; }
         
         .f-route-display { display: grid; grid-template-columns: 120px 60px 50px 20px 50px 60px 120px; align-items: center; gap: 6px; }
         .s-date { font-size: 0.7rem; width: 100% !important; }
-        .s-time { width: 55px !important; font-size: 0.75rem; text-align: center; font-weight: 600; }
-        .s-port { width: 50px !important; font-weight: 900; text-transform: uppercase; text-align: center; color: #fff !important; }
+        .s-time { width: 55px; font-size: 0.75rem; text-align: center; font-weight: 600; }
+        .s-port { width: 50px; font-weight: 900; text-transform: uppercase; text-align: center; color: #fff !important; }
         .seg-arrow { color: #475569; font-size: 0.8rem; font-weight: 900; text-align: center; }
 
         .f-segment { background: rgba(0,0,0,0.15); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.03); }
         .f-seg-grid { display: grid; grid-template-columns: 75px 120px 70px 1fr 32px; gap: 4px 6px; align-items: center; }
         .f-grid-col { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
         .f-sub-label { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; opacity: 0.7; }
-        .s-full-num { background: transparent !important; border: none !important; width: 100%; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
-        .s-date { font-size: 0.65rem; width: 100% !important; }
-        .s-time { width: 100% !important; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: right !important; }
-        .s-port { width: 38px !important; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: center !important; font-size: 0.75rem; padding: 2px 2px !important; }
-        .s-term { width: 32px !important; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
+        .s-full-num { background: transparent !important; border: none !important; color: var(--accent) !important; font-weight: 950 !important; text-align: left !important; font-size: 0.8rem !important; overflow: hidden; text-overflow: ellipsis; }
+        .s-date { font-size: 0.65rem; width: 100%; }
+        .s-time { width: 100%; font-size: 0.7rem; font-weight: 600; background: transparent !important; border: none !important; color: #94a3b8; text-align: right !important; }
+        .s-port { width: 38px; font-weight: 950; text-transform: uppercase; color: #fff !important; background: transparent !important; border: none !important; text-align: center !important; font-size: 0.75rem; padding: 2px 2px !important; }
+        .s-term { width: 32px; font-weight: 700; text-transform: uppercase; color: #64748b !important; background: transparent !important; border: none !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: center !important; font-size: 0.6rem; padding: 1px 2px !important; }
         .seat-label { font-weight: 950; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.55rem; }
-        .s-seat { width: 40px !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
+        .s-seat { width: 40px; border-bottom: 1px dashed rgba(255,255,255,0.1) !important; text-align: left !important; background: transparent !important; color: #fff !important; font-weight: 800 !important; border-radius: 0 !important; padding: 0 !important; font-size: 0.7rem !important; }
         .f-seg-del { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 2px; grid-row: 1 / span 2; grid-column: 5; align-self: center; transition: color 0.2s; }
         .f-seg-del:hover { color: var(--error); }
         .f-del-group { background: transparent; border: none; color: #475569; cursor: pointer; padding: 4px; transition: color 0.2s; margin-left: 4px; }
