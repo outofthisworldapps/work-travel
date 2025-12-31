@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 08:42 EST";
+const APP_VERSION = "2025-12-31 08:57 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2417,7 +2417,10 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
                   const isBeforeRange = isBefore(day, allDays[0]);
                   const isStart = activeStart && isSameDay(day, activeStart);
                   const isEnd = activeEnd && isSameDay(day, activeEnd);
-                  const isInRange = activeStart && activeEnd && isAfter(day, activeStart) && isBefore(day, activeEnd);
+                  // Strict exclusive range check
+                  const isInRange = activeStart && activeEnd &&
+                    isAfter(startOfDay(day), startOfDay(activeStart)) &&
+                    isBefore(startOfDay(day), startOfDay(activeEnd));
                   const isToday = isSameDay(day, today);
                   const dayNum = day.getDate();
                   // Per-day month shading based on this day's own month
@@ -5387,17 +5390,21 @@ function App() {
         .cc-day.today { 
           border: 2px solid var(--accent); 
         }
-        .cc-day.start {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: #fff;
-          font-weight: 900;
+        /* Start date is filled */
+        .cc-day.cc-day.start {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+          color: #fff !important;
+          font-weight: 950;
           box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
-        }
-        .cc-day.end {
-          background: transparent;
-          color: #10b981;
-          font-weight: 900;
           border: 2px solid #10b981;
+        }
+        /* End date is outline only */
+        .cc-day.cc-day.end {
+          background: transparent !important;
+          color: #10b981 !important;
+          font-weight: 950;
+          border: 2px solid #10b981;
+          box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
         }
         .cc-day.in-range {
           background: rgba(16, 185, 129, 0.35);
