@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import CloudTrips from './components/CloudTrips';
-import { format, addDays, addMonths, differenceInDays, differenceInCalendarDays, parse, startOfMonth, isSameDay, isAfter, isBefore, setYear, setMonth, setDate } from 'date-fns';
+import { format, addDays, addMonths, differenceInDays, differenceInCalendarDays, parse, startOfMonth, startOfDay, isSameDay, isAfter, isBefore, setYear, setMonth, setDate } from 'date-fns';
 import {
   DndContext,
   closestCorners,
@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 08:57 EST";
+const APP_VERSION = "2025-12-31 09:01 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -5391,7 +5391,7 @@ function App() {
           border: 2px solid var(--accent); 
         }
         /* Start date is filled */
-        .cc-day.cc-day.start {
+        .cc-day.start {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
           color: #fff !important;
           font-weight: 950;
@@ -5399,7 +5399,7 @@ function App() {
           border: 2px solid #10b981;
         }
         /* End date is outline only */
-        .cc-day.cc-day.end {
+        .cc-day.end {
           background: transparent !important;
           color: #10b981 !important;
           font-weight: 950;
