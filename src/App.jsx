@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 10:53 EST";
+const APP_VERSION = "2025-12-31 10:55 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -5372,9 +5372,11 @@ function App() {
         .cc-day.odd-month {
           background: rgba(30, 41, 59, 0.8);
         }
-        .cc-day:hover:not(.past) { 
-          background: rgba(99, 102, 241, 0.6); 
-          color: #fff; 
+        @media (hover: hover) {
+          .cc-day:hover:not(.past) { 
+            background: rgba(99, 102, 241, 0.6); 
+            color: #fff; 
+          }
         }
         .cc-day.past { 
           color: #334155; 
