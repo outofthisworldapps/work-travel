@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2025-12-31 08:00 EST";
+const APP_VERSION = "2025-12-31 08:14 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -2220,7 +2220,9 @@ const DateRangePicker = ({ startDate, endDate, onStartChange, onEndChange }) => 
       // Use scrollTop for instant positioning
       const container = scrollRef.current;
       const row = startRowRef.current;
-      container.scrollTop = row.offsetTop - container.offsetTop;
+      const weekRowHeight = 32; // approximate height of one week row
+      // Position so start week appears on second row (subtract one row height)
+      container.scrollTop = row.offsetTop - container.offsetTop - weekRowHeight;
 
       // Set initial visible year
       if (startDate) {
@@ -5390,14 +5392,13 @@ function App() {
           color: #fff;
           font-weight: 900;
           box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
-          border: 2px solid #10b981;
         }
         .cc-day.end {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: #fff;
+          background: transparent;
+          color: #10b981;
           font-weight: 900;
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
           border: 2px solid #10b981;
+          box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
         }
         .cc-day.in-range {
           background: rgba(16, 185, 129, 0.35);
