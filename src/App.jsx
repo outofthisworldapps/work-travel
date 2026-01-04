@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2026-01-03 20:47 EST";
+const APP_VERSION = "2026-01-03 20:49 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -5705,7 +5705,7 @@ function App() {
         }
         @media (max-width: 768px) {
           .t-type-select {
-            width: 76px; /* Transportation mode selector width adjusted for smaller screens */
+            width: 78px; /* Transportation mode selector width adjusted for smaller screens */
           }
         }
         .t-date-select { 
