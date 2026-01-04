@@ -211,6 +211,20 @@ const ContinuousTimeline = ({
         return [...homeMidnights, ...awayMidnights];
     }, [tripStartDate, totalDays, homeTimeZone, destTimeZone, isDifferentTZ]);
 
+    // Calculate position for "Now" line
+    const nowPos = useMemo(() => {
+        if (!tripStartDate) return null;
+        const now = new Date();
+        const tripStart = startOfDay(tripStartDate);
+        const minutesFromStart = differenceInMinutes(now, tripStart);
+        const hoursFromStart = minutesFromStart / 60;
+
+        if (hoursFromStart >= 0 && hoursFromStart <= totalHours) {
+            return getPosition(hoursFromStart);
+        }
+        return null;
+    }, [tripStartDate, totalHours]);
+
     // Process all flights into timeline segments
     const flightSegments = useMemo(() => {
         const segments = [];
@@ -512,6 +526,23 @@ const ContinuousTimeline = ({
                             }}
                         />
                     ))}
+
+                    {/* Current Time "Now" Line */}
+                    {nowPos !== null && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: `${nowPos}%`,
+                                left: 0,
+                                right: 0,
+                                height: '1px',
+                                background: '#ef4444',
+                                opacity: 0.8,
+                                zIndex: 1,
+                                boxShadow: '0 0 4px rgba(239, 68, 68, 0.4)'
+                            }}
+                        />
+                    )}
 
                     {/* Flight Segments - Single blocks spanning multiple days */}
                     {flightSegments.map(seg => {
