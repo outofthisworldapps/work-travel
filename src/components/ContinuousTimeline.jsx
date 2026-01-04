@@ -575,7 +575,7 @@ const ContinuousTimeline = ({
                             >
                                 <div className="tl-f-main-wrap" style={{
                                     display: 'flex', width: '100%', alignItems: 'center',
-                                    justifyContent: 'center', position: 'relative', height: '100%'
+                                    justifyContent: 'flex-start', position: 'relative', height: '100%'
                                 }}>
                                     {/* Restructured content: Two rows for flight details */}
                                     <div className="tl-f-content-stack" style={{

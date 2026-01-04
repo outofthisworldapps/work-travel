@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2026-01-03 20:56 EST";
+const APP_VERSION = "2026-01-03 20:57 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -623,7 +623,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                 }}
               >
                 {(!isOvernight || isDeparturePart) && (
-                  <div className="tl-f-main-wrap" style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative', height: '100%' }}>
+                  <div className="tl-f-main-wrap" style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'flex-start', position: 'relative', height: '100%' }}>
                     {/* Restructured content: Two rows for flight details */}
                     <div className="tl-f-content-stack" style={{
                       display: 'flex', flexDirection: 'column', gap: '1px',
