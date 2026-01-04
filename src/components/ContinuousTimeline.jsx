@@ -590,7 +590,7 @@ const ContinuousTimeline = ({
                                     </div>
 
                                     <div className="tl-f-rec" style={{
-                                        position: 'absolute', right: '10px', opacity: 0.6, fontSize: '0.6rem', fontWeight: 950
+                                        position: 'absolute', right: '10px', color: '#fff', fontSize: '0.6rem', fontWeight: 950
                                     }}>
                                         {seg.parentFlight.confirmation || ''}
                                     </div>

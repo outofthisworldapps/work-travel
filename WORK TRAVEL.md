@@ -179,7 +179,7 @@
 - **Flight Events**: 
   - Displayed as continuous blocks from departure to arrival time.
   - **No Minimum Height**: Flight blocks scale precisely to match flight duration with no artificial minimum size.
-  - Flight information (airline, flight number, seat, confirmation) is rendered within the block regardless of size.
+  - Flight information (airline, flight number, seat, confirmation) is rendered in white within the block regardless of size.
   - Show airline/flight number + route codes.
   - **Time Zone Relevance**: Time markers use opacity to indicate relevance:
     - **Outbound**: Home/left times are opaque (relevant), destination/right times are transparent (0.4 opacity).

@@ -38,7 +38,7 @@ import MIEPanel from './components/MIEPanel';
 import { getAirportTimezone, AIRPORT_TIMEZONES, getAirportCity } from './utils/airportTimezones';
 import { getCityFromAirport } from './utils/perDiemLookup';
 
-const APP_VERSION = "2026-01-01 04:38 EST";
+const APP_VERSION = "2026-01-03 20:23 EST";
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -659,7 +659,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                         {s.seat && <span style={{ fontSize: '0.55rem', opacity: 0.7, color: '#fff', marginLeft: 'auto', marginRight: '30px' }}>Seat: {s.seat}</span>}
                       </div>
                     </div>
-                    <div className="tl-f-rec" style={{ position: 'absolute', right: '10px', opacity: 0.6, fontSize: '0.6rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
+                    <div className="tl-f-rec" style={{ position: 'absolute', right: '10px', color: '#fff', fontSize: '0.6rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
                   </div>
                 )}
 
@@ -6090,7 +6090,7 @@ function App() {
         .tl-meal-chip:hover:not(.active) { background: rgba(255,255,255,0.05); }
 
         .flight-label-compact { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 24px; padding: 4px; overflow: visible; position: relative; justify-content: center; }
-        .tl-f-rec { position: absolute; top: 2px; right: 4px; font-size: 0.55rem; color: rgba(255,255,255,0.6); font-family: 'JetBrains Mono', monospace; font-weight: 700; background: rgba(0,0,0,0.3); padding: 1px 3px; border-radius: 3px; }
+        .tl-f-rec { position: absolute; top: 2px; right: 4px; font-size: 0.55rem; color: #fff; font-family: 'JetBrains Mono', monospace; font-weight: 700; background: rgba(0,0,0,0.3); padding: 1px 3px; border-radius: 3px; }
         .tl-f-main-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; height: 100%; }
         .tl-f-ports-stack { display: flex; flex-direction: column; gap: 2px; }
         .tl-f-info-stack { display: flex; flex-direction: column; gap: 1px; }
