@@ -659,7 +659,7 @@ const TimelineDay = ({ day, dayIndex, totalDays, flights, currentRates, onUpdate
                         {s.seat && <span style={{ fontSize: '0.55rem', opacity: 0.7, color: '#fff', marginLeft: 'auto', marginRight: '30px' }}>Seat: {s.seat}</span>}
                       </div>
                     </div>
-                    <div className="tl-f-rec" style={{ position: 'absolute', right: '10px', color: '#fff', fontSize: '0.7rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
+                    <div className="tl-f-rec" style={{ position: 'absolute', right: '14px', color: '#fff', fontSize: '0.7rem', fontWeight: 950 }}>{s.parentFlight.confirmation || ''}</div>
                   </div>
                 )}
 
